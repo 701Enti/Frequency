@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<!--    icon素材来自IconPark,非常感谢-->
+<!--    https://iconpark.oceanengine.com/home-->
+    <item
+       android:id="@+id/NavigationDevice"
+       android:icon="@drawable/device"
+       android:title="@string/device_chinese" />
+    <item
+       android:id="@+id/NavigationBLE"
+       android:icon="@drawable/ble"
+       android:title="@string/ble_english" />
+    <item
+        android:id="@+id/NavigationControl"
+        android:icon="@drawable/control"
+        android:title="@string/control_chinese"/>
+    <item
+        android:id="@+id/NavigationWIFI"
+        android:icon="@drawable/wifi"
+        android:title="@string/wifi_english"/>
+    <item
+        android:id="@+id/NavigationMe"
+        android:icon="@drawable/me"
+        android:title="@string/me_chinese"/>
+</menu>

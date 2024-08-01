@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Frequency</string>
+    <string name="device_chinese">设备</string>
+    <string name="ble_english">BLE</string>
+    <string name="control_chinese">控制</string>
+    <string name="wifi_english">WIFI</string>
+    <string name="me_chinese">我的</string>
+    <string name="hint_chinese">提示</string>
+    <string name="requestpermission_chinese">您当前的操作需要该权限才可调度此设备硬件正常工作</string>
+    <string name="give_chinese">授予</string>
+    <string name="reject_chinese">拒绝</string>
 </resources>

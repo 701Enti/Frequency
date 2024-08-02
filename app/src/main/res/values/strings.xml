@@ -11,4 +11,5 @@
     <string name="reject_chinese">拒绝</string>
     <string name="permissionapplycheckthreaderr">PermissionApplyCheck method cannot be called from the main Thread</string>
     <string name="packagename">com.org701enti.frequency</string>
+    <string name="unknowndevice_chinese">未知设备</string>
 </resources>

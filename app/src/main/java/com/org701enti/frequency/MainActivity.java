@@ -26,7 +26,9 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
@@ -40,6 +42,7 @@ import androidx.core.view.WindowInsetsCompat;
 import android.Manifest;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.view.MenuItem;
 import android.webkit.PermissionRequest;
 
@@ -86,16 +89,13 @@ public class MainActivity extends AppCompatActivity {
             builder.setPositiveButton(R.string.give_chinese, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    //给用户再次的选择,用户点击"授予",弹出系统的权限申请框,但是用户这时可能又矛盾地点击这个权限请求框的拒绝
+                    //给用户再次的选择,用户点击"授予",会弹出系统的应用信息,里面有权限管理,但是用户这时可能又矛盾地没有允许对应权限
                     //如果用户一直这样做,最终会一直在当前这个if里循环,直到正式同意权限或点击这里创建的提示框的"拒绝"
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    Uri uri = Uri.fromParts("package",getString(R.string.packagename),null);
+                    intent.setData(uri);
+                    startActivity(intent);
                     PermissionRequestingFlag = false;//重置请求中标识
-                    try {
-                        PermissionApplyCheck(requestCode);
-                    }
-                    catch (InterruptedException Inter){
-                        Thread.currentThread().interrupt();
-                    }
-
                 }
             });
             builder.setNegativeButton(R.string.reject_chinese, new DialogInterface.OnClickListener() {
@@ -133,55 +133,54 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
+     * (必须使用非主线程调用)权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
      * @param requestCode 权限申请码,参考MainActivity开头的权限申请码定义
      */
     private void PermissionApplyCheck(int requestCode) throws InterruptedException {
+        if(Thread.currentThread().getName().equals("main")){
+            throw new  InterruptedException(getString(R.string.permissionapplycheckthreaderr));
+        }
+        //权限申请时使用主线程请求,调用本方法的线程处理请求时的阻塞,防止连续请求
         Handler handler = new Handler(Looper.getMainLooper());
-        switch (requestCode){
-            case REQUEST_COARSE_LOCATION:
-                if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED){
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                switch (requestCode){
+                    case REQUEST_COARSE_LOCATION:
+                        if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED){
                             ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},requestCode);
                         }
-                    });
-                }
-                else return;
-                break;
-            case REQUEST_FINE_LOCATION:
-                if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
+                        else return;
+                        break;
+                    case REQUEST_FINE_LOCATION:
+                        if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, requestCode);
                         }
-                        });
+                        else return;
+                        break;
+                    case REQUEST_BLUETOOTH_SCAN:
+                        if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED){
+                            ActivityCompat.requestPermissions(MainActivity.this,new  String[]{Manifest.permission.BLUETOOTH_SCAN},requestCode);
+                        }
+                        else return;
+                        break;
+                    case REQUEST_BLUETOOTH_ADVERTISE:
+                        if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED){
+                            ActivityCompat.requestPermissions(MainActivity.this,new  String[]{Manifest.permission.BLUETOOTH_ADVERTISE},requestCode);
+                        }
+                        else return;
+                        break;
+                    case REQUEST_BLUETOOTH_CONNECT:
+                        if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED){
+                            ActivityCompat.requestPermissions(MainActivity.this,new  String[]{Manifest.permission.BLUETOOTH_CONNECT},requestCode);
+                        }
+                        else return;
+                        break;
+                    default:
+                        break;
                 }
-                else return;
-                break;
-            case REQUEST_BLUETOOTH_SCAN:
-                if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED){
-                    ActivityCompat.requestPermissions(MainActivity.this,new  String[]{Manifest.permission.BLUETOOTH_SCAN},requestCode);
-                }
-                else return;
-                break;
-            case REQUEST_BLUETOOTH_ADVERTISE:
-                if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED){
-                    ActivityCompat.requestPermissions(MainActivity.this,new  String[]{Manifest.permission.BLUETOOTH_ADVERTISE},requestCode);
-                }
-                else return;
-                break;
-            case REQUEST_BLUETOOTH_CONNECT:
-                if(ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED){
-                    ActivityCompat.requestPermissions(MainActivity.this,new  String[]{Manifest.permission.BLUETOOTH_CONNECT},requestCode);
-                }
-                else return;
-                break;
-            default:
-                break;
-        }
+            }
+        });
         PermissionRequestingFlag = true;
         while (PermissionRequestingFlag){
                 Thread.sleep(50);
@@ -191,18 +190,33 @@ public class MainActivity extends AppCompatActivity {
 
     private void InitUI(){
         BottomNavigationView mainBottomNavView = findViewById(R.id.MainBottomNavigation);
+
+        final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
+        //创建一个线程处理底部导航栏业务(含Looper)
+        Thread ThreadMainBottomNavView = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Looper.prepare();
+                HandlerMainBottomNavView[0] = new Handler(Looper.myLooper());
+                Looper.loop();
+            }
+        });
+        ThreadMainBottomNavView.start();//启动该线程
+
         mainBottomNavView.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
           @SuppressLint("NonConstantResourceId")
           @Override
           public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-              switch (item.getItemId()){
-                  case R.id.NavigationDevice:
+          HandlerMainBottomNavView[0].post(new Runnable() {
+              @Override
+              public void run() {
+                  switch (item.getItemId()){
+                      case R.id.NavigationDevice:
 
-                      break;
-                  case R.id.NavigationBLE:
-                      new Thread(() -> {
+                          break;
+                      case R.id.NavigationBLE:
                           try {
-//                              PermissionApplyCheck(REQUEST_COARSE_LOCATION);
+                              PermissionApplyCheck(REQUEST_COARSE_LOCATION);
                               PermissionApplyCheck(REQUEST_FINE_LOCATION);
 //                              PermissionApplyCheck(REQUEST_BLUETOOTH_SCAN);
 //                              PermissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE);
@@ -211,20 +225,21 @@ public class MainActivity extends AppCompatActivity {
                           catch (InterruptedException Inter){
                               Thread.currentThread().interrupt();
                           }
-                      }).start();
-                      break;
-                  case R.id.NavigationControl:
+                          break;
+                      case R.id.NavigationControl:
 
-                      break;
-                  case R.id.NavigationWIFI:
+                          break;
+                      case R.id.NavigationWIFI:
 
-                      break;
-                  case R.id.NavigationMe:
+                          break;
+                      case R.id.NavigationMe:
 
-                      break;
-                  default:
-                      return false;
+                          break;
+                      default:
+                          break;
+                  }
               }
+          });
               return true;
           }
       });

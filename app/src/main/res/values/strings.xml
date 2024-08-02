@@ -9,4 +9,6 @@
     <string name="requestpermission_chinese">您当前的操作需要该权限才可调度此设备硬件正常工作</string>
     <string name="give_chinese">授予</string>
     <string name="reject_chinese">拒绝</string>
+    <string name="permissionapplycheckthreaderr">PermissionApplyCheck method cannot be called from the main Thread</string>
+    <string name="packagename">com.org701enti.frequency</string>
 </resources>

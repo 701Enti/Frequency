@@ -34,6 +34,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.Context;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -41,17 +42,20 @@ import android.os.Bundle;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -61,6 +65,7 @@ import android.widget.TextView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -149,10 +154,11 @@ public class MainActivity extends AppCompatActivity {
 
 
     /**
-     * (必须使用非主线程调用)权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
+     * (含阻塞,必须使用非主线程调用)权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
      * @param requestCode 权限申请码,参考MainActivity开头的权限申请码定义
      */
     private void PermissionApplyCheck(int requestCode) throws InterruptedException {
+        //禁止在主线程执行,因为本方法内含阻塞,会阻塞调用线程,应该使用其他非服务线程调用
         if (Thread.currentThread().getName().equals("main")) {
             throw new InterruptedException(getString(R.string.permissionapplycheckthreaderr));
         }
@@ -164,35 +170,39 @@ public class MainActivity extends AppCompatActivity {
                 switch (requestCode) {
                     case REQUEST_COARSE_LOCATION:
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                            PermissionRequestingFlag = true;
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, requestCode);
-                        } else return;
+                        }
                         break;
                     case REQUEST_FINE_LOCATION:
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                            PermissionRequestingFlag = true;
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, requestCode);
-                        } else return;
+                        }
                         break;
                     case REQUEST_BLUETOOTH_SCAN:
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                            PermissionRequestingFlag = true;
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.BLUETOOTH_SCAN}, requestCode);
-                        } else return;
+                        }
                         break;
                     case REQUEST_BLUETOOTH_ADVERTISE:
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
+                            PermissionRequestingFlag = true;
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.BLUETOOTH_ADVERTISE}, requestCode);
-                        } else return;
+                        }
                         break;
                     case REQUEST_BLUETOOTH_CONNECT:
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                            PermissionRequestingFlag = true;
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, requestCode);
-                        } else return;
+                        }
                         break;
                     default:
                         break;
                 }
             }
         });
-        PermissionRequestingFlag = true;
         while (PermissionRequestingFlag) {
             Thread.sleep(50);
         }
@@ -203,9 +213,9 @@ public class MainActivity extends AppCompatActivity {
 
     public BluetoothAdapter bluetoothAdapter = null;
     public BluetoothGatt BLEgatt = null;
-    final  Handler[] HandlerBluetooth = {null};//缓存蓝牙处理线程handler
-    private List<BluetoothDeviceModel> bluetoothDevicesList;
-
+    final Handler[] HandlerBluetooth = {null};//缓存蓝牙处理线程handler
+    public static List<BluetoothDeviceModel> bluetoothDevicesList = new ArrayList<>();
+    private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
 
     //蓝牙设备列表模型类
     public class BluetoothDeviceModel {
@@ -222,7 +232,7 @@ public class MainActivity extends AppCompatActivity {
 
     //RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
     public class BluetoothDeviceRecyclerViewAdapter extends RecyclerView.Adapter<BluetoothDeviceRecyclerViewAdapter.ViewHolder> {
-        private List<BluetoothDeviceModel> devicesList;
+        private  List<BluetoothDeviceModel> devicesList;
 
         public BluetoothDeviceRecyclerViewAdapter(List<BluetoothDeviceModel> devicesList) {
             this.devicesList = devicesList;
@@ -240,18 +250,18 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LayoutInflater inflaterBuf = LayoutInflater.from(parent.getContext());
-            View viewHandle = inflaterBuf.inflate(R.layout.activity_main,parent,false);
+            View viewHandle = inflaterBuf.inflate(R.layout.recyclerviewbluetooth, parent, false);
             return new ViewHolder(viewHandle);
         }
 
         /**
          * ViewHolder池,持有相关View引用,防止findViewById更多调用来优化性能
          */
-        public class ViewHolder extends RecyclerView.ViewHolder{
+        public class ViewHolder extends RecyclerView.ViewHolder {
             public TextView DeviceName;
 
             //在构造方法将各种View引用缓存到ViewHolder池
-            public ViewHolder(View viewHandle){
+            public ViewHolder(View viewHandle) {
                 super(viewHandle);
                 DeviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
             }
@@ -259,74 +269,83 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public int getItemCount() {
-            return devicesList.size();
-        }
-    }
-
-
-    /**
-     * 蓝牙信息的系统广播接收器(一个对象),这里指的系统广播是Android中的一种信息传递机制,并不是蓝牙协议栈的蓝牙广播
-     */
-    private final BroadcastReceiver BluetoothInfoReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-//            接收时post到蓝牙相关处理线程HandlerBluetooth来异步执行
-            HandlerBluetooth[0].post(new Runnable() {
-                @Override
-                public void run() {
-                    String action = intent.getAction();//获取状态
-                    if(BluetoothDevice.ACTION_FOUND.equals(action)){
-                        //处理接收到的系统广播信息
-                        BluetoothDeviceModel device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                        bluetoothDevicesList.add(device);
-
-                    }
-                    else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
-
-                    }
-                }
-            });
-        }
-    }
-
-
-    private void InitBLE(){
-        //获取BLEadapter实例
-        BluetoothManager BLEmanager = (BluetoothManager) this.getSystemService(this.BLUETOOTH_SERVICE);
-        if(BLEmanager != null){
-            bluetoothAdapter = BLEmanager.getAdapter();
-        }
-
-
-        //创建蓝牙相关处理线程(含Looper)
-        Thread HandlerBluetooth = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Looper.prepare();
-                HandlerBluetooth[0] = new Handler(Looper.myLooper());
-                Looper.loop();
+            if(devicesList != null){
+                return devicesList.size();
             }
-        });
-        HandlerBluetooth.start();//启动该线程
+            else{
+                return 0;
+            }
 
-        //注册蓝牙数据的系统广播接收器,接收蓝牙扫描到的信息
-        //这里的广播指的是系统广播,并非蓝牙协议栈里的蓝牙广播概念,系统广播还可以传输其他信息如网络状态变更和应用自定义广播等
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothDevice.ACTION_FOUND);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        registerReceiver(BluetoothInfoReceiver,filter);
+        }
     }
 
     /**
      * 检查蓝牙开启状态,如果未开启,打开蓝牙
      */
     @SuppressLint("MissingPermission")
-    public void BluetoothOpenCheck(){
-        if(bluetoothAdapter != null){
-            if(!bluetoothAdapter.isEnabled()){
-                bluetoothAdapter.enable();
+    public void BluetoothOpenCheck() {
+        //获取BLEadapter实例
+        BluetoothManager BLEmanager = (BluetoothManager) this.getSystemService(BLUETOOTH_SERVICE);
+        if (BLEmanager != null) {
+            bluetoothAdapter = BLEmanager.getAdapter();
+        }
+        //检查并启动
+        //用于可能弹出打开蓝牙的询问框,回归主线程处理
+        if (bluetoothAdapter != null) {
+            if (!bluetoothAdapter.isEnabled()) {
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        bluetoothAdapter.enable();
+                    }
+                });
             }
         }
+    }
+
+    /**
+     * 蓝牙信息的系统广播接收器(一个对象),这里指的系统广播是Android中的一种信息传递机制,并不是蓝牙协议栈的蓝牙广播
+     */
+    private final BroadcastReceiver BluetoothInfoReceiver = new BroadcastReceiver() {
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();//获取状态
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                //处理接收到的系统广播信息
+                BluetoothDeviceModel device = new BluetoothDeviceModel(intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
+                if(bluetoothDeviceRecyclerViewAdapter != null){
+                    int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
+                    bluetoothDevicesList.add(index,device);//添加信息到公共的表,RecyclerView将利用表中信息显示
+                    bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);
+                    Log.i("BluetoothInfoReceiver","[" + index + "]" + device.getDevice().getName());
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+
+            }
+
+        }
+    };
+
+    private void InitBLE() {
+//        //创建蓝牙相关处理线程(含Looper)
+//        Thread ThreadBluetooth = new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                Looper.prepare();
+//                HandlerBluetooth[0] = new Handler(Looper.myLooper());
+//                Looper.loop();
+//            }
+//        });
+//        ThreadBluetooth.start();//启动该线程
+
+        //注册蓝牙数据的系统广播接收器,接收蓝牙扫描到的信息
+        //这里的广播指的是系统广播,并非蓝牙协议栈里的蓝牙广播概念,系统广播还可以传输其他信息如网络状态变更和应用自定义广播等
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        registerReceiver(BluetoothInfoReceiver, filter);
     }
 
     /**
@@ -334,12 +353,13 @@ public class MainActivity extends AppCompatActivity {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(){
-
         bluetoothAdapter.startDiscovery();
     }
 
-
-    private void InitUI(){
+    /**
+     * 初始化底部导航栏
+     */
+    private void InitMainBottomNavigation(){
         BottomNavigationView mainBottomNavView = findViewById(R.id.MainBottomNavigation);
         final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
         //创建一个线程处理底部导航栏业务(含Looper)
@@ -352,56 +372,88 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         ThreadMainBottomNavView.start();//启动该线程
-
         //设置导航栏业务(将在ThreadMainBottomNavView线程运行)
         mainBottomNavView.setOnItemSelectedListener(new NavigationBarView.OnItemSelectedListener() {
-          @SuppressLint("NonConstantResourceId")
-          @Override
-          public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-          HandlerMainBottomNavView[0].post(new Runnable() {
-              @Override
-              public void run() {
-                  switch (item.getItemId()){
-                      case R.id.NavigationDevice:
+            @SuppressLint("NonConstantResourceId")
+            @Override
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                HandlerMainBottomNavView[0].post(new Runnable() {
+                    @Override
+                    public void run() {
+                        switch (item.getItemId()){
+                            case R.id.NavigationDevice:
 
-                          break;
-                      case R.id.NavigationBLE:
+                                break;
+                            case R.id.NavigationBLE:
 //                          权限检查
-                          try {
-                              PermissionApplyCheck(REQUEST_COARSE_LOCATION);
-                              PermissionApplyCheck(REQUEST_FINE_LOCATION);
-                              if(AndroidVersion >= Build.VERSION_CODES.S){
-                                PermissionApplyCheck(REQUEST_BLUETOOTH_SCAN);
-                                PermissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE);
-                                PermissionApplyCheck(REQUEST_BLUETOOTH_CONNECT);
-                              }
-                          }
-                          catch (InterruptedException Inter){
-                              Thread.currentThread().interrupt();
-                          }
-//                          蓝牙启动检查
-                          BluetoothOpenCheck();
+                                try {
+                                    PermissionApplyCheck(REQUEST_COARSE_LOCATION);
+                                    PermissionApplyCheck(REQUEST_FINE_LOCATION);
+                                    if(AndroidVersion >= Build.VERSION_CODES.S){
+                                        PermissionApplyCheck(REQUEST_BLUETOOTH_SCAN);
+                                        PermissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE);
+                                        PermissionApplyCheck(REQUEST_BLUETOOTH_CONNECT);
+                                    }
+                                }
+                                catch (InterruptedException Inter){
+                                    Thread.currentThread().interrupt();
+                                }
+
+                                BluetoothOpenCheck();//检查蓝牙开启
+                                BluetoothScanStart();//扫描启动
 
 
 
 
-                          break;
-                      case R.id.NavigationControl:
 
-                          break;
-                      case R.id.NavigationWIFI:
+                                break;
+                            case R.id.NavigationControl:
 
-                          break;
-                      case R.id.NavigationMe:
+                                break;
+                            case R.id.NavigationWIFI:
 
-                          break;
-                      default:
-                          break;
-                  }
-              }
-          });
-              return true;
-          }
-      });
+                                break;
+                            case R.id.NavigationMe:
+
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                });
+                return true;
+            }
+        });
+    }
+
+    public class ItemDecorationRecyclerViewBluetooth extends RecyclerView.ItemDecoration{
+        private final  int verticalSpaceHeight;
+
+        public ItemDecorationRecyclerViewBluetooth(int verticalSpaceHeight){
+            this.verticalSpaceHeight = verticalSpaceHeight;
+        }
+
+        @Override
+        public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+            super.getItemOffsets(outRect, view, parent, state);
+            if(parent.getChildLayoutPosition(view) != 0){
+                outRect.top = verticalSpaceHeight;
+            }
+        }
+    }
+
+    private void InitRecyclerViewBluetooth(){
+        bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
+        RecyclerView recyclerViewBluetooth = findViewById(R.id.RecyclerViewBluetooth);
+        recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
+        recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(30));
+        recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(MainActivity.this));
+
+    }
+
+    private void InitUI(){
+        InitMainBottomNavigation();
+        InitRecyclerViewBluetooth();
+
     }
 }

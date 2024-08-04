@@ -12,4 +12,5 @@
     <string name="permissionapplycheckthreaderr">PermissionApplyCheck method cannot be called from the main Thread</string>
     <string name="packagename">com.org701enti.frequency</string>
     <string name="unknowndevice_chinese">未知设备</string>
+    <string name="devicename_english">DeviceName</string>
 </resources>

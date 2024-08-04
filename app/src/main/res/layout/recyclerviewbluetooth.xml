@@ -2,8 +2,9 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"><!--如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正-->
+
 
     <TextView
         android:id="@+id/DeviceNameRecyclerViewBluetooth"

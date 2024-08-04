@@ -250,6 +250,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LayoutInflater inflaterBuf = LayoutInflater.from(parent.getContext());
+            //实例化自定义布局R.layout.recyclerviewbluetooth
             View viewHandle = inflaterBuf.inflate(R.layout.recyclerviewbluetooth, parent, false);
             return new ViewHolder(viewHandle);
         }
@@ -262,7 +263,11 @@ public class MainActivity extends AppCompatActivity {
 
             //在构造方法将各种View引用缓存到ViewHolder池
             public ViewHolder(View viewHandle) {
+                //super调用父类RecyclerView.ViewHolder构造方法,并传递了参数viewHandle
+                //即自定义布局R.layout.recyclerviewbluetooth的实例,因此自定义布局文件的配置会对效果产生影响
+                //如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正
                 super(viewHandle);
+
                 DeviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
             }
         }
@@ -446,9 +451,8 @@ public class MainActivity extends AppCompatActivity {
         bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
         RecyclerView recyclerViewBluetooth = findViewById(R.id.RecyclerViewBluetooth);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
+        recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(this));
         recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(30));
-        recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(MainActivity.this));
-
     }
 
     private void InitUI(){

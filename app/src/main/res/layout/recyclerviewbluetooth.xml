@@ -8,10 +8,21 @@
 
     <TextView
         android:id="@+id/DeviceNameRecyclerViewBluetooth"
+        android:layout_height="30dp"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_marginStart="60dp"
+        android:layout_marginTop="0dp"
         android:text="@string/devicename_english"
         android:textColor="@color/black"
-        android:textSize="18pt" />
+        android:textSize="24sp"/>
+
+    <ImageView
+        android:id="@+id/DeviceIcoRecyclerViewBluetooth"
+        android:layout_height="30dp"
+        android:layout_width="30dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignTop="@id/DeviceNameRecyclerViewBluetooth"
+        app:srcCompat="@drawable/ble" />
+
 
 </RelativeLayout>

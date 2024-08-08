@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Frequency"
 include ':app'
+include ':BluetoothFocuser'

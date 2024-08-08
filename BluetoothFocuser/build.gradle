@@ -1,20 +1,16 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
 }
 
 android {
-    namespace 'com.org701enti.frequency'
+    namespace 'com.org701enti.bluetoothfocuser'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.org701enti.frequency"
         minSdk 26
-        //noinspection OldTargetApi
-        targetSdk 34
-        versionCode 1
-        versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles "consumer-rules.pro"
     }
 
     buildTypes {
@@ -27,18 +23,13 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    sourceSets {
-        main {
-            assets {
-                srcDirs 'src\\main\\assets', 'src\\main\\assets\\bluetoothdeviceico'
-            }
-        }
-    }
 }
 
 dependencies {
+
     implementation libs.appcompat
     implementation libs.material
-    implementation libs.activity
-    implementation libs.recyclerview
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
 }

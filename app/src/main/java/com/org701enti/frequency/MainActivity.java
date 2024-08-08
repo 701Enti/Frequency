@@ -27,12 +27,17 @@ import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.Context;
+import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
@@ -65,6 +70,8 @@ import android.widget.TextView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -211,38 +218,17 @@ public class MainActivity extends AppCompatActivity {
 
     //////////////////////////////////////蓝牙业务
 
-    public BluetoothAdapter bluetoothAdapter = null;
+    private BluetoothAdapter bluetoothAdapter = null;
+    private BluetoothLeScanner bluetoothLeScanner = null;
     final Handler[] HandlerBluetooth = {null};//缓存蓝牙处理线程handler
     private static List<BluetoothDeviceModel> bluetoothDevicesList = new ArrayList<>();
-    public BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
+    private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
     private RecyclerView recyclerViewBluetooth = null;
-
-    //蓝牙设备列表模型类
-    public class BluetoothDeviceModel {
-        private BluetoothDevice device;
-        private int icoID;
-
-        public BluetoothDeviceModel(BluetoothDevice device) {
-            this.device = device;
-            this.icoID = 0;
-        }
-
-        public BluetoothDeviceModel(BluetoothDevice device,int icoID){
-            this.device = device;
-            this.icoID = icoID;
-        }
-
-        public BluetoothDevice getDevice() {
-            return device;
-        }
-        public int getIcoID(){ return icoID;}
-    }
-
-
 
 
     //RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
-    public class BluetoothDeviceRecyclerViewAdapter extends RecyclerView.Adapter<BluetoothDeviceRecyclerViewAdapter.ViewHolder> {
+    public class BluetoothDeviceRecyclerViewAdapter extends RecyclerView.Adapter<BluetoothDeviceRecyclerViewAdapter.ViewHolder>
+    {
         private  List<BluetoothDeviceModel> devicesList;
 
         public BluetoothDeviceRecyclerViewAdapter(List<BluetoothDeviceModel> devicesList) {
@@ -255,9 +241,18 @@ public class MainActivity extends AppCompatActivity {
             BluetoothDeviceModel deviceModel = null;
             deviceModel = devicesList.get(position);
             if(deviceModel != null){
-                int icoID = deviceModel.getIcoID();
-                holder.DeviceIco.setImageResource();
 
+                //设备图标
+                int iconID = deviceModel.getIconID();
+                try {
+                    InputStream iconInput = getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png");
+                    holder.DeviceIcon.setImageBitmap(BitmapFactory.decodeStream(iconInput));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+
+                //设备名
                 String name = deviceModel.getDevice().getName();
                 if(name == null){
                     holder.DeviceName.setText(getString(R.string.unknowndevice_chinese));
@@ -266,13 +261,13 @@ public class MainActivity extends AppCompatActivity {
                     //确定显示的字符尺寸
                     int len = name.length();
                     if(len <= 8){
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,32f);
                     }
                     else if (len <= 8 * 3) {
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 8f*1);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,32f - 8f*1);
                     }
                     else if (len <= 8 * 6) {
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 8f*2);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,32f - 8f*2);
                     }
                     else{
                         holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,5f);
@@ -280,6 +275,9 @@ public class MainActivity extends AppCompatActivity {
 
                     holder.DeviceName.setText(name);
                 }
+
+
+
             }
         }
 
@@ -298,7 +296,7 @@ public class MainActivity extends AppCompatActivity {
         public class ViewHolder extends RecyclerView.ViewHolder {
             //对象缓存
             public TextView DeviceName;
-            public ImageView DeviceIco;
+            public ImageView DeviceIcon;
 
             //在构造方法将各种View引用缓存到ViewHolder池
             public ViewHolder(View viewHandle) {
@@ -308,16 +306,10 @@ public class MainActivity extends AppCompatActivity {
                 super(viewHandle);
 
                 DeviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
-                DeviceIco = viewHandle.findViewById(R.id.DeviceIcoRecyclerViewBluetooth);
+                DeviceIcon = viewHandle.findViewById(R.id.DeviceIconRecyclerViewBluetooth);
 
             }
         }
-
-
-
-
-
-
 
         public List<BluetoothDeviceModel> getDevicesList() {
             return devicesList;
@@ -331,7 +323,6 @@ public class MainActivity extends AppCompatActivity {
             else{
                 return 0;
             }
-
         }
     }
 
@@ -340,11 +331,6 @@ public class MainActivity extends AppCompatActivity {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothOpenCheck() {
-        //获取BLEadapter实例
-        BluetoothManager BLEmanager = (BluetoothManager) this.getSystemService(BLUETOOTH_SERVICE);
-        if (BLEmanager != null) {
-            bluetoothAdapter = BLEmanager.getAdapter();
-        }
         //检查并启动
         //用于可能弹出打开蓝牙的询问框,回归主线程处理
         if (bluetoothAdapter != null) {
@@ -360,57 +346,93 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 蓝牙信息的系统广播接收器(一个对象),这里指的系统广播是Android中的一种信息传递机制,并不是蓝牙协议栈的蓝牙广播
-     */
-    private final BroadcastReceiver BluetoothInfoReceiver = new BroadcastReceiver() {
+    //蓝牙设备列表模型类
+    public class BluetoothDeviceModel {
+        private BluetoothDevice device;
+        private int iconID;
+
+        public BluetoothDeviceModel(BluetoothDevice device) {
+            this.device = device;
+            this.iconID = 0;
+        }
+
+        public BluetoothDeviceModel(BluetoothDevice device,int iconID){
+            this.device = device;
+            this.iconID = iconID;
+        }
+
+        public BluetoothDevice getDevice() {
+            return device;
+        }
+        public int getIconID(){ return iconID;}
+    }
+
+//    扫描回调
+    ScanCallback bluetoothScanCallback = new ScanCallback() {
         @SuppressLint("MissingPermission")
         @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();//获取状态
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                //处理接收到的系统广播信息
-                BluetoothDeviceModel device = new BluetoothDeviceModel(intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
-                if(bluetoothDeviceRecyclerViewAdapter != null){
-                    int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
-                    bluetoothDevicesList.add(index,device);//添加信息到公共的表,RecyclerView将利用表中信息显示
-                    bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);
-                    Log.i("BluetoothInfoReceiver","[" + index + "]" + device.getDevice().getName());
-                }
-            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+        public void onScanResult(int callbackType, ScanResult result) {
+            super.onScanResult(callbackType, result);
 
+
+
+
+
+            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice());//生成这个蓝牙设备的基本信息模型
+            if(bluetoothDeviceRecyclerViewAdapter != null){//缓存到RecyclerView适配器内部列表
+                int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
+                bluetoothDevicesList.add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
+                bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
+                Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
             }
 
+
+
+
+
+        }
+
+        @Override
+        public void onBatchScanResults(List<ScanResult> results) {
+            super.onBatchScanResults(results);
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            super.onScanFailed(errorCode);
         }
     };
 
-    private void InitBLE() {
-//        //创建蓝牙相关处理线程(含Looper)
-//        Thread ThreadBluetooth = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                Looper.prepare();
-//                HandlerBluetooth[0] = new Handler(Looper.myLooper());
-//                Looper.loop();
-//            }
-//        });
-//        ThreadBluetooth.start();//启动该线程
-
-        //注册蓝牙数据的系统广播接收器,接收蓝牙扫描到的信息
-        //这里的广播指的是系统广播,并非蓝牙协议栈里的蓝牙广播概念,系统广播还可以传输其他信息如网络状态变更和应用自定义广播等
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothDevice.ACTION_FOUND);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        registerReceiver(BluetoothInfoReceiver, filter);
+    /**
+     * 启动蓝牙设备扫描,含配置
+     */
+    @SuppressLint("MissingPermission")
+    public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+            bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
+        }
     }
 
     /**
-     * 启动蓝牙设备扫描
+     * 启动蓝牙设备扫描,无配置
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(){
-        bluetoothAdapter.startDiscovery();
+        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+            bluetoothLeScanner.startScan(bluetoothScanCallback);
+        }
     }
+
+    /**
+     * 停止蓝牙设备扫描
+     */
+    @SuppressLint("MissingPermission")
+    public void BluetoothScanStop(){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+            bluetoothLeScanner.stopScan(bluetoothScanCallback);
+        }
+    }
+
 
 
     /**
@@ -429,6 +451,30 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
+
+    private void InitBLE() {
+//        //创建蓝牙相关处理线程(含Looper)
+//        Thread ThreadBluetooth = new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                Looper.prepare();
+//                HandlerBluetooth[0] = new Handler(Looper.myLooper());
+//                Looper.loop();
+//            }
+//        });
+//        ThreadBluetooth.start();//启动该线程
+
+        //获取BLEadapter实例
+        BluetoothManager BLEmanager = (BluetoothManager) this.getSystemService(BLUETOOTH_SERVICE);
+        if (BLEmanager != null) {
+            bluetoothAdapter = BLEmanager.getAdapter();
+            bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+        }
+    }
+
+
+
 
     //////底部导航栏业务
     public final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler

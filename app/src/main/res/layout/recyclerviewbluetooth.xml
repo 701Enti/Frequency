@@ -17,7 +17,7 @@
         android:textSize="24sp"/>
 
     <ImageView
-        android:id="@+id/DeviceIcoRecyclerViewBluetooth"
+        android:id="@+id/DeviceIconRecyclerViewBluetooth"
         android:layout_height="30dp"
         android:layout_width="30dp"
         android:layout_alignParentStart="true"

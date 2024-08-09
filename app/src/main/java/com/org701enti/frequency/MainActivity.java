@@ -374,12 +374,10 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-
-
             BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice());//生成这个蓝牙设备的基本信息模型
             if(bluetoothDeviceRecyclerViewAdapter != null){//缓存到RecyclerView适配器内部列表
                 int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
-                bluetoothDevicesList.add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
+                bluetoothDeviceRecyclerViewAdapter.getDevicesList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
                 bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
                 Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
             }

@@ -1,0 +1,3 @@
+[submodule "app/src/main/assets/public"]
+	path = app/src/main/assets/public
+	url = https://bitbucket.org/bluetooth-SIG/public.git

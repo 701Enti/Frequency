@@ -9,7 +9,6 @@ android {
     defaultConfig {
         applicationId "com.org701enti.frequency"
         minSdk 26
-        //noinspection OldTargetApi
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -18,6 +17,9 @@ android {
     }
 
     buildTypes {
+        debug{
+            debuggable = false
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -37,8 +39,14 @@ android {
 }
 
 dependencies {
-    implementation libs.appcompat
     implementation libs.material
     implementation libs.activity
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+
+    implementation libs.material.v1120
     implementation libs.recyclerview
+    implementation libs.appcompat
+
 }

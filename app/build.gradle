@@ -17,9 +17,6 @@ android {
     }
 
     buildTypes {
-        debug{
-            debuggable = false
-        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -48,5 +45,7 @@ dependencies {
     implementation libs.material.v1120
     implementation libs.recyclerview
     implementation libs.appcompat
+
+    implementation project(path:':BluetoothFocuser')
 
 }

@@ -26,41 +26,80 @@ package com.org701enti.bluetoothfocuser;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 
-import androidx.annotation.NonNull;
-
 import java.util.List;
 
 public class BluetoothAD {
 
     public class AdvertisingStruct{
-        private int adType;//AD类型标识值,根据SIG小组的规范,该值标识了下面AdData的唯一含义
-        private byte[] adData;
-        private int indexID;//引导ID,由于AD结构地ADtype可重复性,一个广播中可能有多个同一类型的数据段,IndexID标记了本条数据在重复序列的角标(可0)
-        private int maxIndexID;//最大引导ID,标记重复序列中最后一个重复数据的IndexID,假如广播数据中只有一个AdType=0x01的数据,那您只能访问一个该类型数据,它的MaxInde=0,IndexID=0
+        private byte adType;//AD类型标识值(非标准警告:协议规定为无符号,但是byte是有符号的),根据SIG小组的规范,该值标识了下面AdData的唯一含义
+        private byte[] adData;//AD数据段(非标准警告:协议规定为无符号,但是byte是有符号的),数据含义由adType标识
+        private int indexID;//(自定义的变量,不是协议栈标准)引导ID,由于AD结构地ADtype可重复性,一个广播中可能有多个同一类型的数据段,IndexID标记了本条数据在重复序列的角标(可0)
 
-        public AdvertisingStruct(){
+        /**
+         * (非标准警告)请不要认为这就是真实的ADtype,协议中ADtype是无符号的,不要直接打印和if常量比对
+         * @return (非标准警告:协议规定为无符号,但是byte是有符号的)
+         */
+        public byte getAdType() {
+            return adType;
+        }
 
+
+        /**
+         * (非标准警告)请不要认为这就是真实的ADdata,协议中ADdata是无符号的,不要直接打印和if常量比对
+         * @return (非标准警告:协议规定为无符号,但是byte是有符号的)
+         */
+        public byte[] getAdData() {
+            return adData;
+        }
+
+        public int getIndexID() {
+            return indexID;
+        }
+
+        /**
+         * 构造方法,创建数据项即新AD结构,但是不会添加到列表,并且填写数据需要外部操作adData
+         * @param adType 数据项即要添加的结构的所属AdType
+         * @param structList (只读)要加入的列表,只是由于识别,不会真的把创建的结构加入列表
+         */
+        public AdvertisingStruct(byte adType,List<AdvertisingStruct> structList){
+            this.adType = adType;
+            this.indexID = AllotIndexID(this.adType,structList);
+        }
+
+        /**
+         * 分配新的IndexID,IndexID从0开始,新的同类添加,需要有一个自增ID,如第一个为0,第二个为1,第三个为2...
+         * @param adType 数据项即要添加的结构的所属AdType
+         * @param structList 要加入的列表
+         * @return 分配的IndexID
+         */
+        public int AllotIndexID(byte adType,List<AdvertisingStruct> structList){
+            int ret = 0;
+            if(structList != null){
+                for(AdvertisingStruct struct : structList){
+                    //分配IndexID发生在将新结构写入主列表之前,显然我们发现分配的IndexID其实就是添加之前列表同类的总个数
+                    if(struct.adType == adType){
+                        ret++;
+                    }
+                }
+            }
+            return ret;
         }
     }
 
-    //主列表
-    private List<AdvertisingStruct> MainAdvertisingList;
-    //排列规则
-    ArrangeRule arrangeRule = null;
-
-
 
     //      继承该抽象类以创建排列规则类
-    public abstract class ArrangeRule(){
+    public abstract class ArrangeRule{
         /**
          * 广播数据解析成列表后
          */
-        public abstract void OnListCreated();
+        public abstract void OnListCreated(List<AdvertisingStruct> list);
 
         /**
          * 触发搜索后但实际搜索运行之前
+         *
+         * @return
          */
-        public abstract void OnSearchStart();
+        public abstract int[] OnSearchStart();
 
         /**
          * 数据项搜索完成后
@@ -83,8 +122,6 @@ public class BluetoothAD {
     //根据最少依赖原则,请不要在自定义规则使用过于复杂的策略和算法,以及过多的列表引用
 
 
-
-
     //内部预置规则-排名排序
     //排名排序规则(创建需要提供焦点表最大角标即最后入围角标)
     //1.创建MainAdvertisingList即主列表时,在OnListCreated初始化严格定长的焦点表,刚开始焦点表中角标数据全部设置为0
@@ -92,74 +129,87 @@ public class BluetoothAD {
     //3.当搜索完成,在OnSearchFinish,如果发现搜索到的AdvertisingStruct对象的角标还不在焦点表中,
     //  将其添加到焦点表第一名即角标[0],其他焦点全部退步一名,最后一名即为最后入围角标的在退步一名之后会被挤出焦点表,直到它再次被搜索
     //  如果发现它已经在焦点表中,将其进步一名,即与前一名交换数据,除非它是第一名
-    public class RuleRankingArrange extends ArrangeRule{
-        /**
-         * 广播数据解析成列表后
-         */
-        @Override
-        public void OnListCreated() {
-
-        }
-
-        /**
-         * 触发搜索后但实际搜索运行之前
-         */
-        @Override
-        public void OnSearchStart() {
-
-        }
-
-        /**
-         * 数据项搜索完成后
-         */
-        @Override
-        public void OnSearchFinish() {
-
-        }
-    }
+//    public class RuleRankingArrange extends ArrangeRule{
+//        /**
+//         * 广播数据解析成列表后
+//         */
+//        @Override
+//        public void OnListCreated(List<AdvertisingStruct> list) {
+//
+//        }
+//
+//        /**
+//         * 触发搜索后但实际搜索运行之前
+//         *
+//         * @return
+//         */
+//        @Override
+//        public int[] OnSearchStart() {
+//
+//        }
+//
+//        /**
+//         * 数据项搜索完成后
+//         */
+//        @Override
+//        public void OnSearchFinish() {
+//
+//        }
+//    }
 
     //内部预置规则-通报排序
     //通报排序规则(创建需要提供有长度修饰的通报表)
     //1.创建MainAdvertisingList即主列表时,在OnListCreated初始化不限制长度的焦点表,初始化为无元素空集
     //2.维护这个焦点表,仅存储关注的AdvertisingStruct对象在主列表的角标位置,在OnSearchStart传递给搜索方法
     //3.外部类可以通过NotifyAdd和NotifyDelete将某个AdvertisingStruct数据段在主列表MainAdvertisingList的角标在焦点表添加或删除
-    public class RuleNotifyArrange extends ArrangeRule{
-        /**
-         * 广播数据解析成列表后
-         */
-        @Override
-        public void OnListCreated() {
+//    public class RuleNotifyArrange extends ArrangeRule{
+//        /**
+//         * 广播数据解析成列表后
+//         */
+//        @Override
+//        public void OnListCreated(List<AdvertisingStruct> list) {
+//
+//        }
+//
+//        /**
+//         * 触发搜索后但实际搜索运行之前
+//         *
+//         * @return
+//         */
+//        @Override
+//        public int[] OnSearchStart() {
+//
+//        }
+//
+//        /**
+//         * 数据项搜索完成后
+//         */
+//        @Override
+//        public void OnSearchFinish() {
+//
+//        }
+//    }
 
-        }
-
-        /**
-         * 触发搜索后但实际搜索运行之前
-         */
-        @Override
-        public void OnSearchStart() {
-
-        }
-
-        /**
-         * 数据项搜索完成后
-         */
-        @Override
-        public void OnSearchFinish() {
-
-        }
-    }
-
-
-
+    /**
+     * 抽取蓝牙广播数据包的内容整合并添加到结构列表中
+     * @param rawCode 蓝牙广播数据包内容
+     * @param structList 选中的结构列表
+     */
     public void RawCodeAddToStructList(byte[] rawCode,List<AdvertisingStruct> structList){
-        if(rawCode != null && structList != null && rawCode.length != 0){
-
-            //以下业务逻辑涉及蓝牙协议栈的AD广播包结构定义
-            byte length = 0;//表示接下来adType和adData的总长度
-            int  indexAdType = 0;//表示接下来adType的index
-            //遍历整个rawCode
-            for(int index=0;index < structList.size();index++){
-
+        if(rawCode == null || structList == null) {
+            return;
+        }
+        if(rawCode.length == 0){
+            return;
+        }
+        //以下业务逻辑涉及蓝牙协议栈的AD广播包结构定义
+        AdvertisingStruct structBuf = null;//缓存新结构的引用
+        byte length = 0;//表示接下来adType和adData的总长度
+        int  indexAdType = 0;//表示接下来adType的index
+        int  dataCounter = 0;//用于处理adData的存储计数
+        //遍历整个rawCode
+        for(int index = 0;index < structList.size();index++){
+            if(length == 0){
                 //发现length=0确定本位一定表示length字段基于以下事实
                 //1.由于length表示这个结构接下来adType和adData的总长度,adType必须存在并占用1字节,
                 //  所以实际数据中的length=0是禁止的,及时真的存在这种情况,
@@ -168,41 +218,39 @@ public class BluetoothAD {
                 //3.在解析完一个AD结构后,如果此时遍历继续活跃,那么接下来一定有一个将要解析的完整结构,以 length表达 开头
                 //4.所以开始解析新结构时,length=0是必然的,此时index标识字节的含义为length也是必然的
                 //但是如果广播数据包被恶意篡改或编码错误,会引起无法解析或乱码,这种情况一般是人为的,不予考虑
-                if(length == 0){
-                    length = rawCode[index];
-                    indexAdType = index + 1;//对于正常结构,length后面必定为AdType,即下一个index位置
-                }
-                else{
-                    //综上,这里index一定标识的是adType或adData
-                    //  length表达他们的总长度,但是如果在else最后加上length--;那么length将表示未处理字节数,
-                    //因为我们每次index引用一个字节,处理一个字节,length每次减一个,现在就表示还有多少要处理的
-                    //  表示还有多少要处理的肯定可以为0,因为我们有最后一次,那恰好我们又隐式地复位了length = 0
-                    //  这样我们可以提高程序的复用性,也不需要任何其他缓存处理什么时候一个结构解析完成即处理其与index的偏移关系
-                    //而且length不可能被减成负数,因为在else保证不为0,length读到的时候就为负数也是不现实的
-
-                    new AdvertisingStruct()
-                    if(index == indexAdType){//如果现在标识的是AdType
-
-                    }
-                    else{//如果现在标识的是AdData
-
-                    }
-                    length--;//隐式地复位了length = 0
-                }
-
-
-
-
-
-
-
+                length = rawCode[index];
+                indexAdType = index + 1;//对于正常结构,length后面必定为AdType,即下一个index位置
             }
-
+            else{
+                //综上,这里index一定标识的是adType或adData
+                //  length表达他们的总长度,但是如果在else最后加上length--;那么length将表示未处理字节数,
+                //因为我们每次index引用一个字节,处理一个字节,length每次减一个,现在就表示还有多少要处理的
+                //  表示还有多少要处理的肯定可以为0,因为我们有最后一次,那恰好我们又隐式地复位了length = 0
+                //  这样我们可以提高程序的复用性,也不需要任何其他缓存处理什么时候一个结构解析完成即处理其与index的偏移关系
+                //而且length不可能被减成负数,因为在else保证不为0,length读到的时候就为负数也是不现实的
+                if(index == indexAdType){//如果现在标识的是AdType
+                    structBuf = new AdvertisingStruct(rawCode[index],structList);//创建新结构并申请一个indexID标识,同AdType加入新结构
+                }
+                else{//如果现在标识的是AdData
+                    structBuf.getAdData()[dataCounter] = rawCode[index];
+                    dataCounter++;
+                }
+                length--;//隐式地复位了length = 0
+                if(length == 0){
+                    //复位其他变量
+                    dataCounter = 0;
+                    //完成一个结构解析后,将其加入到列表
+                    structList.add(structBuf);
+                }
+            }
         }
     }
 
 
-
+    //主列表
+    private List<AdvertisingStruct> MainAdvertisingList;
+    //排列规则,可能调用构造方法时注册为null,这是允许的
+    ArrangeRule arrangeRule = null;
 
     /**
      * BluetoothAD的构造方法
@@ -212,24 +260,89 @@ public class BluetoothAD {
     public BluetoothAD(ScanResult scanResult, ArrangeRule arrangeRule){
         //注册规则,可能调用时注册为null,这是允许的
         this.arrangeRule = arrangeRule;
+
         //解析蓝牙广播数据并缓存到主列表
         if(scanResult != null){
             ScanRecord scanRecord = scanResult.getScanRecord();
             if(scanRecord != null){
                 byte[] rawCode = scanRecord.getBytes();
-
-
+                RawCodeAddToStructList(rawCode,this.MainAdvertisingList);
             }
         }
 
+        //如果this.arrangeRule实例不为空,调用OnListCreated()实现
+        if(this.arrangeRule != null){
+            this.arrangeRule.OnListCreated(MainAdvertisingList);
+        }
+    }
 
+    /**
+     * 搜索需求的结构(含indexID索引)适用明确了搜索的adType可能存在多个数据段,并且严格要求准确性
+     * @param adType (有符号,严禁根据规范的映射直接填写数值,因为规范中为无符合,不兼容)数据项即要搜索的结构的所属AdType
+     * @param indexID 一个广播中可能有多个同一AdType的数据段,IndexID标记了本条数据在重复序列的角标(可0),即同类的中的区分标记
+     * @return null 遇到错误或没有完全匹配的发现 / 搜索结果即AdvertisingStruct实例
+     */
+    public AdvertisingStruct Search(byte adType,int indexID){
+        //如果已经设置了排序规则,先索引排序规则给出的焦点表
+        if(this.arrangeRule != null){
+            int[] focusList = arrangeRule.OnSearchStart();
+            if(focusList != null){
+                AdvertisingStruct focusStruct;
+                for (int focus : focusList){
+                    try {
+                        focusStruct = MainAdvertisingList.get(focus);
+                        if(focusStruct.getAdType() == adType && focusStruct.getIndexID() == indexID){
+                            return focusStruct;
+                        }
+                    }
+                    catch (IndexOutOfBoundsException e){
+                        return null;
+                    }
+                }
+            }
+        }
+        //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
+        for(AdvertisingStruct struct : MainAdvertisingList){
+            if(struct.getAdType() == adType && struct.getIndexID() == indexID){
+                return struct;
+            }
+        }
+        //还没有搜索到,返回空
+        return null;
+    }
 
-
-
-        //如果this.arrangeRule实例不为空,向下转型检查子类是否为空,不为空调用子类OnListCreated()实现
-
-
-
-
+    /**
+     * 搜索需求的结构(无indexID索引),适用明确了搜索的adType只存在单个数据段,如果有多个同一AdType的数据段,谁先被搜索到谁输出
+     *
+     * @param adType (有符号,严禁根据规范的映射直接填写数值,因为规范中为无符合,不兼容)数据项即要搜索的结构的所属AdType
+     * @return null 遇到错误或没有匹配的发现,尽管没有indexID的索引 / 搜索结果即AdvertisingStruct实例
+     */
+    public AdvertisingStruct Search(byte adType){
+        //如果已经设置了排序规则,先索引排序规则给出的焦点表
+        if(this.arrangeRule != null){
+            int[] focusList = arrangeRule.OnSearchStart();
+            if(focusList != null){
+                AdvertisingStruct focusStruct;
+                for (int focus : focusList){
+                    try {
+                        focusStruct = MainAdvertisingList.get(focus);
+                        if(focusStruct.getAdType() == adType){
+                            return focusStruct;
+                        }
+                    }
+                    catch (IndexOutOfBoundsException e){
+                        return null;
+                    }
+                }
+            }
+        }
+        //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
+        for(AdvertisingStruct struct : MainAdvertisingList){
+            if(struct.getAdType() == adType){
+                return struct;
+            }
+        }
+        //还没有搜索到,返回空
+        return null;
     }
 }

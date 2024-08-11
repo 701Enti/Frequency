@@ -67,6 +67,7 @@ import android.widget.TextView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
+import com.org701enti.bluetoothfocuser.BluetoothAD;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -223,6 +224,133 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
     private RecyclerView recyclerViewBluetooth = null;
 
+    /**
+     * 检查蓝牙开启状态,如果未开启,打开蓝牙
+     */
+    @SuppressLint("MissingPermission")
+    public void BluetoothOpenCheck() {
+        //检查并启动
+        //用于可能弹出打开蓝牙的询问框,回归主线程处理
+        if (bluetoothAdapter != null) {
+            if (!bluetoothAdapter.isEnabled()) {
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        bluetoothAdapter.enable();
+                    }
+                });
+            }
+        }
+    }
+
+    //蓝牙设备列表模型类
+    public class BluetoothDeviceModel {
+        private BluetoothDevice device;
+        private int iconID;
+
+        public BluetoothDeviceModel(BluetoothDevice device) {
+            this.device = device;
+            this.iconID = 0;
+        }
+
+        public BluetoothDeviceModel(BluetoothDevice device,int iconID){
+            this.device = device;
+            this.iconID = iconID;
+        }
+
+        public BluetoothDevice getDevice() {
+            return device;
+        }
+        public int getIconID(){ return iconID;}
+    }
+
+//    扫描回调
+    ScanCallback bluetoothScanCallback = new ScanCallback() {
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            super.onScanResult(callbackType, result);
+            if(result != null){
+
+                BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice());//生成这个蓝牙设备的基本信息模型
+                if(bluetoothDeviceRecyclerViewAdapter != null){
+                    //解析广播数据包
+                    BluetoothAD bluetoothAD = new BluetoothAD(result,null);
+
+                    //缓存到RecyclerView适配器内部列表
+                    int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
+                    bluetoothDeviceRecyclerViewAdapter.getDevicesList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
+                    bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
+                    Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
+                }
+
+            }
+        }
+
+        @Override
+        public void onBatchScanResults(List<ScanResult> results) {
+            super.onBatchScanResults(results);
+            if(results != null){
+
+            }
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            super.onScanFailed(errorCode);
+
+
+        }
+    };
+
+    /**
+     * 启动蓝牙设备扫描,含配置
+     */
+    @SuppressLint("MissingPermission")
+    public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+            bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
+        }
+    }
+
+    /**
+     * 启动蓝牙设备扫描,无配置
+     */
+    @SuppressLint("MissingPermission")
+    public void BluetoothScanStart(){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+            bluetoothLeScanner.startScan(bluetoothScanCallback);
+        }
+    }
+
+    /**
+     * 停止蓝牙设备扫描
+     */
+    @SuppressLint("MissingPermission")
+    public void BluetoothScanStop(){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+            bluetoothLeScanner.stopScan(bluetoothScanCallback);
+        }
+    }
+
+
+    /**
+     * (内部回归主线程处理)清除蓝牙设备列表并请求列表刷新
+     */
+    public void  DevicesListClearBluetooth(){
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(new Runnable() {
+            @SuppressLint("NotifyDataSetChanged")
+            @Override
+            public void run() {
+                if (bluetoothDeviceRecyclerViewAdapter != null) {
+                    bluetoothDeviceRecyclerViewAdapter.getDevicesList().clear();
+                    bluetoothDeviceRecyclerViewAdapter.notifyDataSetChanged();
+                }
+            }
+        });
+    }
 
     //RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
     public class BluetoothDeviceRecyclerViewAdapter extends RecyclerView.Adapter<BluetoothDeviceRecyclerViewAdapter.ViewHolder>
@@ -322,129 +450,6 @@ public class MainActivity extends AppCompatActivity {
                 return 0;
             }
         }
-    }
-
-    /**
-     * 检查蓝牙开启状态,如果未开启,打开蓝牙
-     */
-    @SuppressLint("MissingPermission")
-    public void BluetoothOpenCheck() {
-        //检查并启动
-        //用于可能弹出打开蓝牙的询问框,回归主线程处理
-        if (bluetoothAdapter != null) {
-            if (!bluetoothAdapter.isEnabled()) {
-                Handler handler = new Handler(Looper.getMainLooper());
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        bluetoothAdapter.enable();
-                    }
-                });
-            }
-        }
-    }
-
-    //蓝牙设备列表模型类
-    public class BluetoothDeviceModel {
-        private BluetoothDevice device;
-        private int iconID;
-
-        public BluetoothDeviceModel(BluetoothDevice device) {
-            this.device = device;
-            this.iconID = 0;
-        }
-
-        public BluetoothDeviceModel(BluetoothDevice device,int iconID){
-            this.device = device;
-            this.iconID = iconID;
-        }
-
-        public BluetoothDevice getDevice() {
-            return device;
-        }
-        public int getIconID(){ return iconID;}
-    }
-
-//    扫描回调
-    ScanCallback bluetoothScanCallback = new ScanCallback() {
-        @SuppressLint("MissingPermission")
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
-            super.onScanResult(callbackType, result);
-            if(result != null){
-                BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice());//生成这个蓝牙设备的基本信息模型
-                if(bluetoothDeviceRecyclerViewAdapter != null){//缓存到RecyclerView适配器内部列表
-                    int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
-                    bluetoothDeviceRecyclerViewAdapter.getDevicesList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
-                    bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
-                    Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
-                }
-            }
-        }
-
-        @Override
-        public void onBatchScanResults(List<ScanResult> results) {
-            super.onBatchScanResults(results);
-            if(results != null){
-
-            }
-        }
-
-        @Override
-        public void onScanFailed(int errorCode) {
-            super.onScanFailed(errorCode);
-
-
-        }
-    };
-
-    /**
-     * 启动蓝牙设备扫描,含配置
-     */
-    @SuppressLint("MissingPermission")
-    public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null){
-            bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
-        }
-    }
-
-    /**
-     * 启动蓝牙设备扫描,无配置
-     */
-    @SuppressLint("MissingPermission")
-    public void BluetoothScanStart(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null){
-            bluetoothLeScanner.startScan(bluetoothScanCallback);
-        }
-    }
-
-    /**
-     * 停止蓝牙设备扫描
-     */
-    @SuppressLint("MissingPermission")
-    public void BluetoothScanStop(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null){
-            bluetoothLeScanner.stopScan(bluetoothScanCallback);
-        }
-    }
-
-
-
-    /**
-     * (内部回归主线程处理)清除蓝牙设备列表并请求列表刷新
-     */
-    public void  DevicesListClearBluetooth(){
-        Handler handler = new Handler(Looper.getMainLooper());
-        handler.post(new Runnable() {
-            @SuppressLint("NotifyDataSetChanged")
-            @Override
-            public void run() {
-                if (bluetoothDeviceRecyclerViewAdapter != null) {
-                    bluetoothDeviceRecyclerViewAdapter.getDevicesList().clear();
-                    bluetoothDeviceRecyclerViewAdapter.notifyDataSetChanged();
-                }
-            }
-        });
     }
 
 
@@ -576,8 +581,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void InitUI(){
-        InitMainBottomNavigation();
         InitRecyclerViewBluetooth();
-
+        InitMainBottomNavigation();
     }
 }

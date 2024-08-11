@@ -277,6 +277,7 @@ public class MainActivity extends AppCompatActivity {
                     //解析广播数据包
                     BluetoothAD bluetoothAD = new BluetoothAD(result,null);
 
+                    //获取iconID
                     int iconID = 0;
                     BluetoothAD.AdvertisingStruct structAppearance = bluetoothAD.Search(0x19);
                     if(structAppearance != null){

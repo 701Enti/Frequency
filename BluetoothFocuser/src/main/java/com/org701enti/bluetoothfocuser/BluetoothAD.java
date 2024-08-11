@@ -26,21 +26,30 @@ package com.org701enti.bluetoothfocuser;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class BluetoothAD {
 
     public class AdvertisingStruct{
-        private byte adType;//AD类型标识值(非标准警告:协议规定为无符号,但是byte是有符号的),根据SIG小组的规范,该值标识了下面AdData的唯一含义
-        private byte[] adData;//AD数据段(非标准警告:协议规定为无符号,但是byte是有符号的),数据含义由adType标识
+        private byte atypiaAdType;//(非标准警告:协议规定为无符号,但是byte是有符号的)AD类型标识值,根据SIG小组的规范,该值标识了下面AdData的唯一含义
+        private byte[] adData;//(非标准警告:协议规定为无符号,但是byte是有符号的)AD数据段,数据含义由adType标识
         private int indexID;//(自定义的变量,不是协议栈标准)引导ID,由于AD结构地ADtype可重复性,一个广播中可能有多个同一类型的数据段,IndexID标记了本条数据在重复序列的角标(可0)
 
         /**
          * (非标准警告)请不要认为这就是真实的ADtype,协议中ADtype是无符号的,不要直接打印和if常量比对
          * @return (非标准警告:协议规定为无符号,但是byte是有符号的)
          */
-        public byte getAdType() {
-            return adType;
+        public byte getAtypiaAdType() {
+            return atypiaAdType;
+        }
+
+        /**
+         * (标准的,可以直接根据规范映射数值,不用考虑符号)数据项即要搜索的结构的所属ADtype
+         * @return (标准的,可以直接根据规范映射数值,不用考虑符号)
+         */
+        public int getStandardAdType() {
+          return getAtypiaAdType() & 0xFF;
         }
 
 
@@ -52,32 +61,40 @@ public class BluetoothAD {
             return adData;
         }
 
+        /**
+         * (非标准警告)请不要认为这就是真实的ADdata,协议中ADdata是无符号的,不要直接写入字面值
+         * @return (非标准警告:协议规定为无符号,但是byte是有符号的)
+         */
+        public void setAdData(byte[] adData) {
+            this.adData = adData;
+        }
+
         public int getIndexID() {
             return indexID;
         }
 
         /**
          * 构造方法,创建数据项即新AD结构,但是不会添加到列表,并且填写数据需要外部操作adData
-         * @param adType 数据项即要添加的结构的所属AdType
+         * @param atypiaAdType (非标准警告:协议规定为无符号,但是byte是有符号的)数据项即要添加的结构的所属AdType
          * @param structList (只读)要加入的列表,只是由于识别,不会真的把创建的结构加入列表
          */
-        public AdvertisingStruct(byte adType,List<AdvertisingStruct> structList){
-            this.adType = adType;
-            this.indexID = AllotIndexID(this.adType,structList);
+        public AdvertisingStruct(byte atypiaAdType, List<AdvertisingStruct> structList){
+            this.atypiaAdType = atypiaAdType;
+            this.indexID = AllotIndexID(this.atypiaAdType,structList);
         }
 
         /**
          * 分配新的IndexID,IndexID从0开始,新的同类添加,需要有一个自增ID,如第一个为0,第二个为1,第三个为2...
-         * @param adType 数据项即要添加的结构的所属AdType
+         * @param atypiaAdType (非标准警告:协议规定为无符号,但是byte是有符号的)数据项即要添加的结构的所属AdType
          * @param structList 要加入的列表
          * @return 分配的IndexID
          */
-        public int AllotIndexID(byte adType,List<AdvertisingStruct> structList){
+        public int AllotIndexID(byte atypiaAdType,List<AdvertisingStruct> structList){
             int ret = 0;
             if(structList != null){
                 for(AdvertisingStruct struct : structList){
                     //分配IndexID发生在将新结构写入主列表之前,显然我们发现分配的IndexID其实就是添加之前列表同类的总个数
-                    if(struct.adType == adType){
+                    if(struct.atypiaAdType == atypiaAdType){
                         ret++;
                     }
                 }
@@ -204,11 +221,12 @@ public class BluetoothAD {
         }
         //以下业务逻辑涉及蓝牙协议栈的AD广播包结构定义
         AdvertisingStruct structBuf = null;//缓存新结构的引用
+        List<Byte> dataList = null;
         byte length = 0;//表示接下来adType和adData的总长度
         int  indexAdType = 0;//表示接下来adType的index
         int  dataCounter = 0;//用于处理adData的存储计数
         //遍历整个rawCode
-        for(int index = 0;index < structList.size();index++){
+        for(int index = 0;index < rawCode.length;index++){
             if(length == 0){
                 //发现length=0确定本位一定表示length字段基于以下事实
                 //1.由于length表示这个结构接下来adType和adData的总长度,adType必须存在并占用1字节,
@@ -230,15 +248,25 @@ public class BluetoothAD {
                 //而且length不可能被减成负数,因为在else保证不为0,length读到的时候就为负数也是不现实的
                 if(index == indexAdType){//如果现在标识的是AdType
                     structBuf = new AdvertisingStruct(rawCode[index],structList);//创建新结构并申请一个indexID标识,同AdType加入新结构
+                    dataList = new ArrayList<>();
                 }
                 else{//如果现在标识的是AdData
-                    structBuf.getAdData()[dataCounter] = rawCode[index];
+                    dataList.add(rawCode[index]);
                     dataCounter++;
                 }
                 length--;//隐式地复位了length = 0
                 if(length == 0){
+
+                    //保存adData
+                    byte[] byteData = new byte[dataList.size()];
+                    for (int i=0;i<dataList.size();i++){
+                        byteData[i] = dataList.get(i);
+                    }
+                    structBuf.setAdData(byteData);
+
                     //复位其他变量
                     dataCounter = 0;
+
                     //完成一个结构解析后,将其加入到列表
                     structList.add(structBuf);
                 }
@@ -248,7 +276,7 @@ public class BluetoothAD {
 
 
     //主列表
-    private List<AdvertisingStruct> MainAdvertisingList;
+    private List<AdvertisingStruct> MainAdvertisingList = new ArrayList<>();
     //排列规则,可能调用构造方法时注册为null,这是允许的
     ArrangeRule arrangeRule = null;
 
@@ -266,7 +294,7 @@ public class BluetoothAD {
             ScanRecord scanRecord = scanResult.getScanRecord();
             if(scanRecord != null){
                 byte[] rawCode = scanRecord.getBytes();
-                RawCodeAddToStructList(rawCode,this.MainAdvertisingList);
+                RawCodeAddToStructList(rawCode,MainAdvertisingList);
             }
         }
 
@@ -278,11 +306,18 @@ public class BluetoothAD {
 
     /**
      * 搜索需求的结构(含indexID索引)适用明确了搜索的adType可能存在多个数据段,并且严格要求准确性
-     * @param adType (有符号,严禁根据规范的映射直接填写数值,因为规范中为无符合,不兼容)数据项即要搜索的结构的所属AdType
+     * @param standardAdType (标准的,可以直接根据规范映射数值,不用考虑符号)数据项即要搜索的结构的所属ADtype
      * @param indexID 一个广播中可能有多个同一AdType的数据段,IndexID标记了本条数据在重复序列的角标(可0),即同类的中的区分标记
      * @return null 遇到错误或没有完全匹配的发现 / 搜索结果即AdvertisingStruct实例
      */
-    public AdvertisingStruct Search(byte adType,int indexID){
+    public AdvertisingStruct Search(int standardAdType,int indexID){
+       
+        //将标准AdType数据转换为非标准的byte
+        if(standardAdType < 0 || standardAdType > 255){
+            return null;
+        }
+        byte atypiaAdType = (byte)standardAdType;
+        
         //如果已经设置了排序规则,先索引排序规则给出的焦点表
         if(this.arrangeRule != null){
             int[] focusList = arrangeRule.OnSearchStart();
@@ -291,7 +326,7 @@ public class BluetoothAD {
                 for (int focus : focusList){
                     try {
                         focusStruct = MainAdvertisingList.get(focus);
-                        if(focusStruct.getAdType() == adType && focusStruct.getIndexID() == indexID){
+                        if(focusStruct.getAtypiaAdType() == atypiaAdType && focusStruct.getIndexID() == indexID){
                             return focusStruct;
                         }
                     }
@@ -301,12 +336,14 @@ public class BluetoothAD {
                 }
             }
         }
+
         //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
         for(AdvertisingStruct struct : MainAdvertisingList){
-            if(struct.getAdType() == adType && struct.getIndexID() == indexID){
+            if(struct.getAtypiaAdType() == atypiaAdType && struct.getIndexID() == indexID){
                 return struct;
             }
         }
+
         //还没有搜索到,返回空
         return null;
     }
@@ -314,10 +351,17 @@ public class BluetoothAD {
     /**
      * 搜索需求的结构(无indexID索引),适用明确了搜索的adType只存在单个数据段,如果有多个同一AdType的数据段,谁先被搜索到谁输出
      *
-     * @param adType (有符号,严禁根据规范的映射直接填写数值,因为规范中为无符合,不兼容)数据项即要搜索的结构的所属AdType
+     * @param standardAdType (标准的,可以直接根据规范映射数值,不用考虑符号)数据项即要搜索的结构的所属ADtype
      * @return null 遇到错误或没有匹配的发现,尽管没有indexID的索引 / 搜索结果即AdvertisingStruct实例
      */
-    public AdvertisingStruct Search(byte adType){
+    public AdvertisingStruct Search(int standardAdType){
+
+        //将标准AdType数据转换为非标准的byte
+        if(standardAdType < 0 || standardAdType > 255){
+            return null;
+        }
+        byte atypiaAdType = (byte)standardAdType;
+
         //如果已经设置了排序规则,先索引排序规则给出的焦点表
         if(this.arrangeRule != null){
             int[] focusList = arrangeRule.OnSearchStart();
@@ -326,7 +370,7 @@ public class BluetoothAD {
                 for (int focus : focusList){
                     try {
                         focusStruct = MainAdvertisingList.get(focus);
-                        if(focusStruct.getAdType() == adType){
+                        if(focusStruct.getAtypiaAdType() == atypiaAdType){
                             return focusStruct;
                         }
                     }
@@ -336,12 +380,14 @@ public class BluetoothAD {
                 }
             }
         }
+
         //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
         for(AdvertisingStruct struct : MainAdvertisingList){
-            if(struct.getAdType() == adType){
+            if(struct.getAtypiaAdType() == atypiaAdType){
                 return struct;
             }
         }
+
         //还没有搜索到,返回空
         return null;
     }

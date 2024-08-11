@@ -225,6 +225,7 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerViewBluetooth = null;
 
     /**
+     *
      * 检查蓝牙开启状态,如果未开启,打开蓝牙
      */
     @SuppressLint("MissingPermission")
@@ -272,11 +273,20 @@ public class MainActivity extends AppCompatActivity {
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
             if(result != null){
-
-                BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice());//生成这个蓝牙设备的基本信息模型
                 if(bluetoothDeviceRecyclerViewAdapter != null){
                     //解析广播数据包
                     BluetoothAD bluetoothAD = new BluetoothAD(result,null);
+
+                    int iconID = 0;
+                    BluetoothAD.AdvertisingStruct structAppearance = bluetoothAD.Search(0x19);
+                    if(structAppearance != null){
+                        if(structAppearance.getAdData().length >= 2){
+                            iconID = ((structAppearance.getAdData()[1] << 8 | structAppearance.getAdData()[0]) & 0xFFC0) >> 6;
+                        }
+                    }
+
+                    //创建设备模型
+                    BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),iconID);//生成这个蓝牙设备的基本信息模型
 
                     //缓存到RecyclerView适配器内部列表
                     int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
@@ -284,7 +294,6 @@ public class MainActivity extends AppCompatActivity {
                     bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
                     Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
                 }
-
             }
         }
 

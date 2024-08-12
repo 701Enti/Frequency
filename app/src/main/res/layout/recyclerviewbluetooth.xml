@@ -13,8 +13,9 @@
         android:layout_marginStart="60dp"
         android:layout_marginTop="0dp"
         android:text="@string/devicename_english"
+        android:gravity="center"
         android:textColor="@color/black"
-        android:textSize="24sp"/>
+        android:textSize="20sp"/>
 
     <ImageView
         android:id="@+id/DeviceIconRecyclerViewBluetooth"

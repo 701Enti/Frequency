@@ -272,30 +272,37 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
-            if(result != null){
-                if(bluetoothDeviceRecyclerViewAdapter != null){
-                    //解析广播数据包
-                    BluetoothAD bluetoothAD = new BluetoothAD(result,null);
+            if(result == null || bluetoothDeviceRecyclerViewAdapter == null){
+                return;
+            }
 
-                    //获取iconID
-                    int iconID = 0;
-                    BluetoothAD.AdvertisingStruct structAppearance = bluetoothAD.Search(0x19);
-                    if(structAppearance != null){
-                        if(structAppearance.getAdData().length >= 2){
-                            iconID = ((structAppearance.getAdData()[1] << 8 | structAppearance.getAdData()[0]) & 0xFFC0) >> 6;
-                        }
-                    }
-
-                    //创建设备模型
-                    BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),iconID);//生成这个蓝牙设备的基本信息模型
-
-                    //缓存到RecyclerView适配器内部列表
-                    int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
-                    bluetoothDeviceRecyclerViewAdapter.getDevicesList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
-                    bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
-                    Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
+            //判断设备是否已经存在列表
+            for(BluetoothDeviceModel model : bluetoothDeviceRecyclerViewAdapter.getModelList()){
+                if(result.getDevice().equals(model.getDevice())){
+                    return;
                 }
             }
+
+            //解析广播数据包
+            BluetoothAD bluetoothAD = new BluetoothAD(result,null);
+
+            //获取iconID
+            int iconID = 0;
+            BluetoothAD.AdvertisingStruct structAppearance = bluetoothAD.Search(0x19);
+            if(structAppearance != null){
+                if(structAppearance.getAdData().length >= 2){
+                    iconID = ((structAppearance.getAdData()[1] << 8 | structAppearance.getAdData()[0]) & 0xFFC0) >> 6;
+                }
+            }
+
+            //创建设备模型
+            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),iconID);//生成这个蓝牙设备的基本信息模型
+
+            //缓存到RecyclerView适配器内部列表
+            int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
+            bluetoothDeviceRecyclerViewAdapter.getModelList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
+            bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
+            Log.i("BluetoothInfoReceiver","[" + index + "]" + deviceModel.getDevice().getName());
         }
 
         @Override
@@ -355,7 +362,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 if (bluetoothDeviceRecyclerViewAdapter != null) {
-                    bluetoothDeviceRecyclerViewAdapter.getDevicesList().clear();
+                    bluetoothDeviceRecyclerViewAdapter.getModelList().clear();
                     bluetoothDeviceRecyclerViewAdapter.notifyDataSetChanged();
                 }
             }
@@ -365,17 +372,17 @@ public class MainActivity extends AppCompatActivity {
     //RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
     public class BluetoothDeviceRecyclerViewAdapter extends RecyclerView.Adapter<BluetoothDeviceRecyclerViewAdapter.ViewHolder>
     {
-        private  List<BluetoothDeviceModel> devicesList;
+        private  List<BluetoothDeviceModel> modelList;
 
-        public BluetoothDeviceRecyclerViewAdapter(List<BluetoothDeviceModel> devicesList) {
-            this.devicesList = devicesList;
+        public BluetoothDeviceRecyclerViewAdapter(List<BluetoothDeviceModel> modelList) {
+            this.modelList = modelList;
         }
 
         @SuppressLint("MissingPermission")
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             BluetoothDeviceModel deviceModel = null;
-            deviceModel = devicesList.get(position);
+            deviceModel = modelList.get(position);
             if(deviceModel != null){
 
                 //设备图标
@@ -397,16 +404,16 @@ public class MainActivity extends AppCompatActivity {
                     //确定显示的字符尺寸
                     int len = name.length();
                     if(len <= 8){
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,32f);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*1);
                     }
                     else if (len <= 8 * 3) {
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,32f - 8f*1);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*1);
                     }
                     else if (len <= 8 * 6) {
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,32f - 8f*2);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*2);
                     }
                     else{
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,5f);
+                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*3);
                     }
 
                     holder.DeviceName.setText(name);
@@ -447,14 +454,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        public List<BluetoothDeviceModel> getDevicesList() {
-            return devicesList;
+        public List<BluetoothDeviceModel> getModelList() {
+            return modelList;
         }
 
         @Override
         public int getItemCount() {
-            if(devicesList != null){
-                return devicesList.size();
+            if(modelList != null){
+                return modelList.size();
             }
             else{
                 return 0;
@@ -587,7 +594,7 @@ public class MainActivity extends AppCompatActivity {
         recyclerViewBluetooth = findViewById(R.id.RecyclerViewBluetooth);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
         recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(this));
-        recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(30));
+        recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(90));
     }
 
     private void InitUI(){

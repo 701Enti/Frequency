@@ -65,6 +65,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.airbnb.lottie.LottieAnimationView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 import com.org701enti.bluetoothfocuser.BluetoothAD;
@@ -76,6 +77,7 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+////权限检查和提取
     public static final int AndroidVersion = Build.VERSION.SDK_INT;
     //    权限申请码定义
     private static final int REQUEST_COARSE_LOCATION = 100;
@@ -103,7 +105,6 @@ public class MainActivity extends AppCompatActivity {
 
 
     }
-
 
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -157,7 +158,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
 
     /**
      * (含阻塞,必须使用非主线程调用)权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
@@ -215,14 +215,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    //////////////////////////////////////蓝牙业务
-
+////蓝牙业务
     private BluetoothAdapter bluetoothAdapter = null;
     private BluetoothLeScanner bluetoothLeScanner = null;
     final Handler[] HandlerBluetooth = {null};//缓存蓝牙处理线程handler
     private static List<BluetoothDeviceModel> bluetoothDevicesList = new ArrayList<>();
     private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
     private RecyclerView recyclerViewBluetooth = null;
+    private boolean isScanningBluetooth = false;
 
     /**
      *
@@ -266,7 +266,7 @@ public class MainActivity extends AppCompatActivity {
         public int getIconID(){ return iconID;}
     }
 
-//    扫描回调
+    //扫描回调
     ScanCallback bluetoothScanCallback = new ScanCallback() {
         @SuppressLint("MissingPermission")
         @Override
@@ -328,6 +328,8 @@ public class MainActivity extends AppCompatActivity {
     public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
+            lottieAnimationBluetoothScanning.playAnimation();
+            isScanningBluetooth = true;
         }
     }
 
@@ -338,6 +340,8 @@ public class MainActivity extends AppCompatActivity {
     public void BluetoothScanStart(){
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.startScan(bluetoothScanCallback);
+            lottieAnimationBluetoothScanning.playAnimation();
+            isScanningBluetooth = true;
         }
     }
 
@@ -348,6 +352,8 @@ public class MainActivity extends AppCompatActivity {
     public void BluetoothScanStop(){
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.stopScan(bluetoothScanCallback);
+            lottieAnimationBluetoothScanning.pauseAnimation();
+            isScanningBluetooth = false;
         }
     }
 
@@ -393,7 +399,6 @@ public class MainActivity extends AppCompatActivity {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-
 
                 //设备名
                 String name = deviceModel.getDevice().getName();
@@ -469,7 +474,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     private void InitBLE() {
 //        //创建蓝牙相关处理线程(含Looper)
 //        Thread ThreadBluetooth = new Thread(new Runnable() {
@@ -492,21 +496,33 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-
-    //////底部导航栏业务
+////底部导航栏
     public final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
 
-    //选择监听
+    //选择标签的监听
     public class MainBottomNavigationListener implements NavigationBarView.OnItemSelectedListener{
         @Override
         public boolean onNavigationItemSelected(@NonNull MenuItem item) {
             //主线程执行
-            if(recyclerViewBluetooth != null){
-                if(item.getItemId() == R.id.NavigationBLE)
-                    recyclerViewBluetooth.setVisibility(View.VISIBLE);
-                else
-                    recyclerViewBluetooth.setVisibility(View.GONE);
+
+            //切换到BLE界面
+            if(item.getItemId() == R.id.NavigationBLE){
+                recyclerViewBluetooth.setVisibility(View.VISIBLE);
+                lottieAnimationBluetoothScanning.setVisibility(View.VISIBLE);
+
+                if(isScanningBluetooth){
+                    lottieAnimationBluetoothScanning.playAnimation();
+                }
+                else{
+                    lottieAnimationBluetoothScanning.pauseAnimation();
+                }
             }
+            else {
+                recyclerViewBluetooth.setVisibility(View.GONE);
+                lottieAnimationBluetoothScanning.setVisibility(View.GONE);
+                lottieAnimationBluetoothScanning.pauseAnimation();
+            }
+
 
             //独立线程ThreadMainBottomNavView执行
             HandlerMainBottomNavView[0].post(new Runnable() {
@@ -553,8 +569,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-
     /**
      * 初始化底部导航栏
      */
@@ -575,6 +589,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+////蓝牙设备看板
     public class ItemDecorationRecyclerViewBluetooth extends RecyclerView.ItemDecoration{
         private final  int verticalSpaceHeight;
 
@@ -589,6 +604,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 初始化蓝牙看板
+     */
     private void InitRecyclerViewBluetooth(){
         bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
         recyclerViewBluetooth = findViewById(R.id.RecyclerViewBluetooth);
@@ -597,8 +615,19 @@ public class MainActivity extends AppCompatActivity {
         recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(90));
     }
 
+////蓝牙扫描动画
+    LottieAnimationView lottieAnimationBluetoothScanning = null;
+    private void InitAnimationBluetoothScanning(){
+        lottieAnimationBluetoothScanning = findViewById(R.id.LottieAnimationBluetoothScanning);
+        lottieAnimationBluetoothScanning.setVisibility(View.GONE);
+    }
+
+
+
+////主UI
     private void InitUI(){
         InitRecyclerViewBluetooth();
+        InitAnimationBluetoothScanning();
         InitMainBottomNavigation();
     }
 }

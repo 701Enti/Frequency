@@ -43,6 +43,7 @@ import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -58,8 +59,10 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.util.TypedValue;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -113,7 +116,8 @@ public class MainActivity extends AppCompatActivity {
             //显示一个提示框,希望用户改变主意
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setTitle(R.string.hint_chinese);
-            builder.setMessage(R.string.requestpermission_chinese);
+            builder.setMessage(R.string.appneedpermission_chinese);
+            //配置授予按钮
             builder.setPositiveButton(R.string.give_chinese, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
@@ -123,19 +127,20 @@ public class MainActivity extends AppCompatActivity {
                     Uri uri = Uri.fromParts("package", getString(R.string.packagename), null);
                     intent.setData(uri);
                     startActivity(intent);
-                    PermissionRequestingFlag = false;//重置请求中标识
+                    PermissionRequestingFlag = false;//重置请求中标识,关闭独立线程的阻塞
                 }
             });
+            //配置拒绝按钮
             builder.setNegativeButton(R.string.reject_chinese, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    PermissionRequestingFlag = false;//重置请求中标识
+                    PermissionRequestingFlag = false;//重置请求中标识,关闭独立线程的阻塞
                 }
             });
             AlertDialog dialog = builder.create();
-            dialog.show();
-        } else {//如果同意对应请求请求
-            PermissionRequestingFlag = false;//重置请求中标识
+            dialog.show();//弹出提示框
+        }
+        else {//如果同意对应请求
             switch (requestCode) {
                 case REQUEST_COARSE_LOCATION:
 
@@ -156,6 +161,8 @@ public class MainActivity extends AppCompatActivity {
                     break;
 
             }
+
+            PermissionRequestingFlag = false;//重置请求中标识,关闭独立线程的阻塞
         }
     }
 
@@ -267,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //扫描回调
-    ScanCallback bluetoothScanCallback = new ScanCallback() {
+    final ScanCallback bluetoothScanCallback = new ScanCallback() {
         @SuppressLint("MissingPermission")
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -329,6 +336,7 @@ public class MainActivity extends AppCompatActivity {
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
             lottieAnimationBluetoothScanning.playAnimation();
+            MainTextViewBLE.setText(getString(R.string.bluetoohscanning_chinese));
             isScanningBluetooth = true;
         }
     }
@@ -341,6 +349,7 @@ public class MainActivity extends AppCompatActivity {
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.startScan(bluetoothScanCallback);
             lottieAnimationBluetoothScanning.playAnimation();
+            MainTextViewBLE.setText(getString(R.string.bluetoohscanning_chinese));
             isScanningBluetooth = true;
         }
     }
@@ -353,6 +362,7 @@ public class MainActivity extends AppCompatActivity {
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.stopScan(bluetoothScanCallback);
             lottieAnimationBluetoothScanning.pauseAnimation();
+            MainTextViewBLE.setText(getString(R.string.slidevavetostartsacn_chinese));
             isScanningBluetooth = false;
         }
     }
@@ -497,7 +507,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 ////底部导航栏
-    public final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
+    private  final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
 
     //选择标签的监听
     public class MainBottomNavigationListener implements NavigationBarView.OnItemSelectedListener{
@@ -507,19 +517,24 @@ public class MainActivity extends AppCompatActivity {
 
             //切换到BLE界面
             if(item.getItemId() == R.id.NavigationBLE){
-                recyclerViewBluetooth.setVisibility(View.VISIBLE);
-                lottieAnimationBluetoothScanning.setVisibility(View.VISIBLE);
-
                 if(isScanningBluetooth){
                     lottieAnimationBluetoothScanning.playAnimation();
+                    MainTextViewBLE.setText(getString(R.string.bluetoohscanning_chinese));
                 }
                 else{
                     lottieAnimationBluetoothScanning.pauseAnimation();
+                    MainTextViewBLE.setText(getString(R.string.slidevavetostartsacn_chinese));
                 }
+
+                recyclerViewBluetooth.setVisibility(View.VISIBLE);
+                lottieAnimationBluetoothScanning.setVisibility(View.VISIBLE);
+                MainTextViewBLE.setVisibility(View.VISIBLE);
+
             }
             else {
                 recyclerViewBluetooth.setVisibility(View.GONE);
                 lottieAnimationBluetoothScanning.setVisibility(View.GONE);
+                MainTextViewBLE.setVisibility(View.GONE);
                 lottieAnimationBluetoothScanning.pauseAnimation();
             }
 
@@ -533,10 +548,10 @@ public class MainActivity extends AppCompatActivity {
 
                             break;
                         case R.id.NavigationBLE:
+
 //                          权限检查
                             try {
                                 PermissionApplyCheck(REQUEST_COARSE_LOCATION);
-                                PermissionApplyCheck(REQUEST_FINE_LOCATION);
                                 if(AndroidVersion >= Build.VERSION_CODES.S){
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_SCAN);
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE);
@@ -548,7 +563,6 @@ public class MainActivity extends AppCompatActivity {
                             }
 
                             BluetoothOpenCheck();//检查蓝牙开启
-                            BluetoothScanStart();//扫描启动
 
                             break;
                         case R.id.NavigationControl:
@@ -616,18 +630,75 @@ public class MainActivity extends AppCompatActivity {
     }
 
 ////蓝牙扫描动画
-    LottieAnimationView lottieAnimationBluetoothScanning = null;
+    private LottieAnimationView lottieAnimationBluetoothScanning = null;
     private void InitAnimationBluetoothScanning(){
         lottieAnimationBluetoothScanning = findViewById(R.id.LottieAnimationBluetoothScanning);
         lottieAnimationBluetoothScanning.setVisibility(View.GONE);
     }
 
+///手势控制-蓝牙扫描动画
+    private GestureDetector  gestureBluetoothScanningAnimation = null;
 
+    private class ListenerGestureBluetoothScanningAnimation extends GestureDetector.SimpleOnGestureListener{
+        @Override
+        public boolean onFling(@Nullable MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
+            super.onFling(e1, e2, velocityX, velocityY);
+            if(!isScanningBluetooth){
+                BluetoothScanStart();//扫描启动
+            }
+            else{
+                float speedAnimation = lottieAnimationBluetoothScanning.getSpeed();
+                if(velocityX < 0 && speedAnimation + 1F <= 7){//向左滑动,正向时加速/反向时减速
+                    speedAnimation+= 1F;
+                    lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
+                }
+                if(velocityX > 0 && speedAnimation - 1F > 0){//向右滑动,正向时减速/反向时加速
+                    speedAnimation-= 1F;
+                    lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
+                }
+                else if(velocityX > 0 && speedAnimation - 0.1F > 0){//向右滑动,正向时减速/反向时加速
+                    speedAnimation-= 0.1F;
+                    lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
+                }
+
+            }
+
+
+            return true;
+        }
+    }
+
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void InitGestureBluetoothScanningAnimation(){
+        gestureBluetoothScanningAnimation = new GestureDetector(this,new ListenerGestureBluetoothScanningAnimation());
+        LottieAnimationView detectView = findViewById(R.id.LottieAnimationBluetoothScanning);
+
+        detectView.setOnTouchListener(new View.OnTouchListener() {
+            @SuppressLint("ClickableViewAccessibility")
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                return gestureBluetoothScanningAnimation.onTouchEvent(motionEvent);
+            }
+        });
+    }
+
+
+////主界面-BLE-MainTextViewBLE
+    private TextView MainTextViewBLE = null;
+    private void InitMainTextViewBLE(){
+        MainTextViewBLE = findViewById(R.id.MainTextViewBLE);
+        MainTextViewBLE.setVisibility(View.GONE);
+    }
 
 ////主UI
     private void InitUI(){
         InitRecyclerViewBluetooth();
         InitAnimationBluetoothScanning();
+        InitMainTextViewBLE();
+
+        InitGestureBluetoothScanningAnimation();
+
         InitMainBottomNavigation();
     }
 }

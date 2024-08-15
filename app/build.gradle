@@ -40,12 +40,12 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
+    implementation libs.appcompat
 
     implementation 'com.airbnb.android:lottie:6.5.0'
     implementation libs.recyclerview
-    implementation libs.appcompat
     implementation libs.material.v1120
-
+    
     implementation project(path:':BluetoothFocuser')
 
 }

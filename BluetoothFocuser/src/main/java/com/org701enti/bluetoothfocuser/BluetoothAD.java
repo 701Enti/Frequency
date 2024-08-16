@@ -54,7 +54,7 @@ public class BluetoothAD {
 
 
         /**
-         * (非标准警告)请不要认为这就是真实的ADdata,协议中ADdata是无符号的,不要直接打印和if常量比对
+         * (非标准警告)请不要认为这就是真实的ADdata,协议中ADdata可能是无符号的,不要直接打印和if常量比对
          * @return (非标准警告:协议规定为无符号,但是byte是有符号的)
          */
         public byte[] getAdData() {
@@ -62,7 +62,7 @@ public class BluetoothAD {
         }
 
         /**
-         * (非标准警告)请不要认为这就是真实的ADdata,协议中ADdata是无符号的,不要直接写入字面值
+         * (非标准警告)请不要认为这就是真实的ADdata,协议中ADdata可能是无符号的,不要直接写入字面值
          * @return (非标准警告:协议规定为无符号,但是byte是有符号的)
          */
         public void setAdData(byte[] adData) {

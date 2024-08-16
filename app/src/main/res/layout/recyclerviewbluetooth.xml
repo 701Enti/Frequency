@@ -5,25 +5,40 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"><!--如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正-->
 
+    <ImageView
+        android:id="@+id/DeviceIconRecyclerViewBluetooth"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignTop="@id/DeviceNameRecyclerViewBluetooth"
+        app:srcCompat="@drawable/ble" />
 
     <TextView
         android:id="@+id/DeviceNameRecyclerViewBluetooth"
-        android:layout_height="30dp"
         android:layout_width="wrap_content"
+        android:layout_height="30dp"
         android:layout_marginStart="60dp"
-        android:layout_marginTop="0dp"
+        android:layout_alignParentTop="true"
         android:text="@string/devicename_english"
         android:gravity="center"
         android:textColor="@color/black"
         android:textSize="20sp"/>
 
-    <ImageView
-        android:id="@+id/DeviceIconRecyclerViewBluetooth"
+    <TextView
+        android:id="@+id/DeviceDistanceRecyclerViewBluetooth"
+        android:layout_width="wrap_content"
         android:layout_height="30dp"
-        android:layout_width="30dp"
-        android:layout_alignParentStart="true"
-        android:layout_alignTop="@id/DeviceNameRecyclerViewBluetooth"
-        app:srcCompat="@drawable/ble" />
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:text="12米"
+        android:gravity="center"
+        android:textColor="@color/black"
+        android:textSize="20sp"/>
+
+
+
+
+
 
 
 </RelativeLayout>

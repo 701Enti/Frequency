@@ -22,6 +22,7 @@
 
 package com.org701enti.frequency;
 
+import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -77,6 +78,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -255,15 +257,22 @@ public class MainActivity extends AppCompatActivity {
     //蓝牙设备列表模型类
     public class BluetoothDeviceModel {
         private BluetoothDevice device;
+
+        //设备的外观图标ID,其实就是外观值的bit6到bit15
+        //详见(2.6.2)https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf
         private int iconID;
 
-        public BluetoothDeviceModel(BluetoothDevice device) {
+        private int deviceDistance;//与设备的距离(单位:米)
+
+        public BluetoothDeviceModel(BluetoothDevice device,int deviceDistance) {
             this.device = device;
+            this.deviceDistance = deviceDistance;
             this.iconID = 0;
         }
 
-        public BluetoothDeviceModel(BluetoothDevice device,int iconID){
+        public BluetoothDeviceModel(BluetoothDevice device,int deviceDistance,int iconID){
             this.device = device;
+            this.deviceDistance = deviceDistance;
             this.iconID = iconID;
         }
 
@@ -271,7 +280,27 @@ public class MainActivity extends AppCompatActivity {
             return device;
         }
         public int getIconID(){ return iconID;}
+
+        public int getDeviceDistance() {
+            return deviceDistance;
+        }
+
+        public void setDeviceDistance(int deviceDistance) {
+            this.deviceDistance = deviceDistance;
+        }
     }
+
+    /**
+     * 粗略计算信号的传播距离2.4GHz
+     * @param powerTX 信号发射功率(单位:dBm)
+     * @param powerRX 信号接收功率(单位:dBm)
+     * @return 粗略估测距离(单位:m)
+     */
+    public double Distance2400MHZ(int powerTX,int powerRX){
+        //路径损耗(单位dB)L=powerTX - result.getRssi() ,f=2.4GHz,根据自由空间路径损耗公式,最后粗略得到:
+       return Math.pow(  10D , 0.9944D * ((powerTX - powerRX)/20D)-2.5D  );
+    }
+
 
     //扫描回调
     final ScanCallback bluetoothScanCallback = new ScanCallback() {
@@ -284,8 +313,22 @@ public class MainActivity extends AppCompatActivity {
             }
 
             //判断设备是否已经存在列表
-            for(BluetoothDeviceModel model : bluetoothDeviceRecyclerViewAdapter.getModelList()){
+            for(int i=0;i < bluetoothDeviceRecyclerViewAdapter.getModelList().size();i++){
+                BluetoothDeviceModel model = bluetoothDeviceRecyclerViewAdapter.getModelList().get(i);
+                //如果已经存在相同设备在列表
                 if(result.getDevice().equals(model.getDevice())){
+                    //更新设备的deviceDistance,但使用内部解析
+                    int distanceNow = 0;
+
+                    int powerTXint = 0;//Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
+                    powerTXint =  result.getTxPower(); //(使用内部解析以节约资源)获取蓝牙设备的信号发射功率水平(单位:dBm)
+                    if(powerTXint == Byte.MAX_VALUE){//如果无法读取
+                        powerTXint = 0;
+                    }
+                    distanceNow = (int) Distance2400MHZ(powerTXint,result.getRssi());
+
+                    model.setDeviceDistance(distanceNow);
+                    bluetoothDeviceRecyclerViewAdapter.notifyItemChanged(i);//提示信息更新,需要RecyclerView刷新显示
                     return;
                 }
             }
@@ -302,8 +345,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            //获取deviceDistance
+            int deviceDistance = 0;
+            byte powerTX = 0;//Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
+            BluetoothAD.AdvertisingStruct structPowerTX = bluetoothAD.Search(0x0A);//蓝牙设备的信号发射功率水平(单位:dBm)的结构数据
+            if(structPowerTX != null){//如果设备广播数据包含了,获取,如果没有包含,以powerTX = 0dBm计算
+                powerTX = structPowerTX.getAdData()[0];
+            }
+            deviceDistance = (int) Distance2400MHZ(powerTX,result.getRssi());
+
+
             //创建设备模型
-            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),iconID);//生成这个蓝牙设备的基本信息模型
+            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),deviceDistance,iconID);//生成这个蓝牙设备的基本信息模型
 
             //缓存到RecyclerView适配器内部列表
             int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
@@ -336,8 +389,9 @@ public class MainActivity extends AppCompatActivity {
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
             lottieAnimationBluetoothScanning.playAnimation();
-            MainTextViewBLE.setText(getString(R.string.bluetoohscanning_chinese));
+            MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
             isScanningBluetooth = true;
+            fadeOutMainTextViewBLE.start();
         }
     }
 
@@ -349,8 +403,9 @@ public class MainActivity extends AppCompatActivity {
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.startScan(bluetoothScanCallback);
             lottieAnimationBluetoothScanning.playAnimation();
-            MainTextViewBLE.setText(getString(R.string.bluetoohscanning_chinese));
+            MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
             isScanningBluetooth = true;
+            fadeOutMainTextViewBLE.start();
         }
     }
 
@@ -362,8 +417,9 @@ public class MainActivity extends AppCompatActivity {
         if(bluetoothAdapter != null && bluetoothLeScanner != null){
             bluetoothLeScanner.stopScan(bluetoothScanCallback);
             lottieAnimationBluetoothScanning.pauseAnimation();
-            MainTextViewBLE.setText(getString(R.string.slidevavetostartsacn_chinese));
+            MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
             isScanningBluetooth = false;
+            fadeOutMainTextViewBLE.start();
         }
     }
 
@@ -385,7 +441,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    //RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
+//RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
     public class BluetoothDeviceRecyclerViewAdapter extends RecyclerView.Adapter<BluetoothDeviceRecyclerViewAdapter.ViewHolder>
     {
         private  List<BluetoothDeviceModel> modelList;
@@ -397,42 +453,49 @@ public class MainActivity extends AppCompatActivity {
         @SuppressLint("MissingPermission")
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-            BluetoothDeviceModel deviceModel = null;
-            deviceModel = modelList.get(position);
-            if(deviceModel != null){
+            BluetoothDeviceModel targetModel = null;
+            targetModel = modelList.get(position);//获取要读取操作列表中的的deviceModel实例
+            //holder包含了需要刷新区域的对应View引用,实际存储在之前实例化的ViewHolder池中
 
+            if(targetModel != null){
                 //设备图标
-                int iconID = deviceModel.getIconID();
+                int iconID = targetModel.getIconID();
                 try {
                     InputStream iconInput = getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png");
-                    holder.DeviceIcon.setImageBitmap(BitmapFactory.decodeStream(iconInput));
+                    holder.deviceIcon.setImageBitmap(BitmapFactory.decodeStream(iconInput));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
 
                 //设备名
-                String name = deviceModel.getDevice().getName();
+                String name = targetModel.getDevice().getName();
                 if(name == null){
-                    holder.DeviceName.setText(getString(R.string.unknowndevice_chinese));
+                    holder.deviceName.setText(getString(R.string.unknowndevice_chinese));
                 }
                 else {
                     //确定显示的字符尺寸
                     int len = name.length();
                     if(len <= 8){
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*1);
+                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*1);
                     }
                     else if (len <= 8 * 3) {
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*1);
+                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*1);
                     }
                     else if (len <= 8 * 6) {
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*2);
+                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*2);
                     }
                     else{
-                        holder.DeviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*3);
+                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP,24f - 4f*3);
                     }
 
-                    holder.DeviceName.setText(name);
+                    holder.deviceName.setText(name);
                 }
+
+                //与设备的距离
+                int distance = targetModel.getDeviceDistance();
+                String showDistance = distance + getString(R.string.meter_rice_chinese);
+                holder.deviceDistance.setText(showDistance);
+
 
 
 
@@ -453,8 +516,9 @@ public class MainActivity extends AppCompatActivity {
          */
         public class ViewHolder extends RecyclerView.ViewHolder {
             //对象缓存
-            public TextView DeviceName;
-            public ImageView DeviceIcon;
+            public TextView deviceName;
+            public ImageView deviceIcon;
+            public TextView deviceDistance;
 
             //在构造方法将各种View引用缓存到ViewHolder池
             public ViewHolder(View viewHandle) {
@@ -463,8 +527,9 @@ public class MainActivity extends AppCompatActivity {
                 //如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正
                 super(viewHandle);
 
-                DeviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
-                DeviceIcon = viewHandle.findViewById(R.id.DeviceIconRecyclerViewBluetooth);
+                deviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
+                deviceIcon = viewHandle.findViewById(R.id.DeviceIconRecyclerViewBluetooth);
+                deviceDistance = viewHandle.findViewById(R.id.DeviceDistanceRecyclerViewBluetooth);
 
             }
         }
@@ -519,16 +584,18 @@ public class MainActivity extends AppCompatActivity {
             if(item.getItemId() == R.id.NavigationBLE){
                 if(isScanningBluetooth){
                     lottieAnimationBluetoothScanning.playAnimation();
-                    MainTextViewBLE.setText(getString(R.string.bluetoohscanning_chinese));
+                    MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
                 }
                 else{
                     lottieAnimationBluetoothScanning.pauseAnimation();
-                    MainTextViewBLE.setText(getString(R.string.slidevavetostartsacn_chinese));
+                    MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
                 }
 
                 recyclerViewBluetooth.setVisibility(View.VISIBLE);
                 lottieAnimationBluetoothScanning.setVisibility(View.VISIBLE);
                 MainTextViewBLE.setVisibility(View.VISIBLE);
+
+                fadeInMainTextViewBLE.start();
 
             }
             else {
@@ -638,36 +705,56 @@ public class MainActivity extends AppCompatActivity {
 
 ///手势控制-蓝牙扫描动画
     private GestureDetector  gestureBluetoothScanningAnimation = null;
-
     private class ListenerGestureBluetoothScanningAnimation extends GestureDetector.SimpleOnGestureListener{
         @Override
         public boolean onFling(@Nullable MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
             super.onFling(e1, e2, velocityX, velocityY);
-            if(!isScanningBluetooth){
-                BluetoothScanStart();//扫描启动
-            }
-            else{
-                float speedAnimation = lottieAnimationBluetoothScanning.getSpeed();
-                if(velocityX < 0 && speedAnimation + 1F <= 7){//向左滑动,正向时加速/反向时减速
-                    speedAnimation+= 1F;
-                    lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
-                }
-                if(velocityX > 0 && speedAnimation - 1F > 0){//向右滑动,正向时减速/反向时加速
-                    speedAnimation-= 1F;
-                    lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
-                }
-                else if(velocityX > 0 && speedAnimation - 0.1F > 0){//向右滑动,正向时减速/反向时加速
-                    speedAnimation-= 0.1F;
-                    lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
-                }
 
-            }
+            fadeInMainTextViewBLE.start();
 
+            //如果以水平滑动为主
+            if(Math.abs(velocityX) > Math.abs(velocityY)){
+                if(!isScanningBluetooth){
+                    BluetoothScanStart();//扫描启动
+                }
+                else{
+                    //如果已经启动,调节播放速度
+                    float speedAnimation = lottieAnimationBluetoothScanning.getSpeed();
+                    if(velocityX < 0 && speedAnimation + 1F <= 7){//向左滑动,正向时加速/反向时减速
+                        speedAnimation+= 1F;
+                        lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
+                    }
+                    if(velocityX > 0 && speedAnimation - 1F > 0){//向右滑动,正向时减速/反向时加速
+                        speedAnimation-= 1F;
+                        lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
+                    }
+                    else if(velocityX > 0 && speedAnimation - 0.1F > 0){//向右滑动,正向时减速/反向时加速
+                        speedAnimation-= 0.1F;
+                        lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
+                    }
+                }
+            }
+            else {//如果以垂直滑动为主
+                if(isScanningBluetooth){
+                    BluetoothScanStop();
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public boolean onDown(@NonNull MotionEvent e) {
+            super.onDown(e);
+
+            fadeInMainTextViewBLE.start();
+
+            //随机到任意播放位置
+            Random random = new Random();
+            lottieAnimationBluetoothScanning.setProgress(random.nextFloat());
 
             return true;
         }
     }
-
 
     @SuppressLint("ClickableViewAccessibility")
     private void InitGestureBluetoothScanningAnimation(){
@@ -686,11 +773,19 @@ public class MainActivity extends AppCompatActivity {
 
 ////主界面-BLE-MainTextViewBLE
     private TextView MainTextViewBLE = null;
+    private ObjectAnimator fadeOutMainTextViewBLE = null;
+    private ObjectAnimator fadeInMainTextViewBLE = null;
     private void InitMainTextViewBLE(){
+        //获取实例
         MainTextViewBLE = findViewById(R.id.MainTextViewBLE);
         MainTextViewBLE.setVisibility(View.GONE);
+        //创建消隐动画效果
+        fadeOutMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE,"alpha",1F,0F);
+        fadeOutMainTextViewBLE.setDuration(5000);
+        //创建淡入动画效果
+        fadeInMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE,"alpha",0F,1F);
+        fadeInMainTextViewBLE.setDuration(2000);
     }
-
 ////主UI
     private void InitUI(){
         InitRecyclerViewBluetooth();

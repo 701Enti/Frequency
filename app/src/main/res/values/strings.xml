@@ -13,6 +13,7 @@
     <string name="packagename">com.org701enti.frequency</string>
     <string name="unknowndevice_chinese">未知设备</string>
     <string name="devicename_english">DeviceName</string>
-    <string name="bluetoohscanning_chinese">正在扫描蓝牙BLE设备</string>
-    <string name="slidevavetostartsacn_chinese">滑动波形来启动扫描</string>
+    <string name="verticalslidevavetostopsacn_chinese_chinese">上下滑动波形来停止扫描</string>
+    <string name="horizontalslidevavetostartsacn_chinese">左右滑动波形来启动扫描</string>
+    <string name="meter_rice_chinese">米</string>
 </resources>

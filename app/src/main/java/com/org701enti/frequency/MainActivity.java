@@ -38,15 +38,21 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import android.Manifest;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.MenuItem;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
+
+import org.jetbrains.annotations.Nullable;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -62,6 +68,9 @@ public class MainActivity extends AppCompatActivity {
     //    权限申请标志
     private static boolean PermissionRequestingFlag = false;
 
+    //Fragment管理
+    FragmentManager managerFragmentMain = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -73,9 +82,18 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        InitUI();
+        //配置fragment
+        if(savedInstanceState == null){
+            managerFragmentMain = getSupportFragmentManager();
+            FragmentTransaction fragmentTransaction = managerFragmentMain.beginTransaction();
 
+            BleFragment bleFragment = BleFragment.newInstance();
+            fragmentTransaction.add(R.id.container_ble,bleFragment,getString(R.string.tag_blemaintransaction));
+            fragmentTransaction.hide(bleFragment);
+            fragmentTransaction.commitNow();
+        }
 
+        InitMainUI();
     }
 
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -199,10 +217,6 @@ public class MainActivity extends AppCompatActivity {
     public class MainBottomNavigationListener implements NavigationBarView.OnItemSelectedListener{
         @Override
         public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-            //主线程执行
-
-
-
 
             //独立线程ThreadMainBottomNavView执行
             HandlerMainBottomNavView[0].post(new Runnable() {
@@ -216,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
 
 //                          权限检查
                             try {
-                                PermissionApplyCheck(REQUEST_COARSE_LOCATION);
+                                PermissionApplyCheck(REQUEST_FINE_LOCATION);
                                 if(AndroidVersion >= Build.VERSION_CODES.S){
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_SCAN);
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE);
@@ -226,8 +240,6 @@ public class MainActivity extends AppCompatActivity {
                             catch (InterruptedException Inter){
                                 Thread.currentThread().interrupt();
                             }
-
-                            BluetoothOpenCheck();//检查蓝牙开启
 
                             break;
                         case R.id.NavigationControl:
@@ -244,6 +256,32 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             });
+
+            //主线程执行
+            HideFragment(getString(R.string.tag_blemaintransaction));
+
+            switch (item.getItemId()){
+                case R.id.NavigationDevice:
+
+                    break;
+                case R.id.NavigationBLE:
+
+                    ShowFragment(getString(R.string.tag_blemaintransaction));
+
+                    break;
+                case R.id.NavigationControl:
+
+                    break;
+                case R.id.NavigationWIFI:
+
+                    break;
+                case R.id.NavigationMe:
+
+                    break;
+                default:
+                    break;
+            }
+
             return true;
         }
     }
@@ -263,17 +301,61 @@ public class MainActivity extends AppCompatActivity {
         mainBottomNavView.setOnItemSelectedListener(new MainBottomNavigationListener());
     }
 
-
-
-
-
-
-
-
-
+    /**
+     * 隐藏掉指定的Fragment,通过TAG
+     * @param tag 在add时注册的TAG
+     * @param <F>设置Fragment的类型
+     */
+    public <F> void HideFragment(@Nullable String tag){
+        FragmentTransaction transaction = managerFragmentMain.beginTransaction();
+        F fragment = (F)managerFragmentMain.findFragmentByTag(tag);
+        if(fragment != null){
+            transaction.hide((Fragment) fragment);
+            transaction.commit();
+        }
+    }
+    /**
+     * 隐藏掉指定的Fragment,通过Fragment的容器ID
+     * @param id 布局文件中设置的Fragment的容器ID
+     * @param <F> 设置Fragment的类型
+     */
+    public <F> void HideFragment(int id){
+        FragmentTransaction transaction = managerFragmentMain.beginTransaction();
+        F fragment = (F)managerFragmentMain.findFragmentById(id);
+        if(fragment != null){
+            transaction.hide((Fragment) fragment);
+            transaction.commit();
+        }
+    }
+    /**
+     * 显示出指定的Fragment,通过TAG
+     * @param tag 在add时注册的TAG
+     * @param <F>设置Fragment的类型
+     */
+    public <F> void ShowFragment(@Nullable String tag){
+        FragmentTransaction transaction = managerFragmentMain.beginTransaction();
+        F fragment = (F)managerFragmentMain.findFragmentByTag(tag);
+        if(fragment != null){
+            transaction.show((Fragment) fragment);
+            transaction.commit();
+        }
+    }
+    /**
+     * 显示出指定的Fragment,通过Fragment的容器ID
+     * @param id 布局文件中设置的Fragment的容器ID
+     * @param <F> 设置Fragment的类型
+     */
+    public <F> void ShowFragment(int id){
+        FragmentTransaction transaction = managerFragmentMain.beginTransaction();
+        F fragment = (F)managerFragmentMain.findFragmentById(id);
+        if(fragment != null){
+            transaction.show((Fragment) fragment);
+            transaction.commit();
+        }
+    }
 
 ////主UI
-    private void InitUI(){
+    private void InitMainUI(){
         InitMainBottomNavigation();
     }
 }

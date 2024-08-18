@@ -17,5 +17,12 @@
         app:menu="@menu/main_bottom_nav_menu"
         android:background="?android:attr/windowBackground" />
 
+    <RelativeLayout
+        android:id="@+id/container_ble"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible"/>
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

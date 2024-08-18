@@ -26,6 +26,7 @@ import static android.content.Context.BLUETOOTH_SERVICE;
 
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -36,10 +37,17 @@ import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.os.Bundle;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContract;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -75,33 +83,15 @@ import java.util.Random;
  */
 public class BleFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
     public BleFragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment BleFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static BleFragment newInstance(String param1, String param2) {
+
+    public static BleFragment newInstance() {
         BleFragment fragment = new BleFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+
         fragment.setArguments(args);
         return fragment;
     }
@@ -109,72 +99,49 @@ public class BleFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+
+        InitBLE();
+
+        if(bluetoothAdapter == null){//已经初始化但还为空
+            //用户设备不支持蓝牙,弹出提示
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
+            builder.setTitle(R.string.error_chinese);
+            builder.setMessage(R.string.userdevicehardwareunsupport);
+            builder.setPositiveButton(getString(R.string.cancel_chinese), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+
+                }
+            });
+            builder.setNegativeButton(getString(R.string.returnapp_chinese), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+
+                }
+            });
         }
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.ble_fragment, container, false);
+        View view = inflater.inflate(R.layout.ble_fragment, container, false);
+
+        //创建其他布局
+        CreateRecyclerViewBluetooth(view);
+
+        //加载布局文件
+        return view;
     }
 
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
+        InitBleFragmentUI(view);
+    }
 
-
-
-
-//    //切换到BLE界面
-//            if(item.getItemId() == R.id.NavigationBLE){
-//        if(bluetoothAdapter == null){//已经初始化但还为空
-//            //用户设备不支持蓝牙,弹出提示
-//            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-//            builder.setTitle(R.string.error_chinese);
-//            builder.setMessage(R.string.userdevicehardwareunsupport);
-//            builder.setPositiveButton(getString(R.string.cancel_chinese), new DialogInterface.OnClickListener() {
-//                @Override
-//                public void onClick(DialogInterface dialogInterface, int i) {
-//
-//                }
-//            });
-//
-//
-//
-//        }
-//
-//        if(isScanningBluetooth){
-//            lottieAnimationBluetoothScanning.playAnimation();
-//            MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
-//        }
-//        else{
-//            lottieAnimationBluetoothScanning.pauseAnimation();
-//            MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
-//        }
-//
-//        recyclerViewBluetooth.setVisibility(View.VISIBLE);
-//        lottieAnimationBluetoothScanning.setVisibility(View.VISIBLE);
-//        MainTextViewBLE.setVisibility(View.VISIBLE);
-//
-//        fadeInMainTextViewBLE.start();
-//
-//    }
-//            else {
-//        recyclerViewBluetooth.setVisibility(View.GONE);
-//        lottieAnimationBluetoothScanning.setVisibility(View.GONE);
-//        MainTextViewBLE.setVisibility(View.GONE);
-//        lottieAnimationBluetoothScanning.pauseAnimation();
-//    }
-
-
-
-
-
-
-
-////蓝牙内部处理业务
+    ////蓝牙内部处理业务
     private BluetoothAdapter bluetoothAdapter = null;
     private BluetoothLeScanner bluetoothLeScanner = null;
     final Handler[] HandlerBluetooth = {null};//缓存蓝牙处理线程handler
@@ -182,6 +149,8 @@ public class BleFragment extends Fragment {
     private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
     private RecyclerView recyclerViewBluetooth = null;
     private boolean isScanningBluetooth = false;
+
+    final int REQUEST_BLUETOOTH_ENABLE = 201;
 
     private void InitBLE() {
 //        //创建蓝牙相关处理线程(含Looper)
@@ -217,6 +186,7 @@ public class BleFragment extends Fragment {
             if (!bluetoothAdapter.isEnabled()) {
                 Handler handler = new Handler(Looper.getMainLooper());
                 handler.post(new Runnable() {
+                    //请求用户启动蓝牙
                     @Override
                     public void run() {
                         bluetoothAdapter.enable();
@@ -231,12 +201,15 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null && bluetoothAdapter.isEnabled() && !isScanningBluetooth){
             bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
             lottieAnimationBluetoothScanning.playAnimation();
             MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
             isScanningBluetooth = true;
             fadeOutMainTextViewBLE.start();
+        }
+        else{
+            BluetoothOpenCheck();//检查蓝牙开启
         }
     }
 
@@ -245,12 +218,15 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null && bluetoothAdapter.isEnabled() && !isScanningBluetooth){
             bluetoothLeScanner.startScan(bluetoothScanCallback);
             lottieAnimationBluetoothScanning.playAnimation();
             MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
             isScanningBluetooth = true;
             fadeOutMainTextViewBLE.start();
+        }
+        else {
+            BluetoothOpenCheck();//检查蓝牙开启
         }
     }
 
@@ -259,12 +235,15 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStop(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null){
+        if(bluetoothAdapter != null && bluetoothLeScanner != null && bluetoothAdapter.isEnabled() && isScanningBluetooth){
             bluetoothLeScanner.stopScan(bluetoothScanCallback);
             lottieAnimationBluetoothScanning.pauseAnimation();
             MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
             isScanningBluetooth = false;
             fadeOutMainTextViewBLE.start();
+        }
+        else {
+            BluetoothOpenCheck();//检查蓝牙开启
         }
     }
 
@@ -408,9 +387,9 @@ public class BleFragment extends Fragment {
             outRect.top = verticalSpaceHeight;
         }
     }
-    private void InitRecyclerViewBluetooth(){
+    private void CreateRecyclerViewBluetooth(View view){
         bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
-        recyclerViewBluetooth = requireView().findViewById(R.id.RecyclerViewBluetooth);
+        recyclerViewBluetooth = view.findViewById(R.id.RecyclerViewBluetooth);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
         recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(requireActivity()));
         recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(90));
@@ -436,15 +415,25 @@ public class BleFragment extends Fragment {
             if(targetModel != null){
                 //设备图标
                 int iconID = targetModel.getIconID();
-                try {
-                    InputStream iconInput = requireActivity().getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png");
-                    holder.deviceIcon.setImageBitmap(BitmapFactory.decodeStream(iconInput));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                Bitmap iconBitmap = null;
+                try(InputStream iconInput = requireActivity().getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png")) {
+                    iconBitmap = BitmapFactory.decodeStream(iconInput);
+                    if(iconBitmap == null){
+                        holder.deviceIcon.setImageResource(R.drawable.ble);
+                    }
+                }
+                catch (IOException e) {
+                    holder.deviceIcon.setImageResource(R.drawable.ble);
+                }
+                if(iconBitmap != null){
+                    holder.deviceIcon.setImageBitmap(iconBitmap);
                 }
 
                 //设备名
-                String name = targetModel.getDevice().getName();
+                String name = null;
+                if(targetModel.getDevice() != null){
+                    name = targetModel.getDevice().getName();
+                }
                 if(name == null){
                     holder.deviceName.setText(getString(R.string.unknowndevice_chinese));
                 }
@@ -521,9 +510,6 @@ public class BleFragment extends Fragment {
         }
     }
 
-
-
-
     /**
      * (内部回归主线程处理)清除蓝牙设备列表并请求列表刷新
      */
@@ -541,14 +527,29 @@ public class BleFragment extends Fragment {
         });
     }
 
+    /**
+     * (用于开发测试)测试蓝牙设备看板,将虚拟一个蓝牙设备存储到列表,测试功能,其中BluetoothDevice设置为空
+     * @param deviceDistance 设备距离
+     * @param iconID 设备外观图标ID
+     */
+    public void TestAddBluetoothDeviceRecyclerView(int deviceDistance,int iconID){
+        //创建设备模型
+        BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(null,deviceDistance,iconID);//生成这个蓝牙设备的基本信息模型
+        //缓存到RecyclerView适配器内部列表
+        int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
+        bluetoothDeviceRecyclerViewAdapter.getModelList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
+        bluetoothDeviceRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
+    }
+
+
+
 ////UI-主界面-BLE-MainTextViewBLE
     private TextView MainTextViewBLE = null;
     private ObjectAnimator fadeOutMainTextViewBLE = null;
     private ObjectAnimator fadeInMainTextViewBLE = null;
-    private void InitMainTextViewBLE(){
+    private void InitMainTextViewBLE(View view){
         //获取实例
-        MainTextViewBLE = requireActivity().findViewById(R.id.MainTextViewBLE);
-        MainTextViewBLE.setVisibility(View.GONE);
+        MainTextViewBLE = view.findViewById(R.id.MainTextViewBLE);
         //创建消隐动画效果
         fadeOutMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE,"alpha",1F,0F);
         fadeOutMainTextViewBLE.setDuration(5000);
@@ -560,9 +561,8 @@ public class BleFragment extends Fragment {
 
 ////UI-蓝牙扫描动画
     private LottieAnimationView lottieAnimationBluetoothScanning = null;
-    private void InitAnimationBluetoothScanning(){
-        lottieAnimationBluetoothScanning = requireActivity().findViewById(R.id.LottieAnimationBluetoothScanning);
-        lottieAnimationBluetoothScanning.setVisibility(View.GONE);
+    private void InitAnimationBluetoothScanning(View view){
+        lottieAnimationBluetoothScanning = view.findViewById(R.id.LottieAnimationBluetoothScanning);
     }
 
 
@@ -620,9 +620,9 @@ public class BleFragment extends Fragment {
         }
     }
     @SuppressLint("ClickableViewAccessibility")
-    private void InitGestureBluetoothScanningAnimation(){
+    private void InitGestureBluetoothScanningAnimation(View view){
         gestureBluetoothScanningAnimation = new GestureDetector(requireActivity(),new ListenerGestureBluetoothScanningAnimation());
-        LottieAnimationView detectView = requireActivity().findViewById(R.id.LottieAnimationBluetoothScanning);
+        LottieAnimationView detectView = view.findViewById(R.id.LottieAnimationBluetoothScanning);
 
         detectView.setOnTouchListener(new View.OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")
@@ -633,13 +633,16 @@ public class BleFragment extends Fragment {
         });
     }
 
+    /**
+     * 初始化BleFragment的UI界面
+     * @param view onCreateView返回的根视图实例
+     */
+    private void InitBleFragmentUI(View view){
+        InitAnimationBluetoothScanning(view);
+        InitMainTextViewBLE(view);
 
-    private void InitBleFragmentUI(){
-        InitRecyclerViewBluetooth();
-        InitAnimationBluetoothScanning();
-        InitMainTextViewBLE();
+        InitGestureBluetoothScanningAnimation(view);
 
-        InitGestureBluetoothScanningAnimation();
     }
 
 

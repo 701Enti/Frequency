@@ -21,4 +21,6 @@
     <string name="cancel_chinese">取消</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="returnapp_chinese">退出APP</string>
+    <string name="tag_blemaintransaction">TagBleMainTransaction</string>
 </resources>

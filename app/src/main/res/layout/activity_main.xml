@@ -15,7 +15,8 @@
         app:labelVisibilityMode="selected"
         android:scrollbars="vertical"
         app:menu="@menu/main_bottom_nav_menu"
-        android:background="?android:attr/windowBackground" />
+        android:background="?android:attr/windowBackground"
+        tools:ignore="MissingConstraints" />
 
     <RelativeLayout
         android:id="@+id/container_ble"

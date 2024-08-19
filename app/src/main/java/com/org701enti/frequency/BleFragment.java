@@ -107,7 +107,7 @@ public class BleFragment extends Fragment {
 
         InitBLE();
 
-        if(bluetoothAdapter == null){//已经初始化但还为空
+        if(bluetoothAdapter == null || bluetoothLeScanner == null){//已经初始化但还为空
             //用户设备不支持蓝牙,弹出提示
             AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
             builder.setTitle(R.string.error_chinese);
@@ -125,7 +125,6 @@ public class BleFragment extends Fragment {
                 }
             });
         }
-
     }
 
     @Override
@@ -176,13 +175,15 @@ public class BleFragment extends Fragment {
         //检查并启动
         //用于可能弹出打开蓝牙的询问框,回归主线程处理
         if (bluetoothAdapter != null) {
-            if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF) {
+            if (bluetoothAdapter.getState() != BluetoothAdapter.STATE_ON) {
                 Handler handler = new Handler(Looper.getMainLooper());
                 handler.post(new Runnable() {
                     //请求用户启动蓝牙
                     @Override
                     public void run() {
                         bluetoothAdapter.enable();
+                        MainTextViewBLE.setText(R.string.pleasecontinuewhenbluetoothenabled_chinese);
+                        fadeInMainTextViewBLE.start();
                     }
                 });
             }
@@ -194,16 +195,27 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null && !isScanningBluetooth){
-            if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
-                bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
-                lottieAnimationBluetoothScanning.playAnimation();
-                MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
-                isScanningBluetooth = true;
-                fadeOutMainTextViewBLE.start();
-            }
-            else{
+        if(!isScanningBluetooth){
+
+            //我们这里有必要解释为什么使用两次bluetoothLeScanner的null判断
+            //(请您见下面BluetoothScanStop方法中的注释)
+
+            if(bluetoothLeScanner == null){
+                //当以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
                 BluetoothOpenCheck();//检查蓝牙开启
+                InitBLE();
+            }
+            if(bluetoothLeScanner != null){
+                if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
+                    bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
+                    lottieAnimationBluetoothScanning.playAnimation();
+                    MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                    isScanningBluetooth = true;
+                    fadeOutMainTextViewBLE.start();
+                }
+                else{
+                    BluetoothOpenCheck();//检查蓝牙开启
+                }
             }
         }
     }
@@ -213,16 +225,27 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null && !isScanningBluetooth){
-            if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
-                bluetoothLeScanner.startScan(bluetoothScanCallback);
-                lottieAnimationBluetoothScanning.playAnimation();
-                MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
-                isScanningBluetooth = true;
-                fadeOutMainTextViewBLE.start();
-            }
-            else {
+        if(!isScanningBluetooth){
+
+            //我们这里有必要解释为什么使用两次bluetoothLeScanner的null判断
+            //(请您见下面BluetoothScanStop方法中的注释)
+
+            if(bluetoothLeScanner == null){
+                //当以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
                 BluetoothOpenCheck();//检查蓝牙开启
+                InitBLE();
+            }
+            if(bluetoothLeScanner != null){
+                if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
+                    bluetoothLeScanner.startScan(bluetoothScanCallback);
+                    lottieAnimationBluetoothScanning.playAnimation();
+                    MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                    isScanningBluetooth = true;
+                    fadeOutMainTextViewBLE.start();
+                }
+                else{
+                    BluetoothOpenCheck();//检查蓝牙开启
+                }
             }
         }
     }
@@ -232,17 +255,35 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStop(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null && isScanningBluetooth){
-            if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
-                bluetoothLeScanner.stopScan(bluetoothScanCallback);
-                lottieAnimationBluetoothScanning.pauseAnimation();
-                MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
-                isScanningBluetooth = false;
-                fadeOutMainTextViewBLE.start();
-            }
-            else {
+        if(isScanningBluetooth){
+
+            //我们这里有必要解释为什么使用两次bluetoothLeScanner的null判断
+            //在当用户以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
+            //我们期望选择这个时机来恢复正轨,因为用户现在非常明确他是希望使用蓝牙功能的,不是有意的
+            //如果此时执行该方法,进入==null这个代码块,我们会请求系统弹出"是否打开蓝牙",之后我们重新初始化
+            //但是我们需要澄清的是,重新初始化后,未必还是成功的,所以大概率是无法继续!= null这个代码块的
+            //这是因为请求打开蓝牙需要用户操作之后,才会可能启动,相对是异步的,所以等蓝牙启动后,早就已经结束方法了
+            //那么非常显然的,如果用户再次触发执行这个方法,我们便顺理成章地在用户完成打开蓝牙的状态下正常初始化了
+            //之后使用两次bluetoothLeScanner的null判断的优势就出现了,我们可以继续!= null这个代码块,正常启动需求
+            //这样我们在用户不知情的情况下完成了两个任务,如果我们判断一次== null再加上else就草草结束,您会发现用户必须额外再次触发一次该方法在初始化后正式运行
+
+            if(bluetoothLeScanner == null){
                 BluetoothOpenCheck();//检查蓝牙开启
+                InitBLE();
             }
+            if(bluetoothLeScanner != null){
+                if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
+                    bluetoothLeScanner.stopScan(bluetoothScanCallback);
+                    lottieAnimationBluetoothScanning.pauseAnimation();
+                    MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
+                    isScanningBluetooth = false;
+                    fadeOutMainTextViewBLE.start();
+                }
+                else{
+                    BluetoothOpenCheck();//检查蓝牙开启
+                }
+            }
+
         }
     }
 

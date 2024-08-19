@@ -28,6 +28,8 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.job.JobScheduler;
+import android.app.job.JobService;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -36,8 +38,11 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
@@ -120,6 +125,7 @@ public class BleFragment extends Fragment {
                 }
             });
         }
+
     }
 
     @Override
@@ -144,26 +150,13 @@ public class BleFragment extends Fragment {
     ////蓝牙内部处理业务
     private BluetoothAdapter bluetoothAdapter = null;
     private BluetoothLeScanner bluetoothLeScanner = null;
-    final Handler[] HandlerBluetooth = {null};//缓存蓝牙处理线程handler
     private static List<BluetoothDeviceModel> bluetoothDevicesList = new ArrayList<>();
     private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
     private RecyclerView recyclerViewBluetooth = null;
     private boolean isScanningBluetooth = false;
 
-    final int REQUEST_BLUETOOTH_ENABLE = 201;
 
     private void InitBLE() {
-//        //创建蓝牙相关处理线程(含Looper)
-//        Thread ThreadBluetooth = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                Looper.prepare();
-//                HandlerBluetooth[0] = new Handler(Looper.myLooper());
-//                Looper.loop();
-//            }
-//        });
-//        ThreadBluetooth.start();//启动该线程
-
         //获取BLEadapter实例
         BluetoothManager BLEmanager = (BluetoothManager) requireActivity().getSystemService(BLUETOOTH_SERVICE);
         if (BLEmanager != null) {
@@ -183,7 +176,7 @@ public class BleFragment extends Fragment {
         //检查并启动
         //用于可能弹出打开蓝牙的询问框,回归主线程处理
         if (bluetoothAdapter != null) {
-            if (!bluetoothAdapter.isEnabled()) {
+            if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF) {
                 Handler handler = new Handler(Looper.getMainLooper());
                 handler.post(new Runnable() {
                     //请求用户启动蓝牙
@@ -201,15 +194,17 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null && bluetoothAdapter.isEnabled() && !isScanningBluetooth){
-            bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
-            lottieAnimationBluetoothScanning.playAnimation();
-            MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
-            isScanningBluetooth = true;
-            fadeOutMainTextViewBLE.start();
-        }
-        else{
-            BluetoothOpenCheck();//检查蓝牙开启
+        if(bluetoothAdapter != null && bluetoothLeScanner != null && !isScanningBluetooth){
+            if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
+                bluetoothLeScanner.startScan(filters,settings,bluetoothScanCallback);
+                lottieAnimationBluetoothScanning.playAnimation();
+                MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                isScanningBluetooth = true;
+                fadeOutMainTextViewBLE.start();
+            }
+            else{
+                BluetoothOpenCheck();//检查蓝牙开启
+            }
         }
     }
 
@@ -218,15 +213,17 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStart(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null && bluetoothAdapter.isEnabled() && !isScanningBluetooth){
-            bluetoothLeScanner.startScan(bluetoothScanCallback);
-            lottieAnimationBluetoothScanning.playAnimation();
-            MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
-            isScanningBluetooth = true;
-            fadeOutMainTextViewBLE.start();
-        }
-        else {
-            BluetoothOpenCheck();//检查蓝牙开启
+        if(bluetoothAdapter != null && bluetoothLeScanner != null && !isScanningBluetooth){
+            if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON){
+                bluetoothLeScanner.startScan(bluetoothScanCallback);
+                lottieAnimationBluetoothScanning.playAnimation();
+                MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                isScanningBluetooth = true;
+                fadeOutMainTextViewBLE.start();
+            }
+            else {
+                BluetoothOpenCheck();//检查蓝牙开启
+            }
         }
     }
 
@@ -235,15 +232,17 @@ public class BleFragment extends Fragment {
      */
     @SuppressLint("MissingPermission")
     public void BluetoothScanStop(){
-        if(bluetoothAdapter != null && bluetoothLeScanner != null && bluetoothAdapter.isEnabled() && isScanningBluetooth){
-            bluetoothLeScanner.stopScan(bluetoothScanCallback);
-            lottieAnimationBluetoothScanning.pauseAnimation();
-            MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
-            isScanningBluetooth = false;
-            fadeOutMainTextViewBLE.start();
-        }
-        else {
-            BluetoothOpenCheck();//检查蓝牙开启
+        if(bluetoothAdapter != null && bluetoothLeScanner != null && isScanningBluetooth){
+            if(bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
+                bluetoothLeScanner.stopScan(bluetoothScanCallback);
+                lottieAnimationBluetoothScanning.pauseAnimation();
+                MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
+                isScanningBluetooth = false;
+                fadeOutMainTextViewBLE.start();
+            }
+            else {
+                BluetoothOpenCheck();//检查蓝牙开启
+            }
         }
     }
 

@@ -26,10 +26,7 @@ import static android.content.Context.BLUETOOTH_SERVICE;
 
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.job.JobScheduler;
-import android.app.job.JobService;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -38,21 +35,12 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.os.Bundle;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContract;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -68,6 +56,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -78,7 +67,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -401,7 +389,6 @@ public class BleFragment extends Fragment {
         public void onBatchScanResults(List<ScanResult> results) {
             super.onBatchScanResults(results);
             if(results != null){
-
             }
         }
 
@@ -500,6 +487,8 @@ public class BleFragment extends Fragment {
                 int distance = targetModel.getDeviceDistance();
                 String showDistance = distance + getString(R.string.meter_rice_chinese);
                 holder.deviceDistance.setText(showDistance);
+                holder.fadeInDeviceDistance.start();
+
             }
         }
 
@@ -517,9 +506,11 @@ public class BleFragment extends Fragment {
          */
         public class ViewHolder extends RecyclerView.ViewHolder {
             //对象缓存
-            public TextView deviceName;
-            public ImageView deviceIcon;
-            public TextView deviceDistance;
+            public TextView deviceName = null;
+            public ImageView deviceIcon = null;
+            public TextView deviceDistance = null;
+
+            public ObjectAnimator fadeInDeviceDistance = null;
 
             //在构造方法将各种View引用缓存到ViewHolder池
             public ViewHolder(View viewHandle) {
@@ -528,10 +519,17 @@ public class BleFragment extends Fragment {
                 //如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正
                 super(viewHandle);
 
+                //元素View相关
                 deviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
                 deviceIcon = viewHandle.findViewById(R.id.DeviceIconRecyclerViewBluetooth);
                 deviceDistance = viewHandle.findViewById(R.id.DeviceDistanceRecyclerViewBluetooth);
 
+                //动画效果
+                if(deviceDistance != null) {
+                    fadeInDeviceDistance = ObjectAnimator.ofFloat(deviceDistance,"alpha",0F,1F);
+                    fadeInDeviceDistance.setDuration(1000);
+                    fadeInDeviceDistance.setInterpolator(new DecelerateInterpolator());
+                }
             }
         }
 

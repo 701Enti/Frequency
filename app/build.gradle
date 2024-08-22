@@ -1,5 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
+
+    id 'com.google.devtools.ksp'
+
+    id 'androidx.room'
+
+
 }
 
 android {
@@ -23,8 +29,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     sourceSets {
         main {
@@ -33,6 +39,12 @@ android {
             }
         }
     }
+
+    room {
+        schemaDirectory "$projectDir/schemas"
+    }
+
+
 }
 
 dependencies {
@@ -45,7 +57,36 @@ dependencies {
     implementation 'com.airbnb.android:lottie:6.5.0'
     implementation libs.recyclerview
     implementation libs.material.v1120
-    
+
+
+
+    def room_version = "2.6.1"
+
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+
+//    // To use Kotlin annotation processing tool (kapt)
+//    kapt "androidx.room:room-compiler:$room_version"
+    // To use Kotlin Symbol Processing (KSP)
+    ksp "androidx.room:room-compiler:$room_version"
+
+    // optional - RxJava2 support for Room
+    implementation "androidx.room:room-rxjava2:$room_version"
+
+    // optional - RxJava3 support for Room
+    implementation "androidx.room:room-rxjava3:$room_version"
+
+    // optional - Guava support for Room, including Optional and ListenableFuture
+    implementation "androidx.room:room-guava:$room_version"
+
+    // optional - Test helpers
+    testImplementation "androidx.room:room-testing:$room_version"
+
+    // optional - Paging 3 Integration
+    implementation "androidx.room:room-paging:$room_version"
+
+
+
     implementation project(path:':BluetoothFocuser')
 
 }

@@ -23,6 +23,7 @@
 package com.org701enti.frequency;
 
 import static android.content.Context.BLUETOOTH_SERVICE;
+import static android.content.Context.WINDOW_SERVICE;
 
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
@@ -49,6 +50,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.GestureDetector;
@@ -56,6 +58,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -497,8 +500,8 @@ public class BleFragment extends Fragment {
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LayoutInflater inflaterBuf = LayoutInflater.from(parent.getContext());
             //实例化自定义布局R.layout.recyclerviewbluetooth
-            View viewHandle = inflaterBuf.inflate(R.layout.recyclerviewbluetooth, parent, false);
-            return new ViewHolder(viewHandle);
+            View view = inflaterBuf.inflate(R.layout.recyclerviewbluetooth, parent, false);
+            return new ViewHolder(view);
         }
 
         /**
@@ -513,16 +516,16 @@ public class BleFragment extends Fragment {
             public ObjectAnimator fadeInDeviceDistance = null;
 
             //在构造方法将各种View引用缓存到ViewHolder池
-            public ViewHolder(View viewHandle) {
+            public ViewHolder(View view) {
                 //super调用父类RecyclerView.ViewHolder构造方法,并传递了参数viewHandle
                 //即自定义布局R.layout.recyclerviewbluetooth的实例,因此自定义布局文件的配置会对效果产生影响
                 //如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正
-                super(viewHandle);
+                super(view);
 
                 //元素View相关
-                deviceName = viewHandle.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
-                deviceIcon = viewHandle.findViewById(R.id.DeviceIconRecyclerViewBluetooth);
-                deviceDistance = viewHandle.findViewById(R.id.DeviceDistanceRecyclerViewBluetooth);
+                deviceName = view.findViewById(R.id.DeviceNameRecyclerViewBluetooth);
+                deviceIcon = view.findViewById(R.id.DeviceIconRecyclerViewBluetooth);
+                deviceDistance = view.findViewById(R.id.DeviceDistanceRecyclerViewBluetooth);
 
                 //动画效果
                 if(deviceDistance != null) {
@@ -530,6 +533,131 @@ public class BleFragment extends Fragment {
                     fadeInDeviceDistance.setDuration(1000);
                     fadeInDeviceDistance.setInterpolator(new DecelerateInterpolator());
                 }
+
+
+                //用户操作
+
+                //在行单元触发对应结果的控制面板,不松手继续滑动选择指定操作
+                view.setOnTouchListener(new View.OnTouchListener() {
+                    float progress = 0;//扫描动画播放进度
+                    String nameBuf = getString(R.string.unknowndevice_chinese);
+                    //以下坐标单位均为像素px
+                    float startX = 0;//开始按下时的横坐标
+                    float currentX = 0;//当前手指滑动位置的横坐标
+                    float displayX = 0;//屏幕的最大横坐标
+                    @SuppressLint("ClickableViewAccessibility")
+                    @Override
+                    public boolean onTouch(View v, MotionEvent event) {
+                        switch (event.getAction()){
+                            //在开始按下时
+                            case MotionEvent.ACTION_DOWN:{
+                                //缓存设备名称
+
+
+
+
+
+                                //记录开始按下的坐标
+                                startX = event.getX();
+                                //获取屏幕的最大横坐标(单位像素px)
+                                DisplayMetrics displayMetrics = new DisplayMetrics();
+                                WindowManager windowManager = (WindowManager)requireActivity().getSystemService(WINDOW_SERVICE);
+                                windowManager.getDefaultDisplay().getMetrics(displayMetrics);
+                                displayX = displayMetrics.widthPixels;
+                                //先保证扫描动画暂停,但是扫描继续,切换到中间进度(实际为25%,因为50%-100%是0%-50%的倒放)
+                                lottieAnimationBluetoothScanning.pauseAnimation();
+                                lottieAnimationBluetoothScanning.setProgress(0.25F);
+                                //保证现在不隐藏deviceDistance的显示
+                                deviceDistance.setAlpha(1F);
+                                break;
+                            }
+
+                            //以下对View元素的设置是一时的,一但发生RecyclerView的视图重构会马上重新绘制,这些状态就丢失了
+                            //在线设备被扫描到就会更新视图,不用等到视图重构,所以会马上恢复,但是还是可以停留几秒,因为扫描是耗时的
+                            //如果这个设备一直扫描不到即离线了,恢复概率会大大降低
+
+                            //在滑动时
+                            case MotionEvent.ACTION_MOVE:{
+                                currentX = event.getX();
+                                if(displayX != 0){
+                                    progress = 0.25F + 0.25F * (currentX - startX) / (displayX/2);
+                                    if(progress >= 0F && progress <= 0.5F){
+
+                                        //设置动画进度在25%根据滑动距离和方向偏移±25%
+                                        //因为50%-100%的片段其实是0%-50%的倒放,使用一半即可
+                                        lottieAnimationBluetoothScanning.setProgress(progress);
+
+                                        //显示实时的横坐标偏移
+                                        String dxShow = (int)(currentX - startX) + "px";
+                                        deviceDistance.setText(dxShow);
+
+                                        //选择操作,期间蓝牙设备图标会变成操作的标识图标
+                                        //   |             |             |
+                                        //   0%           25%           50%
+                                        // |0-15||15-20||20-30||30-35||35-50|
+                                        //加入设备 将其置顶  取消 检查信息 开始控制
+                                        //-------------------------------------
+                                        if(progress <= 0.15F){
+                                            deviceIcon.setImageResource(R.drawable.addtodevice);//加入设备
+                                            deviceName.setText(R.string.addtodevice_chinese);
+                                        }
+                                        if(progress > 0.15F && progress <= 0.20F){
+                                            deviceIcon.setImageResource(R.drawable.sticktotop);//将其置顶
+                                            deviceName.setText(R.string.sticktotop_chinese);
+                                        }
+                                        if(progress > 0.20F && progress < 0.30F){
+                                            deviceIcon.setImageResource(R.drawable.undo);//取消
+                                            deviceName.setText(R.string.cancel_chinese);
+                                        }
+                                        if(progress >= 0.30F && progress < 0.35F){
+                                            deviceIcon.setImageResource(R.drawable.checkinformation);//检查信息
+                                            deviceName.setText(R.string.checkinformation_chinese);
+                                        }
+                                        if(progress >= 0.35F){
+                                            deviceIcon.setImageResource(R.drawable.startcontrol);//开始控制
+                                            deviceName.setText(R.string.startcontrol_chinese);
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+
+                            //在松开时
+                            case MotionEvent.ACTION_UP:
+                            {
+                                String lastShow = deviceName.getText() + "-" + nameBuf;
+                                deviceName.setText(lastShow);
+                                deviceDistance.setAlpha(0F);//可能显示空间不够,暂时隐藏deviceDistance的显示
+
+                                if(isScanningBluetooth){
+                                    lottieAnimationBluetoothScanning.playAnimation();
+                                }
+                                break;
+                            }
+
+                            //在取消时,取消可能是由于其他事件切入,如来电和用户应用切换,系统警告等等
+                            case MotionEvent.ACTION_CANCEL:{
+                                deviceIcon.setImageResource(R.drawable.undo);//取消操作
+                                deviceName.setText(R.string.cancel_chinese);
+
+                                String lastShow = getString(R.string.cancel_chinese) + "-" + nameBuf;
+                                deviceName.setText(lastShow);
+                                deviceDistance.setAlpha(0F);//可能显示空间不够,暂时隐藏deviceDistance的显示
+
+                                if(isScanningBluetooth){
+                                    lottieAnimationBluetoothScanning.playAnimation();
+                                }
+                                break;
+                            }
+                        }
+
+                        return true;
+                    }
+                });
+
+
+
+
             }
         }
 

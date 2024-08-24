@@ -17,7 +17,10 @@ public class DeviceBleEntity {
 
         private String bleDeviceName;//扫描设备时得到的设备名
 
-        //配对密码与唯一确定,安全检测等其他请查看相关其他实体定义
+        @PrimaryKey(autoGenerate = false)
+        private String bleDeviceSha256;//设备的SHA-256唯一性与安全校验码
+
+        //配对密码,风险识别等请查看其他相关实体定义
 
         public BleDeviceMainEntity(){
 
@@ -39,7 +42,9 @@ public class DeviceBleEntity {
             return bleDeviceName;
         }
 
-
+        public String getBleDeviceSha256() {
+            return bleDeviceSha256;
+        }
 
         public void setBleDeviceId(long bleDeviceId) {
             this.bleDeviceId = bleDeviceId;
@@ -49,12 +54,16 @@ public class DeviceBleEntity {
             this.bleDeviceIconId = bleDeviceIconId;
         }
 
+        public void setLastActiveTimestamp(long lastActiveTimestamp) {
+            this.lastActiveTimestamp = lastActiveTimestamp;
+        }
+
         public void setBleDeviceName(String bleDeviceName) {
             this.bleDeviceName = bleDeviceName;
         }
 
-        public void setLastActiveTimestamp(long lastActiveTimestamp) {
-            this.lastActiveTimestamp = lastActiveTimestamp;
+        public void setBleDeviceSha256(String bleDeviceSha256) {
+            this.bleDeviceSha256 = bleDeviceSha256;
         }
     }
 

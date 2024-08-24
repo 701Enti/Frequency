@@ -15,6 +15,7 @@
     <string name="devicename_english">DeviceName</string>
     <string name="verticalslidevavetostopsacn_chinese_chinese">上下滑动波形来停止扫描</string>
     <string name="horizontalslidevavetostartsacn_chinese">左右滑动波形来启动扫描</string>
+    <string name="horizontalslidetoselectoperaction_chinese">左右滑动来选择操作</string>
     <string name="meter_rice_chinese">米</string>
     <string name="error_chinese">异常</string>
     <string name="userdevicehardwareunsupport">抱歉,您的设备的硬件当前可能无法支持所需操作</string>

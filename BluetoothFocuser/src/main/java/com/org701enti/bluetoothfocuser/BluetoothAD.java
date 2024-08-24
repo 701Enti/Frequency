@@ -26,6 +26,8 @@ package com.org701enti.bluetoothfocuser;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -274,9 +276,32 @@ public class BluetoothAD {
         }
     }
 
+    public String RawCodeFetchSha256String(byte[] rawCode){
+        try{
+            //转换为Sha256Code
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            messageDigest.update(rawCode);
+            byte[] codeBuf = messageDigest.digest();
+            //输出String类型
+            StringBuilder builder = new StringBuilder();
+            for(byte dec : codeBuf){
+                String hex = Integer.toHexString(0xFF & dec);
+                builder.append(hex);//直接拼接不考虑前导0
+            }
+            return  builder.toString();
+        }
+        catch (NoSuchAlgorithmException e){
+            return null;
+        }
+    }
+
 
     //主列表
-    private List<AdvertisingStruct> MainAdvertisingList = new ArrayList<>();
+    private List<AdvertisingStruct> mainListAdvertising = new ArrayList<>();
+
+    //广播数据的SHA-256码,十六进制表示
+    private String sha256StringAdvertising = null;
+
     //排列规则,可能调用构造方法时注册为null,这是允许的
     ArrangeRule arrangeRule = null;
 
@@ -294,14 +319,19 @@ public class BluetoothAD {
             ScanRecord scanRecord = scanResult.getScanRecord();
             if(scanRecord != null){
                 byte[] rawCode = scanRecord.getBytes();
-                RawCodeAddToStructList(rawCode,MainAdvertisingList);
+                RawCodeAddToStructList(rawCode, mainListAdvertising);
+                sha256StringAdvertising = RawCodeFetchSha256String(rawCode);
             }
         }
 
         //如果this.arrangeRule实例不为空,调用OnListCreated()实现
         if(this.arrangeRule != null){
-            this.arrangeRule.OnListCreated(MainAdvertisingList);
+            this.arrangeRule.OnListCreated(mainListAdvertising);
         }
+    }
+
+    public String getSha256StringAdvertising() {
+        return sha256StringAdvertising;
     }
 
     /**
@@ -325,7 +355,7 @@ public class BluetoothAD {
                 AdvertisingStruct focusStruct;
                 for (int focus : focusList){
                     try {
-                        focusStruct = MainAdvertisingList.get(focus);
+                        focusStruct = mainListAdvertising.get(focus);
                         if(focusStruct.getAtypiaAdType() == atypiaAdType && focusStruct.getIndexID() == indexID){
                             return focusStruct;
                         }
@@ -338,7 +368,7 @@ public class BluetoothAD {
         }
 
         //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
-        for(AdvertisingStruct struct : MainAdvertisingList){
+        for(AdvertisingStruct struct : mainListAdvertising){
             if(struct.getAtypiaAdType() == atypiaAdType && struct.getIndexID() == indexID){
                 return struct;
             }
@@ -369,7 +399,7 @@ public class BluetoothAD {
                 AdvertisingStruct focusStruct;
                 for (int focus : focusList){
                     try {
-                        focusStruct = MainAdvertisingList.get(focus);
+                        focusStruct = mainListAdvertising.get(focus);
                         if(focusStruct.getAtypiaAdType() == atypiaAdType){
                             return focusStruct;
                         }
@@ -382,7 +412,7 @@ public class BluetoothAD {
         }
 
         //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
-        for(AdvertisingStruct struct : MainAdvertisingList){
+        for(AdvertisingStruct struct : mainListAdvertising){
             if(struct.getAtypiaAdType() == atypiaAdType){
                 return struct;
             }

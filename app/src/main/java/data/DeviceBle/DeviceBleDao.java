@@ -14,7 +14,7 @@ public class DeviceBleDao {
     @Dao
     public interface BleDeviceMainDao{
 
-        @Insert(onConflict = OnConflictStrategy.REPLACE)
+        @Insert(onConflict = OnConflictStrategy.IGNORE)
         void insert(DeviceBleEntity.BleDeviceMainEntity bleDeviceMainEntity);
 
         @Update
@@ -28,6 +28,11 @@ public class DeviceBleDao {
 
         @Query("SELECT * FROM tablebledevicemain")
         List<DeviceBleEntity.BleDeviceMainEntity> allGet();
+
+        @Query("SELECT * FROM tablebledevicemain" +
+                " WHERE bleDeviceId IN (SELECT bleDeviceId FROM tablebledevicemain WHERE bleDeviceName = :name)" +
+                " AND bleDeviceSha256 = :sha256")
+        DeviceBleEntity.BleDeviceMainEntity getByNameThenBleDeviceSha256(String name,String sha256);
 
         @Query("SELECT * FROM tablebledevicemain WHERE bleDeviceId = :id")
         DeviceBleEntity.BleDeviceMainEntity getByBleDeviceId(long id);

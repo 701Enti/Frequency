@@ -1,11 +1,17 @@
 package data.DeviceBle;
 
+import android.content.Context;
+
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
+import com.org701enti.frequency.R;
+
+import org.jetbrains.annotations.NotNull;
+
 public class DeviceBleEntity {
 
-    @Entity(tableName = "tablebledevicemain")
+    @Entity(tableName = "table_ble_device_main_default")
     public static class BleDeviceMainEntity {
 
         @PrimaryKey(autoGenerate = true)
@@ -15,14 +21,17 @@ public class DeviceBleEntity {
 
         private long lastActiveTimestamp;//最近活跃时间戳
 
+        @NotNull
         private String bleDeviceName;//扫描设备时得到的设备名
 
-        @PrimaryKey(autoGenerate = false)
+        @NotNull
         private String bleDeviceSha256;//设备的SHA-256唯一性与安全校验码
 
         //配对密码,风险识别等请查看其他相关实体定义
 
         public BleDeviceMainEntity(){
+            bleDeviceName = "";
+            bleDeviceSha256 = "";
 
         }
 
@@ -46,6 +55,8 @@ public class DeviceBleEntity {
             return bleDeviceSha256;
         }
 
+
+
         public void setBleDeviceId(long bleDeviceId) {
             this.bleDeviceId = bleDeviceId;
         }
@@ -58,11 +69,12 @@ public class DeviceBleEntity {
             this.lastActiveTimestamp = lastActiveTimestamp;
         }
 
-        public void setBleDeviceName(String bleDeviceName) {
+        public void setBleDeviceName(@NotNull String bleDeviceName) {
             this.bleDeviceName = bleDeviceName;
         }
 
-        public void setBleDeviceSha256(String bleDeviceSha256) {
+
+        public void setBleDeviceSha256(@NotNull String bleDeviceSha256) {
             this.bleDeviceSha256 = bleDeviceSha256;
         }
     }

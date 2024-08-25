@@ -276,7 +276,7 @@ public class BluetoothAD {
         }
     }
 
-    public String RawCodeFetchSha256String(byte[] rawCode){
+     public static String RawCodeFetchSha256String(byte[] rawCode){
         try{
             //转换为Sha256Code
             MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");

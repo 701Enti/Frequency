@@ -23,18 +23,18 @@ public class DeviceBleDao {
         @Delete
         void delete(DeviceBleEntity.BleDeviceMainEntity bleDeviceMainEntity);
 
-        @Query("DELETE FROM tablebledevicemain")
+        @Query("DELETE FROM table_ble_device_main_default")
         void allDelete();
 
-        @Query("SELECT * FROM tablebledevicemain")
+        @Query("SELECT * FROM table_ble_device_main_default")
         List<DeviceBleEntity.BleDeviceMainEntity> allGet();
 
-        @Query("SELECT * FROM tablebledevicemain" +
-                " WHERE bleDeviceId IN (SELECT bleDeviceId FROM tablebledevicemain WHERE bleDeviceName = :name)" +
+        @Query("SELECT * FROM table_ble_device_main_default" +
+                " WHERE bleDeviceId IN (SELECT bleDeviceId FROM table_ble_device_main_default WHERE bleDeviceName = :name)" +
                 " AND bleDeviceSha256 = :sha256")
         DeviceBleEntity.BleDeviceMainEntity getByNameThenBleDeviceSha256(String name,String sha256);
 
-        @Query("SELECT * FROM tablebledevicemain WHERE bleDeviceId = :id")
+        @Query("SELECT * FROM table_ble_device_main_default WHERE bleDeviceId = :id")
         DeviceBleEntity.BleDeviceMainEntity getByBleDeviceId(long id);
 
     }

@@ -25,6 +25,9 @@ package com.org701enti.frequency;
 import static android.content.Context.BLUETOOTH_SERVICE;
 import static android.content.Context.WINDOW_SERVICE;
 
+import static com.org701enti.frequency.MainActivity.AddToBleDeviceMainDatabase;
+import static com.org701enti.frequency.MainActivity.LogShowBleDeviceMainDatabase;
+
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
@@ -36,6 +39,7 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -44,7 +48,6 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -62,6 +65,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
@@ -72,9 +76,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-
-import data.DeviceBle.DeviceBleDatabase;
-import data.DeviceBle.DeviceBleEntity;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -285,21 +286,25 @@ public class BleFragment extends Fragment {
     public class BluetoothDeviceModel {
         private BluetoothDevice device;//可能包含设备名称,信号强度等多种数据和方法
 
+        private String deviceSha256;////设备的SHA-256唯一性与安全校验码
+
         //设备的外观图标ID,其实就是外观值的bit6到bit15
         //详见(2.6.2)https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf
         private int iconID;
 
         private int deviceDistance;//与设备的距离(单位:米)
 
-        public BluetoothDeviceModel(BluetoothDevice device,int deviceDistance) {
+        public BluetoothDeviceModel(BluetoothDevice device,int deviceDistance,@NonNull String deviceSha256) {
             this.device = device;
             this.deviceDistance = deviceDistance;
+            this.deviceSha256 = deviceSha256;
             this.iconID = 0;
         }
 
-        public BluetoothDeviceModel(BluetoothDevice device,int deviceDistance,int iconID){
+        public BluetoothDeviceModel(BluetoothDevice device,int deviceDistance,int iconID,@NonNull String deviceSha256){
             this.device = device;
             this.deviceDistance = deviceDistance;
+            this.deviceSha256 = deviceSha256;
             this.iconID = iconID;
         }
 
@@ -314,6 +319,10 @@ public class BleFragment extends Fragment {
 
         public void setDeviceDistance(int deviceDistance) {
             this.deviceDistance = deviceDistance;
+        }
+
+        public String getDeviceSha256() {
+            return deviceSha256;
         }
     }
 
@@ -382,7 +391,7 @@ public class BleFragment extends Fragment {
             deviceDistance = (int) Distance2400MHZ(powerTX,result.getRssi());
 
             //创建设备模型
-            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),deviceDistance,iconID);//生成这个蓝牙设备的基本信息模型
+            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),deviceDistance,iconID,bluetoothAD.getSha256StringAdvertising());//生成这个蓝牙设备的基本信息模型
 
             //缓存到RecyclerView适配器内部列表
             int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
@@ -425,7 +434,7 @@ public class BleFragment extends Fragment {
         recyclerViewBluetooth = view.findViewById(R.id.RecyclerViewBluetooth);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
         recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(requireActivity()));
-        recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(90));
+        recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(30));
     }
 
 
@@ -447,7 +456,7 @@ public class BleFragment extends Fragment {
 
             if(targetModel != null){
                 //将目标模型的位置记录到holder池
-                holder.position = holder.getBindingAdapterPosition();
+                holder.positionBuf = holder.getBindingAdapterPosition();
 
                 //设备图标
                 int iconID = targetModel.getIconID();
@@ -520,7 +529,7 @@ public class BleFragment extends Fragment {
             public TextView deviceDistance = null;
 
             //记录
-            public int position = -1;
+            public int positionBuf = -1;
 
             public ObjectAnimator fadeInDeviceDistance = null;
 
@@ -551,12 +560,15 @@ public class BleFragment extends Fragment {
                     float progress = 0;//扫描动画播放进度
                     String nameBuf = getString(R.string.unknowndevice_chinese);
                     boolean isScanningBefore = false;
+                    RelativeLayout.LayoutParams deviceNameParams = null;//
                     //以下坐标单位均为像素px
                     float startX = 0;//开始按下时的横坐标
                     float currentX = 0;//当前手指滑动位置的横坐标
                     float displayX = 0;//屏幕的最大横坐标
+                    int deviceNameBufX = 0;//deviceName的横坐标缓存
+                    int deviceNameBufY = 0;//deviceName的纵坐标缓存
                     //操作需求
-                    byte user_want = 0;
+                    byte user_want = WANT_NONE;
 
                     @SuppressLint({"ClickableViewAccessibility", "MissingPermission"})
                     @Override
@@ -568,7 +580,7 @@ public class BleFragment extends Fragment {
                                 user_want = WANT_NONE;
                                 //缓存设备名称
                                 BluetoothDeviceModel targetModel = null;
-                                targetModel = modelList.get(position);//获取要读取操作列表中的的deviceModel实例
+                                targetModel = modelList.get(positionBuf);//获取要读取操作列表中的的deviceModel实例
                                 if(targetModel != null) {
                                     BluetoothDevice device = null;
                                     device = targetModel.getDevice();
@@ -586,6 +598,10 @@ public class BleFragment extends Fragment {
                                 displayX = displayMetrics.widthPixels;
                                 //记录开始按下的坐标
                                 startX = event.getX();
+                                //记录开始的deviceName横纵坐标
+                                deviceNameParams = (RelativeLayout.LayoutParams) deviceName.getLayoutParams();
+                                deviceNameBufX = deviceNameParams.leftMargin;
+                                deviceNameBufY = deviceNameParams.topMargin;
                                 //先保证扫描动画暂停,停止扫描,切换到中间进度(实际为25%,因为50%-100%是0%-50%的倒放)
                                 isScanningBefore = isScanningBluetooth;
                                 BluetoothScanStop();
@@ -610,9 +626,18 @@ public class BleFragment extends Fragment {
                                         //因为50%-100%的片段其实是0%-50%的倒放,使用一半即可
                                         lottieAnimationBluetoothScanning.setProgress(progress);
 
-                                        //显示实时的横坐标偏移
+                                        //显示实时的触摸横坐标偏移
                                         String dxShow = (int)(currentX - startX) + "px";
                                         deviceDistance.setText(dxShow);
+
+
+                                        //防止用户手指遮挡deviceName,在滑动到左边时偏移其横纵坐标
+                                        deviceNameParams.leftMargin = deviceNameBufX + (int)(currentX - startX);//偏移触摸横坐标的偏移值
+                                        if(!(progress > 0.20F && progress < 0.30F)){
+                                            deviceNameParams.topMargin = 0;
+                                        }
+                                        deviceName.setLayoutParams(deviceNameParams);
+
 
                                         //选择操作,期间蓝牙设备图标会变成操作的标识图标
                                         //   |             |             |
@@ -631,10 +656,10 @@ public class BleFragment extends Fragment {
                                             deviceName.setText(R.string.sticktotop_chinese);
                                         }
                                         if(progress > 0.20F && progress < 0.30F){
-                                            //如果用户之前移动到了有效选项又回来,显示撤销,否则不显示内容
+                                            //如果用户之前移动到了有效选项又回来,显示取消,否则不显示内容
                                             if(user_want != WANT_NONE){
                                                 user_want = WANT_NONE;
-                                                deviceIcon.setImageResource(R.drawable.undo);//撤销
+                                                deviceIcon.setImageResource(R.drawable.undo);//取消
                                                 deviceName.setText(R.string.cancel_chinese);
                                             }
                                         }
@@ -660,21 +685,33 @@ public class BleFragment extends Fragment {
                                     deviceName.setText(nameBuf);
                                 }
 
+                                //恢复deviceName的横纵坐标
+                                deviceNameParams.leftMargin = deviceNameBufX;
+                                deviceNameParams.topMargin = deviceNameBufY;
+                                deviceName.setLayoutParams(deviceNameParams);
+
                                 if(isScanningBefore){
                                     BluetoothScanStart();
                                 }
+
+                                OperationRun(user_want,modelList,positionBuf,requireActivity());
                                 break;
                             }
 
                             //在取消时,取消可能是由于其他事件切入,如来电和用户应用切换,系统警告等等
                             case MotionEvent.ACTION_CANCEL:{
 
-                                //如果用户之前移动到了有效选项,显示撤销,否则不显示内容
+                                //如果用户之前移动到了有效选项,显示取消,否则不显示内容
                                 if(user_want != WANT_NONE){
                                     user_want = WANT_NONE;
-                                    deviceIcon.setImageResource(R.drawable.undo);//撤销
+                                    deviceIcon.setImageResource(R.drawable.undo);
                                     deviceName.setText(R.string.cancel_chinese);
                                 }
+
+                                //恢复deviceName的横纵坐标
+                                deviceNameParams.leftMargin = deviceNameBufX;
+                                deviceNameParams.topMargin = deviceNameBufY;
+                                deviceName.setLayoutParams(deviceNameParams);
 
                                 if(isScanningBefore){
                                     BluetoothScanStart();
@@ -690,63 +727,90 @@ public class BleFragment extends Fragment {
         }
 
         //用户操作枚举
-        final byte WANT_ADD_TO_DEVICE = -2;//添加入设备
-        final byte WANT_STICK_TO_TOP = -1;//置顶对应显示行单元到列表顶部
-        final byte WANT_NONE = 0;//无操作
-        final byte WANT_CHECK_INFORMATION = 1;//检查设备信息
-        final byte WANT_START_CONTROL = 2;//开始设备控制
+        final static byte WANT_ADD_TO_DEVICE = -2;//添加入"设备"
+        final static byte WANT_STICK_TO_TOP = -1;//置顶对应显示行单元到列表顶部
+        final static byte WANT_NONE = 0;//无操作
+        final static byte WANT_CHECK_INFORMATION = 1;//检查设备信息
+        final static byte WANT_START_CONTROL = 2;//开始设备控制
 
-        @SuppressLint("MissingPermission")
-        public void AddToBleDeviceMainDatabase(BluetoothDeviceModel targetModel){
-            //检查
-            if(targetModel == null){
-                return;
-            }
-            if(targetModel.getDevice() == null){
-                return;
-            }
-            DeviceBleDatabase.BleDeviceMainDatabase database = null;
-            database = DeviceBleDatabase.BleDeviceMainDatabase.getDatabase(requireActivity());
-            if (database == null){
+        /**
+         * (静态,外部可调用)
+         * @param want 用户操作枚举 WANT_X
+         * @param list 蓝牙设备模型列表,可以是实体BluetoothDeviceRecyclerViewAdapter中的,也可以是外部自己拼接的
+         * @param position 选择操作的模型单元在list的位置
+         * @param context 上下文,可以使用Activity作为上下文
+         */
+        public static void OperationRun(byte want,List<BluetoothDeviceModel> list,int position,Context context){
+            if(want == WANT_NONE){
                 return;
             }
 
-            //缓存当前时间戳
+            //添加设备数据到数据库并继续处理
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    BluetoothDeviceModel targetModel = null;
+                    targetModel = list.get(position);//获取要读取操作列表中的的deviceModel实例
+                    if(targetModel == null){
+                        return;
+                    }
 
-            //缓存名称
-            String nameBuf = null;
-            if(targetModel.getDevice().getName() != null){
-                nameBuf = targetModel.getDevice().getName();
-            }
-            else {
-                nameBuf = getString(R.string.unknowndevice_chinese);
-            }
+                    try {
+                        String targetSha256 = AddToBleDeviceMainDatabase(targetModel, context);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
 
+                    switch (want){
+                        case WANT_ADD_TO_DEVICE:
 
-            //获取操作实体和目标动作
-            DeviceBleEntity.BleDeviceMainEntity updateTargetEntity = database.bleDeviceMainDao().getByNameThenBleDeviceSha256(nameBuf,   );
-            if(updateTargetEntity != null){//已经存在,进行更新操作
-                updateTargetEntity.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
+                            break;
+                        case WANT_STICK_TO_TOP:
 
-                //设置最近活动时间戳为当前时间
+                            break;
+                        case WANT_CHECK_INFORMATION:
 
-            }
-            else{//新设备,进行插入操作
-                DeviceBleEntity.BleDeviceMainEntity EntityNew = new DeviceBleEntity.BleDeviceMainEntity();
-                EntityNew.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
+                            break;
+                        case WANT_START_CONTROL:
 
-                //设置最近活动时间戳为当前时间
-            }
+                            break;
+                    }
+                }
+            }).start();
+        }
 
-
-
-
-
-
-
-
+        /**添加入"设备"
+         *
+         * @param targetSha256 目标设备在数据库的Sha256校验码
+         * @param context 上下文,可以使用Activity作为上下文
+         */
+        private static void AddToDevice(String targetSha256,Context context){
 
         }
+
+        /**
+         * 置顶对应显示行单元到列表顶部
+         */
+        private static void StickToTop(String targetSha256,int originPosition,List<BluetoothDeviceModel> list,Context context){
+
+        }
+
+        /**
+         * 检查设备信息
+         */
+        private static void CheckInformation(String targetSha256,Context context){
+
+        }
+
+        /**
+         * 开始设备控制
+         */
+        private static void StartControl(String targetSha256,Context context){
+
+        }
+
+
+
 
 
         public List<BluetoothDeviceModel> getModelList() {
@@ -782,13 +846,33 @@ public class BleFragment extends Fragment {
     }
 
     /**
+     * (用于开发测试)根据时间生成伪设备SHA-256
+     */
+    public static String FetchFakeSha256ByTime(){
+        long timestamp = System.currentTimeMillis();
+        //填充到byte数组,低位到高位
+        byte[] rawCode = new byte[8];
+        for(int i=0;i<8;i++){
+            rawCode[i] = (byte)(timestamp >> 8 * i);
+        }
+        return BluetoothAD.RawCodeFetchSha256String(rawCode);
+    }
+
+
+    /**
      * (用于开发测试)测试蓝牙设备看板,将虚拟一个蓝牙设备存储到列表,测试功能,其中BluetoothDevice设置为空
      * @param deviceDistance 设备距离
      * @param iconID 设备外观图标ID
      */
     public void TestAddBluetoothDeviceRecyclerView(int deviceDistance,int iconID){
+        //根据时间生成伪设备SHA-256
+        String sha256 = FetchFakeSha256ByTime();
+        if(sha256 == null){
+            return;
+        }
         //创建设备模型
-        BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(null,deviceDistance,iconID);//生成这个蓝牙设备的基本信息模型
+        BluetoothDeviceModel deviceModel =
+                new BluetoothDeviceModel(null,deviceDistance,iconID,sha256);//生成这个蓝牙设备的基本信息模型
         //缓存到RecyclerView适配器内部列表
         int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
         bluetoothDeviceRecyclerViewAdapter.getModelList().add(index,deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示

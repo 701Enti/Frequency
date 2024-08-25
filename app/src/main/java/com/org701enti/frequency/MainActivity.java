@@ -22,7 +22,9 @@
 
 package com.org701enti.frequency;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -54,6 +56,12 @@ import com.google.android.material.navigation.NavigationBarView;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+
+import data.DeviceBle.DeviceBleDatabase;
+import data.DeviceBle.DeviceBleEntity;
+
 public class MainActivity extends AppCompatActivity {
 
 ////权限检查和提取
@@ -67,6 +75,142 @@ public class MainActivity extends AppCompatActivity {
 
     //    权限申请标志
     private static boolean PermissionRequestingFlag = false;
+
+    /**(含阻塞,请使用非主线程调用)插入或更新到BleDeviceMainDatabase数据库
+     *
+     * @param targetModel 目标蓝牙设备模型
+     * @param context 上下文,可以使用Activity作为上下文
+     * @return 操作设备的bleDeviceSha256,发生异常为null
+     */
+    @SuppressLint("MissingPermission")
+    static String AddToBleDeviceMainDatabase(BleFragment.BluetoothDeviceModel targetModel, Context context) throws InterruptedException {
+        if(targetModel == null){
+            return null;
+        }
+        if(targetModel.getDeviceSha256() == null){
+            return null;
+        }
+        //禁止在主线程执行,因为本方法内含阻塞,会阻塞调用线程,应该使用其他非服务线程调用
+        if (Thread.currentThread().getName().equals("main")) {
+            throw new InterruptedException(context.getString(R.string.permissionapplycheckthreaderr));
+        }
+
+        AtomicReference<String> sha256Buf = new AtomicReference<>();
+        AtomicReference<Boolean> isComplete = new AtomicReference<>(Boolean.FALSE);
+
+        Thread thread = new Thread(()->{
+            //检查
+            DeviceBleDatabase.BleDeviceMainDatabase database = null;
+            database = DeviceBleDatabase.BleDeviceMainDatabase.getDatabase(context);
+
+            if (database == null){
+                isComplete.set(Boolean.TRUE);
+                return;
+            }
+
+            //缓存当前时间戳
+            long currentTimestamp = System.currentTimeMillis();
+
+            //缓存名称
+            String nameBuf = null;
+            if(targetModel.getDevice() == null){//是伪造设备
+                nameBuf = context.getString(R.string.fakedevice_chinese);
+            }
+            else {//不是伪造设备
+                if(targetModel.getDevice().getName() != null){
+                    nameBuf = targetModel.getDevice().getName();
+                }
+                else {//未知设备
+                    nameBuf = context.getString(R.string.unknowndevice_chinese);
+                }
+            }
+
+            //获取操作实体和目标动作
+            DeviceBleEntity.BleDeviceMainEntity updateTargetEntity =
+                    database.bleDeviceMainDao().getByNameThenBleDeviceSha256(nameBuf,targetModel.getDeviceSha256());
+            if(updateTargetEntity != null){
+                //已经存在,进行更新操作
+                updateTargetEntity.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
+                updateTargetEntity.setLastActiveTimestamp(currentTimestamp);//设置最近活动时间戳为当前时间
+                database.bleDeviceMainDao().update(updateTargetEntity);
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.updatedeviceinformation));
+
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.update_chinese) + "bleDeviceId:" + "[" + updateTargetEntity.getBleDeviceId() + "]");
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.update_chinese) + "bleDeviceName:" + updateTargetEntity.getBleDeviceName());
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.update_chinese) + "bleDeviceIconId:" + updateTargetEntity.getBleDeviceIconId());
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.update_chinese) + "lastActiveTimestamp:" + updateTargetEntity.getLastActiveTimestamp());
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.update_chinese) + "bleDeviceSha256:" + updateTargetEntity.getBleDeviceSha256());
+
+                sha256Buf.set(updateTargetEntity.getBleDeviceSha256());
+            }
+            else{
+                //新设备,进行插入操作
+                DeviceBleEntity.BleDeviceMainEntity entityNew = new DeviceBleEntity.BleDeviceMainEntity();
+                entityNew.setBleDeviceName(nameBuf);//设置设备名称
+                entityNew.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
+                entityNew.setLastActiveTimestamp(currentTimestamp);//设置最近活动时间戳为当前时间
+                entityNew.setBleDeviceSha256(targetModel.getDeviceSha256());//设置设备的SHA-256唯一性与安全校验码
+                database.bleDeviceMainDao().insert(entityNew);
+                Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.insertnewdeviceinformation));
+
+                //检查是否成功
+                DeviceBleEntity.BleDeviceMainEntity nowEntity=
+                        database.bleDeviceMainDao().getByNameThenBleDeviceSha256(entityNew.getBleDeviceName(), entityNew.getBleDeviceSha256());
+                if(nowEntity != null){
+                    Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.completeinsertdatafollowing_chinese));
+                    Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.insert_chinese) + "bleDeviceId:" + "[" + nowEntity.getBleDeviceId() + "]");
+                    Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.insert_chinese) + "bleDeviceName:" + nowEntity.getBleDeviceName());
+                    Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.insert_chinese) + "bleDeviceIconId:" + nowEntity.getBleDeviceIconId());
+                    Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.insert_chinese) + "lastActiveTimestamp:" + nowEntity.getLastActiveTimestamp());
+                    Log.i("AddToBleDeviceMainDatabase",context.getString(R.string.insert_chinese) + "bleDeviceSha256:" + nowEntity.getBleDeviceSha256());
+
+                    sha256Buf.set(nowEntity.getBleDeviceSha256());
+                }
+                else {
+                    Log.e("AddToBleDeviceMainDatabase",context.getString(R.string.insertdataerror_chinese));
+                    sha256Buf.set(null);
+                }
+            }
+            isComplete.set(Boolean.TRUE);
+
+        });
+
+        thread.start();
+        while (!isComplete.get()){
+            Thread.sleep(50);
+        }
+
+        return sha256Buf.get();
+    }
+
+    /**通过Log输出BleDeviceMainDatabase数据库数据,可以在AndroidStudio的"Logcat"查看Log打印
+     *
+     * @param context 上下文,可以使用Activity作为上下文
+     */
+    public static void LogShowBleDeviceMainDatabase(Context context){
+        new Thread(()->{
+            DeviceBleDatabase.BleDeviceMainDatabase database = null;
+            database = DeviceBleDatabase.BleDeviceMainDatabase.getDatabase(context);
+            if (database == null){
+                return;
+            }
+
+            List<DeviceBleEntity.BleDeviceMainEntity> list =database.bleDeviceMainDao().allGet();
+            //遍历显示所有实体
+            for(DeviceBleEntity.BleDeviceMainEntity entity : list){
+                Log.i("ShowBleDeviceMainDatabase","------------------------------------------------------");
+                Log.i("ShowBleDeviceMainDatabase","|"+"bleDeviceId:" + "[" + entity.getBleDeviceId() + "]");
+                Log.i("ShowBleDeviceMainDatabase","|"+"bleDeviceName:" + entity.getBleDeviceName());
+                Log.i("ShowBleDeviceMainDatabase","|"+"bleDeviceIconId:" + entity.getBleDeviceIconId());
+                Log.i("ShowBleDeviceMainDatabase","|"+"lastActiveTimestamp:" + entity.getLastActiveTimestamp());
+                Log.i("ShowBleDeviceMainDatabase","|"+"bleDeviceSha256:" + entity.getBleDeviceSha256());
+            }
+
+            Log.i("ShowBleDeviceMainDatabase","------------------------------------------------------");
+        }).start();
+    }
+
+
 
     //Fragment管理
     FragmentManager managerFragmentMain = null;

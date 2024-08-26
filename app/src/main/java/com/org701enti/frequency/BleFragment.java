@@ -28,7 +28,9 @@ import static android.content.Context.WINDOW_SERVICE;
 import static com.org701enti.frequency.MainActivity.AddToBleDeviceMainDatabase;
 import static com.org701enti.frequency.MainActivity.LogShowBleDeviceMainDatabase;
 
+import android.animation.Animator;
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -63,6 +65,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
@@ -627,11 +630,11 @@ public class BleFragment extends Fragment {
                                         lottieAnimationBluetoothScanning.setProgress(progress);
 
                                         //显示实时的触摸横坐标偏移
-                                        String dxShow = (int)(currentX - startX) + "px";
+                                        String dxShow = (int)(currentX - startX) + "PX";
                                         deviceDistance.setText(dxShow);
 
 
-                                        //防止用户手指遮挡deviceName,在滑动到左边时偏移其横纵坐标
+                                        //防止用户手指遮挡deviceName,在滑动时偏移其横纵坐标
                                         deviceNameParams.leftMargin = deviceNameBufX + (int)(currentX - startX);//偏移触摸横坐标的偏移值
                                         if(!(progress > 0.20F && progress < 0.30F)){
                                             deviceNameParams.topMargin = 0;
@@ -642,33 +645,33 @@ public class BleFragment extends Fragment {
                                         //选择操作,期间蓝牙设备图标会变成操作的标识图标
                                         //   |             |             |
                                         //   0%           25%           50%
-                                        // |0-15||15-20||20-30||30-35||35-50|
-                                        //加入设备 将其置顶 (无效) 检查信息 开始控制
+                                        // |0-10||10-20||20-30||30-40||40-50|
+                                        //加入设备 将其置顶 无效/取消 检查信息 开始控制
                                         //-------------------------------------
-                                        if(progress <= 0.15F){
+                                        if(progress <= 0.10F){
                                             user_want = WANT_ADD_TO_DEVICE;
                                             deviceIcon.setImageResource(R.drawable.addtodevice);//加入设备
                                             deviceName.setText(R.string.addtodevice_chinese);
                                         }
-                                        if(progress > 0.15F && progress <= 0.20F){
+                                        if(progress > 0.10F && progress <= 0.20F){
                                             user_want = WANT_STICK_TO_TOP;
                                             deviceIcon.setImageResource(R.drawable.sticktotop);//将其置顶
                                             deviceName.setText(R.string.sticktotop_chinese);
                                         }
                                         if(progress > 0.20F && progress < 0.30F){
-                                            //如果用户之前移动到了有效选项又回来,显示取消,否则不显示内容
+                                            //如果用户之前移动到了有效选项又回来,显示取消,否则不更改内容
                                             if(user_want != WANT_NONE){
                                                 user_want = WANT_NONE;
                                                 deviceIcon.setImageResource(R.drawable.undo);//取消
                                                 deviceName.setText(R.string.cancel_chinese);
                                             }
                                         }
-                                        if(progress >= 0.30F && progress < 0.35F){
+                                        if(progress >= 0.30F && progress < 0.40F){
                                             user_want = WANT_CHECK_INFORMATION;
                                             deviceIcon.setImageResource(R.drawable.checkinformation);//检查信息
                                             deviceName.setText(R.string.checkinformation_chinese);
                                         }
-                                        if(progress >= 0.35F){
+                                        if(progress >= 0.40F){
                                             user_want = WANT_START_CONTROL;
                                             deviceIcon.setImageResource(R.drawable.startcontrol);//开始控制
                                             deviceName.setText(R.string.startcontrol_chinese);
@@ -681,18 +684,72 @@ public class BleFragment extends Fragment {
                             //在松开时
                             case MotionEvent.ACTION_UP:
                             {
-                                if(!(progress > 0.20F && progress < 0.30F)){//(无效)不显示内容
-                                    deviceName.setText(nameBuf);
+                                //如果操作完成发现已经改变了原来的设备名为操作名(即使为"取消",也成立)
+                                //根据以上"在滑动时"逻辑,如果用户之前从初始进度25%移动一次超过20%-30%无效区域,就会发生文本内容更改
+                                //此时偏移一定已经启用,我们可以安全地在这种情况演绎恢复动画,因为这已经一定不是用户滑动RecyclerView列表时的行为了,这样或许就可以减少一些误判
+                                if(!deviceName.getText().equals(nameBuf)){
+                                    //横坐标
+                                    ValueAnimator animatorX = ValueAnimator.ofInt((int)(currentX-startX),0);
+                                    animatorX.addUpdateListener(animation -> {
+                                        deviceNameParams.leftMargin = deviceNameBufX + (int)animation.getAnimatedValue();
+                                        deviceName.setLayoutParams(deviceNameParams);
+                                        //同步更新之前的偏移显示(之前的偏移显示:String dxShow = (int)(currentX - startX) + "PX")
+                                        String dxShow = (int)animation.getAnimatedValue() + "PX";
+                                        deviceDistance.setText(dxShow);
+                                    });
+                                    animatorX.addListener(new Animator.AnimatorListener() {
+                                        @Override
+                                        public void onAnimationEnd(@NonNull Animator animation) {
+
+                                            deviceName.setText(nameBuf);//恢复deviceName之前显示的设备名
+
+                                            ValueAnimator animatorY = ValueAnimator.ofInt(0,deviceNameBufY);
+                                            animatorY.addUpdateListener(animaton->{
+                                                deviceNameParams.topMargin = (int)animatorY.getAnimatedValue();
+                                                deviceName.setLayoutParams(deviceNameParams);
+                                            });
+                                            animatorY.setDuration(100);
+                                            animatorY.setInterpolator(new AccelerateInterpolator());
+                                            animatorY.addListener(new Animator.AnimatorListener() {
+                                                @Override
+                                                public void onAnimationEnd(@NonNull Animator animation) {
+                                                    if(isScanningBefore){
+                                                        BluetoothScanStart();//现在,恢复蓝牙状态,因为扫描时更改信息引起的实体刷新可能引起干扰
+                                                    }
+                                                }
+                                                @Override
+                                                public void onAnimationStart(@NonNull Animator animation) {}
+                                                @Override
+                                                public void onAnimationCancel(@NonNull Animator animation) {}
+                                                @Override
+                                                public void onAnimationRepeat(@NonNull Animator animation) {}
+                                            });
+                                            animatorY.start();
+                                        }
+
+                                        @Override
+                                        public void onAnimationStart(@NonNull Animator animation) {}
+                                        @Override
+                                        public void onAnimationCancel(@NonNull Animator animation) {}
+                                        @Override
+                                        public void onAnimationRepeat(@NonNull Animator animation) {}
+                                    });
+                                    animatorX.setDuration(200);
+                                    animatorX.setInterpolator(new DecelerateInterpolator());
+                                    animatorX.start();
+
+                                }
+                                else {
+                                    if(isScanningBefore){
+                                        BluetoothScanStart();
+                                    }
                                 }
 
-                                //恢复deviceName的横纵坐标
-                                deviceNameParams.leftMargin = deviceNameBufX;
-                                deviceNameParams.topMargin = deviceNameBufY;
-                                deviceName.setLayoutParams(deviceNameParams);
+                                //立即恢复原坐标
+//                                deviceNameParams.leftMargin = deviceNameBufX;
+//                                deviceNameParams.topMargin = deviceNameBufY;
+//                                deviceName.setLayoutParams(deviceNameParams);
 
-                                if(isScanningBefore){
-                                    BluetoothScanStart();
-                                }
 
                                 OperationRun(user_want,modelList,positionBuf,requireActivity());
                                 break;

@@ -104,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
             database = DeviceBleDatabase.BleDeviceMainDatabase.getDatabase(context);
 
             if (database == null){
-                isComplete.set(Boolean.TRUE);
+                isComplete.set(true);
                 return;
             }
 
@@ -171,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
                     sha256Buf.set(null);
                 }
             }
-            isComplete.set(Boolean.TRUE);
+            isComplete.set(true);
 
         });
 

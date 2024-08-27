@@ -79,6 +79,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -536,6 +537,22 @@ public class BleFragment extends Fragment {
 
             public ObjectAnimator fadeInDeviceDistance = null;
 
+            //用户操作相关
+            float progress = 0;//扫描动画播放进度
+            String nameBuf = getString(R.string.unknowndevice_chinese);
+            boolean isScanningBefore = false;
+            RelativeLayout.LayoutParams deviceNameParams = null;//
+            //以下坐标单位均为像素px
+            float startX = 0;//开始按下时的横坐标
+            float currentX = 0;//当前手指滑动位置的横坐标
+            float displayX = 0;//屏幕的最大横坐标
+            int deviceNameBufX = 0;//deviceName的横坐标缓存
+            int deviceNameBufY = 0;//deviceName的纵坐标缓存
+            //操作需求
+            byte user_want = WANT_NONE;
+            //动画恢复运行标识
+            AtomicReference<Boolean> isRunningRecover = null;
+
             //在构造方法将各种View引用缓存到ViewHolder池
             public ViewHolder(View view) {
                 //super调用父类RecyclerView.ViewHolder构造方法,并传递了参数viewHandle
@@ -556,29 +573,27 @@ public class BleFragment extends Fragment {
                 }
 
 
-                //用户操作
-
                 //在行单元触发对应结果的控制面板,不松手继续滑动选择指定操作
                 view.setOnTouchListener(new View.OnTouchListener() {
-                    float progress = 0;//扫描动画播放进度
-                    String nameBuf = getString(R.string.unknowndevice_chinese);
-                    boolean isScanningBefore = false;
-                    RelativeLayout.LayoutParams deviceNameParams = null;//
-                    //以下坐标单位均为像素px
-                    float startX = 0;//开始按下时的横坐标
-                    float currentX = 0;//当前手指滑动位置的横坐标
-                    float displayX = 0;//屏幕的最大横坐标
-                    int deviceNameBufX = 0;//deviceName的横坐标缓存
-                    int deviceNameBufY = 0;//deviceName的纵坐标缓存
-                    //操作需求
-                    byte user_want = WANT_NONE;
-
                     @SuppressLint({"ClickableViewAccessibility", "MissingPermission"})
                     @Override
                     public boolean onTouch(View v, MotionEvent event) {
                         switch (event.getAction()){
                             //在开始按下时
                             case MotionEvent.ACTION_DOWN:{
+                                //强制停止正在运行的动画,因为恢复动画是耗时的,如果未完成,用户又开始操作,触发"按下",所以我们必须停止它
+                                //同时现在保存上次的缓存还未覆盖,可以立即恢复坐标即跳过动画完成恢复
+                                //如果是第一次运行,缓存是没有数据的,这样我们不应该恢复
+                                if(isRunningRecover == null){
+                                    isRunningRecover = new AtomicReference<>(Boolean.FALSE);
+                                }
+                                else {
+                                    isRunningRecover.set(false);
+                                    deviceNameParams.leftMargin = deviceNameBufX;
+                                    deviceNameParams.topMargin = deviceNameBufY;
+                                    deviceName.setLayoutParams(deviceNameParams);
+                                }
+
                                 //重置变量
                                 user_want = WANT_NONE;
                                 //缓存设备名称
@@ -636,6 +651,7 @@ public class BleFragment extends Fragment {
 
                                         //防止用户手指遮挡deviceName,在滑动时偏移其横纵坐标
                                         deviceNameParams.leftMargin = deviceNameBufX + (int)(currentX - startX);//偏移触摸横坐标的偏移值
+                                        deviceNameParams.alignWithParent = false;
                                         if(!(progress > 0.20F && progress < 0.30F)){
                                             deviceNameParams.topMargin = 0;
                                         }
@@ -684,80 +700,15 @@ public class BleFragment extends Fragment {
                             //在松开时
                             case MotionEvent.ACTION_UP:
                             {
-                                //如果操作完成发现已经改变了原来的设备名为操作名(即使为"取消",也成立)
-                                //根据以上"在滑动时"逻辑,如果用户之前从初始进度25%移动一次超过20%-30%无效区域,就会发生文本内容更改
-                                //此时偏移一定已经启用,我们可以安全地在这种情况演绎恢复动画,因为这已经一定不是用户滑动RecyclerView列表时的行为了,这样或许就可以减少一些误判
-                                if(!deviceName.getText().equals(nameBuf)){
-                                    //横坐标
-                                    ValueAnimator animatorX = ValueAnimator.ofInt((int)(currentX-startX),0);
-                                    animatorX.addUpdateListener(animation -> {
-                                        deviceNameParams.leftMargin = deviceNameBufX + (int)animation.getAnimatedValue();
-                                        deviceName.setLayoutParams(deviceNameParams);
-                                        //同步更新之前的偏移显示(之前的偏移显示:String dxShow = (int)(currentX - startX) + "PX")
-                                        String dxShow = (int)animation.getAnimatedValue() + "PX";
-                                        deviceDistance.setText(dxShow);
-                                    });
-                                    animatorX.addListener(new Animator.AnimatorListener() {
-                                        @Override
-                                        public void onAnimationEnd(@NonNull Animator animation) {
-
-                                            deviceName.setText(nameBuf);//恢复deviceName之前显示的设备名
-
-                                            ValueAnimator animatorY = ValueAnimator.ofInt(0,deviceNameBufY);
-                                            animatorY.addUpdateListener(animaton->{
-                                                deviceNameParams.topMargin = (int)animatorY.getAnimatedValue();
-                                                deviceName.setLayoutParams(deviceNameParams);
-                                            });
-                                            animatorY.setDuration(100);
-                                            animatorY.setInterpolator(new AccelerateInterpolator());
-                                            animatorY.addListener(new Animator.AnimatorListener() {
-                                                @Override
-                                                public void onAnimationEnd(@NonNull Animator animation) {
-                                                    if(isScanningBefore){
-                                                        BluetoothScanStart();//现在,恢复蓝牙状态,因为扫描时更改信息引起的实体刷新可能引起干扰
-                                                    }
-                                                }
-                                                @Override
-                                                public void onAnimationStart(@NonNull Animator animation) {}
-                                                @Override
-                                                public void onAnimationCancel(@NonNull Animator animation) {}
-                                                @Override
-                                                public void onAnimationRepeat(@NonNull Animator animation) {}
-                                            });
-                                            animatorY.start();
-                                        }
-
-                                        @Override
-                                        public void onAnimationStart(@NonNull Animator animation) {}
-                                        @Override
-                                        public void onAnimationCancel(@NonNull Animator animation) {}
-                                        @Override
-                                        public void onAnimationRepeat(@NonNull Animator animation) {}
-                                    });
-                                    animatorX.setDuration(200);
-                                    animatorX.setInterpolator(new DecelerateInterpolator());
-                                    animatorX.start();
-
-                                }
-                                else {
-                                    if(isScanningBefore){
-                                        BluetoothScanStart();
-                                    }
-                                }
-
-                                //立即恢复原坐标
-//                                deviceNameParams.leftMargin = deviceNameBufX;
-//                                deviceNameParams.topMargin = deviceNameBufY;
-//                                deviceName.setLayoutParams(deviceNameParams);
-
-
+                                //使用isRunningRecover.set控制动画是否要继续
+                                isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
+                                RecoverAnimation();
                                 OperationRun(user_want,modelList,positionBuf,requireActivity());
                                 break;
                             }
 
                             //在取消时,取消可能是由于其他事件切入,如来电和用户应用切换,系统警告等等
                             case MotionEvent.ACTION_CANCEL:{
-
                                 //如果用户之前移动到了有效选项,显示取消,否则不显示内容
                                 if(user_want != WANT_NONE){
                                     user_want = WANT_NONE;
@@ -765,14 +716,10 @@ public class BleFragment extends Fragment {
                                     deviceName.setText(R.string.cancel_chinese);
                                 }
 
-                                //恢复deviceName的横纵坐标
-                                deviceNameParams.leftMargin = deviceNameBufX;
-                                deviceNameParams.topMargin = deviceNameBufY;
-                                deviceName.setLayoutParams(deviceNameParams);
+                                //使用isRunningRecover.set控制动画是否要继续
+                                isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
+                                RecoverAnimation();
 
-                                if(isScanningBefore){
-                                    BluetoothScanStart();
-                                }
                                 break;
                             }
                         }
@@ -781,7 +728,88 @@ public class BleFragment extends Fragment {
                     }
                 });
             }
+
+
+            /**
+             * 恢复deviceName在滑动之前的坐标,以及扫描状态,伴随更新动画,同步更新之前的偏移显示等
+             * (使用isRunningRecover.set控制动画是否要继续)
+             */
+            private void RecoverAnimation(){
+                if(deviceNameParams == null || nameBuf == null || deviceName == null || deviceDistance == null){
+                    return;
+                }
+
+                //考虑用户没有滑动超出20%-30%无效区域的情况,但是确实移动了deviceName,所以也应该进行横坐标恢复,但是不恢复纵坐标,因为现在纵坐标还没有变化
+                ValueAnimator animatorX = ValueAnimator.ofInt((int)(currentX-startX),0);
+                animatorX.addUpdateListener(animation -> {
+                    if(!isRunningRecover.get()){
+                        return;//如果外部需要退出动画,退出
+                    }
+
+                    deviceNameParams.leftMargin = deviceNameBufX + (int)animation.getAnimatedValue();
+                    deviceName.setLayoutParams(deviceNameParams);
+                    //同步更新之前的偏移显示(之前的偏移显示:String dxShow = (int)(currentX - startX) + "PX")
+                    String dxShow = (int)animation.getAnimatedValue() + "PX";
+                    deviceDistance.setText(dxShow);
+                });
+                animatorX.addListener(new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationEnd(@NonNull Animator animation) {
+//                      考虑用户没有滑动超出20%-30%无效区域的情况,但是确实移动了deviceName,所以也应该进行横坐标恢复,但是不恢复纵坐标,因为现在纵坐标还没有变化
+                        if(!deviceName.getText().equals(nameBuf)){
+                            deviceName.setText(nameBuf);//恢复deviceName之前显示的设备名
+                            ValueAnimator animatorY = ValueAnimator.ofInt(0,deviceNameBufY);
+                            animatorY.addUpdateListener(animaton->{
+                                if(!isRunningRecover.get()){
+                                    return;//如果外部需要退出动画,退出
+                                }
+
+                                deviceNameParams.topMargin = (int)animatorY.getAnimatedValue();
+                                deviceName.setLayoutParams(deviceNameParams);
+                            });
+                            animatorY.setDuration(100);
+                            animatorY.setInterpolator(new AccelerateInterpolator());
+                            animatorY.addListener(new Animator.AnimatorListener() {
+                                @Override
+                                public void onAnimationEnd(@NonNull Animator animation) {
+                                    if(isScanningBefore){
+                                        BluetoothScanStart();//现在,恢复蓝牙状态,因为扫描时更改信息引起的实体刷新可能引起干扰
+                                    }
+                                }
+                                @Override
+                                public void onAnimationStart(@NonNull Animator animation) {}
+                                @Override
+                                public void onAnimationCancel(@NonNull Animator animation) {}
+                                @Override
+                                public void onAnimationRepeat(@NonNull Animator animation) {}
+                            });
+                            animatorY.start();
+                        }
+                        else {
+                            if(isScanningBefore){
+                                BluetoothScanStart();
+                            }
+                        }
+                    }
+                    @Override
+                    public void onAnimationStart(@NonNull Animator animation) {}
+                    @Override
+                    public void onAnimationCancel(@NonNull Animator animation) {}
+                    @Override
+                    public void onAnimationRepeat(@NonNull Animator animation) {}
+                });
+                animatorX.setDuration(200);
+                animatorX.setInterpolator(new DecelerateInterpolator());
+                animatorX.start();
+            }
+
+
+
+
         }
+
+
+
 
         //用户操作枚举
         final static byte WANT_ADD_TO_DEVICE = -2;//添加入"设备"

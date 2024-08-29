@@ -26,7 +26,6 @@ import static android.content.Context.BLUETOOTH_SERVICE;
 import static android.content.Context.WINDOW_SERVICE;
 
 import static com.org701enti.frequency.MainActivity.AddToBleDeviceMainDatabase;
-import static com.org701enti.frequency.MainActivity.LogShowBleDeviceMainDatabase;
 
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
@@ -130,12 +129,11 @@ public class BleFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.ble_fragment, container, false);
+        View view = inflater.inflate(R.layout.fragment_ble, container, false);
 
         //创建其他布局
         CreateRecyclerViewBluetooth(view);
 
-        //加载布局文件
         return view;
     }
 
@@ -343,6 +341,7 @@ public class BleFragment extends Fragment {
 
 
     //扫描回调
+    AtomicReference<Boolean> isAllowNotifyChanged = new AtomicReference<>(Boolean.TRUE);
     final ScanCallback bluetoothScanCallback = new ScanCallback() {
         @SuppressLint("MissingPermission")
         @Override
@@ -368,7 +367,9 @@ public class BleFragment extends Fragment {
                     distanceNow = (int) Distance2400MHZ(powerTXint,result.getRssi());
 
                     model.setDeviceDistance(distanceNow);
-                    bluetoothDeviceRecyclerViewAdapter.notifyItemChanged(i);//提示信息更新,需要RecyclerView刷新显示
+                    if(isAllowNotifyChanged.get()){
+                        bluetoothDeviceRecyclerViewAdapter.notifyItemChanged(i);//提示信息更新,需要RecyclerView刷新显示
+                    }
                     return;
                 }
             }
@@ -540,7 +541,6 @@ public class BleFragment extends Fragment {
             //用户操作相关
             float progress = 0;//扫描动画播放进度
             String nameBuf = getString(R.string.unknowndevice_chinese);
-            boolean isScanningBefore = false;
             RelativeLayout.LayoutParams deviceNameParams = null;//
             //以下坐标单位均为像素px
             float startX = 0;//开始按下时的横坐标
@@ -586,28 +586,15 @@ public class BleFragment extends Fragment {
                                 //如果是第一次运行,缓存是没有数据的,这样我们不应该恢复
                                 if(isRunningRecover == null){
                                     isRunningRecover = new AtomicReference<>(Boolean.FALSE);
-                                    isScanningBefore = isScanningBluetooth;
                                 }
                                 else {
                                     if(isRunningRecover.get()){//需要强制停止
                                         isRunningRecover.set(false);//强制停止正在运行的恢复动画
-                                        //强制停止情况不会进行蓝牙扫描状态恢复,应该是保持为之前设置的停止扫描,这是我们现在需要的状态,不用改变
-                                        //然而,我们也要考虑到用户在结束到再次按下,这个时间段内可能存在的用户手动蓝牙扫描状态的变更操作,我们需要关注这种情况进行同步
-                                        //通过isUpdatedByUser标识可以帮助我们顺势同步
-                                    }
-                                    else{//需要正常运行
-                                        isScanningBefore = isScanningBluetooth;//正常运行而没有强制停止,可以安全地更新缓存
                                     }
                                 }
 
-                                //仅在存在用户操作之后,同步状态
-                                if(isUpdatedByUser.get()){
-                                    isScanningBefore = isScanningBluetooth;
-                                    isUpdatedByUser.set(false);
-                                }
-
-                                //保证停止扫描
-                                BluetoothScanStop();
+                                lottieAnimationBluetoothScanning.pauseAnimation();//保证停止动画
+                                isAllowNotifyChanged.set(false);//禁止列表对已存在条目的数据刷新
 
                                 //进行坐标的快速复位,保证坐标的正常复位,安全地继续操作
                                 if(deviceNameParams != null){
@@ -645,11 +632,13 @@ public class BleFragment extends Fragment {
                                 deviceNameBufX = deviceNameParams.leftMargin;
                                 deviceNameBufY = deviceNameParams.topMargin;
                                 //显示主文本提示
-                                MainTextViewBLE.setText(getString(R.string.horizontalslidetoselectoperaction_chinese));
+                                MainTextViewBLE.setText(getString(R.string.horizontalslidedevicetoselectoperaction_chinese));
+                                MainTextViewBLE.setAlpha(1F);
                                 break;
                             }
 
                             //以下对View元素的设置是一时的,一但发生RecyclerView的视图重构会马上重新绘制,这些状态就丢失了
+                            // 当然在我们恢复对列表已存在条目数据更新的允许之后
                             //在线设备被扫描到就会更新视图,不用等到视图重构,所以会马上恢复,但是还是可以停留几秒,因为扫描是耗时的
                             //如果这个设备一直扫描不到即离线了,恢复概率会大大降低
 
@@ -681,7 +670,7 @@ public class BleFragment extends Fragment {
                                         //选择操作,期间蓝牙设备图标会变成操作的标识图标
                                         //   |             |             |
                                         //   0%           25%           50%
-                                        // |0-15||15-20||20-30||30-40||40-50|
+                                        // |0-15||15-20||20-30||30-35||35-50|
                                         //加入设备 将其置顶 无效/取消 检查信息 开始控制
                                         //-------------------------------------
                                         if(progress <= 0.15F){
@@ -702,12 +691,12 @@ public class BleFragment extends Fragment {
                                                 deviceName.setText(R.string.cancel_chinese);
                                             }
                                         }
-                                        if(progress >= 0.30F && progress < 0.40F){
+                                        if(progress >= 0.30F && progress < 0.35F){
                                             user_want = WANT_CHECK_INFORMATION;
                                             deviceIcon.setImageResource(R.drawable.checkinformation);//检查信息
                                             deviceName.setText(R.string.checkinformation_chinese);
                                         }
-                                        if(progress >= 0.40F){
+                                        if(progress >= 0.35F){
                                             user_want = WANT_START_CONTROL;
                                             deviceIcon.setImageResource(R.drawable.startcontrol);//开始控制
                                             deviceName.setText(R.string.startcontrol_chinese);
@@ -736,7 +725,7 @@ public class BleFragment extends Fragment {
                                     deviceName.setText(R.string.cancel_chinese);
                                 }
 
-                                //使用isRunningRecover.set控制动画是否要继续
+                                //使用isRunningRecover.set控制恢复动画是否要继续
                                 isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
                                 RecoverAnimation();
 
@@ -792,9 +781,10 @@ public class BleFragment extends Fragment {
                             animatorY.addListener(new Animator.AnimatorListener() {
                                 @Override
                                 public void onAnimationEnd(@NonNull Animator animation) {
-                                    if(isScanningBefore){
-                                        BluetoothScanStart();//现在,恢复蓝牙状态,因为扫描时更改信息引起的实体刷新可能引起干扰
+                                    if(isScanningBluetooth) {
+                                        lottieAnimationBluetoothScanning.playAnimation();
                                     }
+                                    isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
                                 }
                                 @Override
                                 public void onAnimationStart(@NonNull Animator animation) {}
@@ -806,9 +796,10 @@ public class BleFragment extends Fragment {
                             animatorY.start();
                         }
                         else {
-                            if(isScanningBefore){
-                                BluetoothScanStart();
+                            if(isScanningBluetooth) {
+                                lottieAnimationBluetoothScanning.playAnimation();
                             }
+                            isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
                         }
                     }
                     @Override
@@ -1011,7 +1002,6 @@ public class BleFragment extends Fragment {
 
 ///UI-蓝牙扫描操作控制(基于动画实例)
     private GestureDetector gestureBluetoothScanningAnimation = null;
-    private AtomicReference<Boolean> isUpdatedByUser = new AtomicReference<>(Boolean.FALSE);
     private class ListenerGestureBluetoothScanningAnimation extends GestureDetector.SimpleOnGestureListener{
         @Override
         public boolean onFling(@Nullable MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
@@ -1023,7 +1013,6 @@ public class BleFragment extends Fragment {
             if(Math.abs(velocityX) > Math.abs(velocityY)){
                 if(!isScanningBluetooth){
                     BluetoothScanStart();//扫描启动
-                    isUpdatedByUser.set(true);
                 }
                 else{
                     //如果已经启动,调节播放速度
@@ -1045,23 +1034,29 @@ public class BleFragment extends Fragment {
             else {//如果以垂直滑动为主
                 if(isScanningBluetooth){
                     BluetoothScanStop();
-                    isUpdatedByUser.set(true);
                 }
             }
             return true;
         }
 
         @Override
-        public boolean onDown(@NonNull MotionEvent e) {
+        public boolean onDown(@NonNull MotionEvent e) {//如果为点击
             super.onDown(e);
 
-            fadeInMainTextViewBLE.start();
+
 
             if(isScanningBluetooth){
                 //随机到任意播放位置
                 Random random = new Random();
                 lottieAnimationBluetoothScanning.setProgress(random.nextFloat());
+
+                MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
             }
+            else {
+                MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
+            }
+
+            fadeInMainTextViewBLE.start();
             return true;
         }
     }

@@ -436,7 +436,7 @@ public class BleFragment extends Fragment {
     }
     private void CreateRecyclerViewBluetooth(View view){
         bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
-        recyclerViewBluetooth = view.findViewById(R.id.RecyclerViewBluetooth);
+        recyclerViewBluetooth = view.findViewById(R.id.RecyclerViewBluetoothBLE);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
         recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(requireActivity()));
         recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(30));
@@ -996,7 +996,7 @@ public class BleFragment extends Fragment {
 ////UI-蓝牙扫描动画
     private LottieAnimationView lottieAnimationBluetoothScanning = null;
     private void InitAnimationBluetoothScanning(View view){
-        lottieAnimationBluetoothScanning = view.findViewById(R.id.LottieAnimationBluetoothScanning);
+        lottieAnimationBluetoothScanning = view.findViewById(R.id.LottieAnimationBluetoothScanningBLE);
     }
 
 
@@ -1063,7 +1063,7 @@ public class BleFragment extends Fragment {
     @SuppressLint("ClickableViewAccessibility")
     private void InitGestureBluetoothScanningAnimation(View view){
         gestureBluetoothScanningAnimation = new GestureDetector(requireActivity(),new ListenerGestureBluetoothScanningAnimation());
-        LottieAnimationView detectView = view.findViewById(R.id.LottieAnimationBluetoothScanning);
+        LottieAnimationView detectView = view.findViewById(R.id.LottieAnimationBluetoothScanningBLE);
 
         detectView.setOnTouchListener(new View.OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")

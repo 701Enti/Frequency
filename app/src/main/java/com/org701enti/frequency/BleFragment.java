@@ -520,7 +520,7 @@ public class BleFragment extends Fragment {
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             LayoutInflater inflaterBuf = LayoutInflater.from(parent.getContext());
             //实例化自定义布局R.layout.recyclerviewbluetooth
-            View view = inflaterBuf.inflate(R.layout.recyclerviewbluetooth, parent, false);
+            View view = inflaterBuf.inflate(R.layout.scan_result_show_bluetooth, parent, false);
             return new ViewHolder(view);
         }
 

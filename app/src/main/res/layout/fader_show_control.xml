@@ -32,7 +32,7 @@
             android:layout_width="30dp"
             android:layout_height="match_parent"
             android:layout_marginStart="30dp"
-            android:max="100"/>
+            android:max="100" />
 
     </FrameLayout>
 

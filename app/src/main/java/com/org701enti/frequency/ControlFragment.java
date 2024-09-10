@@ -1,5 +1,7 @@
 package com.org701enti.frequency;
 
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
@@ -35,4 +37,7 @@ public class ControlFragment extends Fragment {
         // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_control, container, false);
     }
+
+
+
 }

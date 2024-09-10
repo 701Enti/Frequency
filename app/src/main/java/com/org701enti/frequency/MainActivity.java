@@ -24,6 +24,9 @@ package com.org701enti.frequency;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -210,6 +213,45 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+
+    //蓝牙相关核心实现
+    public final BluetoothGattCallback connectGattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+
+
+
+
+
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            super.onServicesDiscovered(gatt, status);
+
+
+
+        }
+    };
+
+
+
+    //Fragment操作调度
+    class BleFragmentFunctionRun implements BleFragment.BleFragmentRunUserWant{
+        @SuppressLint("MissingPermission")
+        @Override
+        public void StartControl(BluetoothDevice device) {
+            device.connectGatt(MainActivity.this,true,connectGattCallback);
+
+        }
+    }
+
+    //Fragment操作实例分配
+    BleFragmentFunctionRun bleFragmentFunctionRun = new BleFragmentFunctionRun();
+    public BleFragmentFunctionRun getBleFragmentFunctionRun() {
+        return bleFragmentFunctionRun;
+    }
 
 
     //Fragment管理

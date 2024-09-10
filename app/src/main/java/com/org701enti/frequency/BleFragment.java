@@ -91,6 +91,19 @@ public class BleFragment extends Fragment {
         // Required empty public constructor
     }
 
+    private BleFragmentRunUserWant bleFragmentRunUserWant;
+
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if(context instanceof MainActivity){
+            MainActivity activity = (MainActivity) context;
+            bleFragmentRunUserWant = activity.getBleFragmentFunctionRun();
+        }
+        else{
+            throw new RuntimeException("must be attached by MainActivity but not by" + context.toString());
+        }
+    }
 
     public static BleFragment newInstance() {
         BleFragment fragment = new BleFragment();
@@ -396,7 +409,8 @@ public class BleFragment extends Fragment {
             deviceDistance = (int) Distance2400MHZ(powerTX,result.getRssi());
 
             //创建设备模型
-            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),deviceDistance,iconID,bluetoothAD.getSha256StringAdvertising());//生成这个蓝牙设备的基本信息模型
+            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(),deviceDistance,
+                    iconID,bluetoothAD.getSha256StringAdvertising());//生成这个蓝牙设备的基本信息模型
 
             //缓存到RecyclerView适配器内部列表
             int index = bluetoothDeviceRecyclerViewAdapter.getItemCount();
@@ -813,30 +827,16 @@ public class BleFragment extends Fragment {
                 animatorX.setInterpolator(new DecelerateInterpolator());
                 animatorX.start();
             }
-
-
-
-
         }
 
 
-
-
-        //用户操作枚举
-        final static byte WANT_ADD_TO_DEVICE = -2;//添加入"设备"
-        final static byte WANT_STICK_TO_TOP = -1;//置顶对应显示行单元到列表顶部
-        final static byte WANT_NONE = 0;//无操作
-        final static byte WANT_CHECK_INFORMATION = 1;//检查设备信息
-        final static byte WANT_START_CONTROL = 2;//开始设备控制
-
         /**
-         * (静态,外部可调用)
          * @param want 用户操作枚举 WANT_X
          * @param list 蓝牙设备模型列表,可以是实体BluetoothDeviceRecyclerViewAdapter中的,也可以是外部自己拼接的
          * @param position 选择操作的模型单元在list的位置
          * @param context 上下文,可以使用Activity作为上下文
          */
-        public static void OperationRun(byte want,List<BluetoothDeviceModel> list,int position,Context context){
+        public void OperationRun(byte want,List<BluetoothDeviceModel> list,int position,Context context){
             if(want == WANT_NONE){
                 return;
             }
@@ -852,58 +852,59 @@ public class BleFragment extends Fragment {
                     }
 
                     try {
-                        String targetSha256 = AddToBleDeviceMainDatabase(targetModel, context);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
+                        String confirmSha256 = AddToBleDeviceMainDatabase(targetModel, context);//插入或更新到数据库
+                        if(confirmSha256 != null){
+                            //确定数据未发生错误或篡改
+                            if(targetModel.getDeviceSha256().equals(confirmSha256)){
+                                //执行用户需要的操作
+                                switch (want){
+                                    case WANT_ADD_TO_DEVICE:
+
+                                        break;
+                                    case WANT_STICK_TO_TOP:
+
+                                        break;
+                                    case WANT_CHECK_INFORMATION:
+
+                                        break;
+                                    case WANT_START_CONTROL:
+                                        bleFragmentRunUserWant.StartControl(targetModel.getDevice());
+                                        break;
+                                }
+                            }
+
+                        }
                     }
-
-                    switch (want){
-                        case WANT_ADD_TO_DEVICE:
-
-                            break;
-                        case WANT_STICK_TO_TOP:
-
-                            break;
-                        case WANT_CHECK_INFORMATION:
-
-                            break;
-                        case WANT_START_CONTROL:
-
-                            break;
+                    catch (InterruptedException e) {
+                        throw new RuntimeException(e);
                     }
                 }
             }).start();
         }
 
-        /**添加入"设备"
-         *
-         * @param targetSha256 目标设备在数据库的Sha256校验码
-         * @param context 上下文,可以使用Activity作为上下文
-         */
-        private static void AddToDevice(String targetSha256,Context context){
-
-        }
-
-        /**
-         * 置顶对应显示行单元到列表顶部
-         */
-        private static void StickToTop(String targetSha256,int originPosition,List<BluetoothDeviceModel> list,Context context){
-
-        }
-
-        /**
-         * 检查设备信息
-         */
-        private static void CheckInformation(String targetSha256,Context context){
-
-        }
-
-        /**
-         * 开始设备控制
-         */
-        private static void StartControl(String targetSha256,Context context){
-
-        }
+//        /**添加入"设备"
+//         *
+//         * @param targetSha256 目标设备在数据库的Sha256校验码
+//         * @param context 上下文,可以使用Activity作为上下文
+//         */
+//        private static void AddToDevice(String targetSha256,Context context){
+//
+//        }
+//
+//        /**
+//         * 置顶对应显示行单元到列表顶部
+//         */
+//        private static void StickToTop(String targetSha256,int originPosition,List<BluetoothDeviceModel> list,Context context){
+//
+//        }
+//
+//        /**
+//         * 检查设备信息
+//         */
+//        private static void CheckInformation(String targetSha256,Context context){
+//
+//        }
+//
 
 
 
@@ -923,6 +924,24 @@ public class BleFragment extends Fragment {
             }
         }
     }
+
+    //用户操作
+    
+    //用户操作枚举
+    final static byte WANT_ADD_TO_DEVICE = -2;//添加入"设备"
+    final static byte WANT_STICK_TO_TOP = -1;//置顶对应显示行单元到列表顶部
+    final static byte WANT_NONE = 0;//无操作
+    final static byte WANT_CHECK_INFORMATION = 1;//检查设备信息
+    final static byte WANT_START_CONTROL = 2;//开始设备控制
+
+    //用户操作接口
+    public interface BleFragmentRunUserWant {
+        //开始设备控制
+        void StartControl(BluetoothDevice device);
+
+    }
+    
+    
 
     /**
      * (内部回归主线程处理)清除蓝牙设备列表并请求列表刷新

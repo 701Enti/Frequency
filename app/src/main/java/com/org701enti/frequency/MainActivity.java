@@ -27,6 +27,8 @@ import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -56,10 +58,13 @@ import android.view.MenuItem;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
+import com.org701enti.bluetoothfocuser.BluetoothControl;
+import com.org701enti.bluetoothfocuser.ControlModelBluetooth;
 
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import data.DeviceBle.DeviceBleDatabase;
@@ -214,40 +219,95 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    //蓝牙相关核心实现
+    //蓝牙相关部分实现
+    private BluetoothGatt gatt;//蓝牙BLE-GATT实例
+    private int gattState = BluetoothGatt.STATE_DISCONNECTED;//蓝牙BLE-GATT实例的状态码
+    private String deviceSha256Bluetooth;//连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+    //连接回调
     public final BluetoothGattCallback connectGattCallback = new BluetoothGattCallback() {
+        @SuppressLint("MissingPermission")
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
 
-
-
-
+            MainActivity.this.gatt = gatt;//缓存实例引用
+            gattState = newState;
+            if(newState == BluetoothGatt.STATE_CONNECTED){
+                gatt.discoverServices();//如果状态为已经连接,就扫描服务
+            }
 
         }
-
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
 
-
+            MainActivity.this.gatt = gatt;//缓存实例引用
 
         }
     };
 
 
 
-    //Fragment操作调度
-    class BleFragmentFunctionRun implements BleFragment.BleFragmentRunUserWant{
-        @SuppressLint("MissingPermission")
-        @Override
-        public void StartControl(BluetoothDevice device) {
-            device.connectGatt(MainActivity.this,true,connectGattCallback);
 
+    /**
+     * 蓝牙GATT数据请求回调实现
+     */
+    public MainBluetoothGattDataAccessCallback mainBluetoothGattDataAccessCallback;
+    public class MainBluetoothGattDataAccessCallback implements BluetoothControl.BluetoothGattDataAccessCallback{
+        public List<BluetoothGattService> getAllServicesBluetoothGatt(String deviceSha256){
+            if(deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED){
+                if(deviceSha256.equals(deviceSha256Bluetooth)){
+                    return gatt.getServices();
+                }
+            }
+            return null;
+        }
+
+        public List<BluetoothGattCharacteristic> getThisServiceAllCharacteristicsBluetoothGatt(String deviceSha256,BluetoothGattService service){
+            if(deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED){
+                if(deviceSha256.equals(deviceSha256Bluetooth)){
+                    return service.getCharacteristics();
+                }
+            }
+            return null;
+        }
+
+        public BluetoothGattService getServiceBluetoothGatt(String deviceSha256,UUID serviceUuid){
+            if(deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED){
+                if(deviceSha256.equals(deviceSha256Bluetooth)){
+                    return gatt.getService(serviceUuid);
+                }
+            }
+            return null;
+        }
+
+        public BluetoothGattCharacteristic getCharacteristicsBluetoothGatt(String deviceSha256,UUID characteristicUuid,BluetoothGattService service){
+            if(deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED){
+                if(deviceSha256.equals(deviceSha256Bluetooth)){
+                    return service.getCharacteristic(characteristicUuid);
+                }
+            }
+            return null;
         }
     }
 
-    //Fragment操作实例分配
+
+
+
+    //Fragment需求操作实现
+    class BleFragmentFunctionRun implements BleFragment.BleFragmentRunUserWant{
+        @SuppressLint("MissingPermission")
+        @Override
+        public void StartControl(BluetoothDevice device, String sha256) {
+            if(device == null || sha256 == null){
+                return;
+            }
+            deviceSha256Bluetooth = sha256;
+            device.connectGatt(MainActivity.this,true,connectGattCallback);
+        }
+    }
+
+    //Fragment需求操作实例的分配
     BleFragmentFunctionRun bleFragmentFunctionRun = new BleFragmentFunctionRun();
     public BleFragmentFunctionRun getBleFragmentFunctionRun() {
         return bleFragmentFunctionRun;

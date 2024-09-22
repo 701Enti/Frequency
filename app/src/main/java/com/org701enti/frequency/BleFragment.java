@@ -160,7 +160,7 @@ public class BleFragment extends Fragment {
     ////蓝牙内部处理业务
     private BluetoothAdapter bluetoothAdapter = null;
     private BluetoothLeScanner bluetoothLeScanner = null;
-    private static List<BluetoothDeviceModel> bluetoothDevicesList = new ArrayList<>();
+    private List<BluetoothDeviceModel> bluetoothDevicesList = new ArrayList<>();
     private BluetoothDeviceRecyclerViewAdapter bluetoothDeviceRecyclerViewAdapter = null;
     private RecyclerView recyclerViewBluetooth = null;
     private boolean isScanningBluetooth = false;
@@ -936,9 +936,12 @@ public class BleFragment extends Fragment {
 
     //用户操作接口
     public interface BleFragmentRunUserWant {
-        //开始设备控制
-        void StartControl(BluetoothDevice device);
-
+        /**开始设备控制
+         *
+         * @param device BluetoothDevice实例
+         * @param sha256 设备的SHA-256校验码
+         */
+        void StartControl(BluetoothDevice device,String sha256);
     }
     
     

@@ -24,69 +24,81 @@ package com.org701enti.bluetoothfocuser;
 
 import java.util.UUID;
 
-public class ControlModelBluetooth {
+public class ControlBasicModelBluetooth {
     private UUID uuidService;//所属服务的UUID
     private UUID uuidCharacteristic;//所属特征的UUID
-    private int controlTargetDataTypeId;//控制目标数据的类型ID
 
-    private int dataValue;//数值数据
-    private int maxDataValue;//数值数据最大值
-    private int minDataValue;//数值数据最最小值
-    private byte[] dataBytes;//字节数据
-    private String dataText;//文本数据
+    private byte[] maxDataValue;//数值数据最大值
+    private byte[] minDataValue;//数值数据最小值
+    private byte[] dataBytes;//字节数据,任何数据都以字节存储
 
-    public ControlModelBluetooth() {
+    private int dataType;//控制目标的数据的类型,将dataBytes中数据转换为这个类型
+
+
+    public ControlBasicModelBluetooth() {
     }
 
-    public ControlModelBluetooth(UUID uuidService, UUID uuidCharacteristic) {
-        this.maxDataValue = Integer.MAX_VALUE;
-        this.minDataValue = Integer.MIN_VALUE;
+    public ControlBasicModelBluetooth(UUID uuidService, UUID uuidCharacteristic) {
+        this.maxDataValue = null;
+        this.minDataValue = null;
 
+        this.dataBytes = null;
+
+        this.dataType = StandardSync.DATA_TYPE_UNKNOWN;
         this.uuidService = uuidService;
         this.uuidCharacteristic = uuidCharacteristic;
     }
 
-    public ControlModelBluetooth(int controlTargetDataTypeId, UUID uuidService, UUID uuidCharacteristic) {
-        this.maxDataValue = Integer.MAX_VALUE;
-        this.minDataValue = Integer.MIN_VALUE;
+    public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic) {
+        this.maxDataValue = null;
+        this.minDataValue = null;
 
-        this.controlTargetDataTypeId = controlTargetDataTypeId;
+        this.dataBytes = null;
+
+        this.dataType = dataType;
         this.uuidService = uuidService;
         this.uuidCharacteristic = uuidCharacteristic;
     }
 
-    public ControlModelBluetooth(int controlTargetDataTypeId, UUID uuidService, UUID uuidCharacteristic, int dataValue, int maxDataValue, int minDataValue) {
-        this.maxDataValue = maxDataValue;
-        this.minDataValue = minDataValue;
-
-        this.dataValue = dataValue;
-
-        this.controlTargetDataTypeId = controlTargetDataTypeId;
-        this.uuidService = uuidService;
-        this.uuidCharacteristic = uuidCharacteristic;
-    }
-
-    public ControlModelBluetooth(int controlTargetDataTypeId, UUID uuidService, UUID uuidCharacteristic, byte[] dataBytes) {
-        this.maxDataValue = Integer.MAX_VALUE;
-        this.minDataValue = Integer.MIN_VALUE;
+    public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic, byte[] dataBytes) {
+        this.maxDataValue = null;
+        this.minDataValue = null;
 
         this.dataBytes = dataBytes;
 
-        this.controlTargetDataTypeId = controlTargetDataTypeId;
+        this.dataType = dataType;
         this.uuidService = uuidService;
         this.uuidCharacteristic = uuidCharacteristic;
     }
 
-    public ControlModelBluetooth(int controlTargetDataTypeId, UUID uuidService, UUID uuidCharacteristic, String dataText) {
-        this.maxDataValue = Integer.MAX_VALUE;
-        this.minDataValue = Integer.MIN_VALUE;
 
-        this.dataText = dataText;
+    public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic, byte[] maxDataValue, byte[] minDataValue) {
+        this.maxDataValue = maxDataValue;
+        this.minDataValue = minDataValue;
 
-        this.controlTargetDataTypeId = controlTargetDataTypeId;
+        this.dataBytes = null;
+
+        this.dataType = dataType;
         this.uuidService = uuidService;
         this.uuidCharacteristic = uuidCharacteristic;
     }
+
+
+
+    public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic, byte[] dataBytes, byte[] maxDataValue, byte[] minDataValue) {
+        this.maxDataValue = maxDataValue;
+        this.minDataValue = minDataValue;
+
+        this.dataBytes = dataBytes;
+
+        this.dataType = dataType;
+        this.uuidService = uuidService;
+        this.uuidCharacteristic = uuidCharacteristic;
+    }
+
+
+
+
 
     public UUID getUuidService() {
         return uuidService;
@@ -104,35 +116,27 @@ public class ControlModelBluetooth {
         this.uuidCharacteristic = uuidCharacteristic;
     }
 
-    public int getControlTargetDataTypeId() {
-        return controlTargetDataTypeId;
+    public int getDataType() {
+        return dataType;
     }
 
-    public void setControlTargetDataTypeId(int controlTargetDataTypeId) {
-        this.controlTargetDataTypeId = controlTargetDataTypeId;
+    public void setDataType(int dataType) {
+        this.dataType = dataType;
     }
 
-    public int getDataValue() {
-        return dataValue;
-    }
-
-    public void setDataValue(int dataValue) {
-        this.dataValue = dataValue;
-    }
-
-    public int getMaxDataValue() {
+    public byte[] getMaxDataValue() {
         return maxDataValue;
     }
 
-    public void setMaxDataValue(int maxDataValue) {
+    public void setMaxDataValue(byte[] maxDataValue) {
         this.maxDataValue = maxDataValue;
     }
 
-    public int getMinDataValue() {
+    public byte[] getMinDataValue() {
         return minDataValue;
     }
 
-    public void setMinDataValue(int minDataValue) {
+    public void setMinDataValue(byte[] minDataValue) {
         this.minDataValue = minDataValue;
     }
 
@@ -144,11 +148,4 @@ public class ControlModelBluetooth {
         this.dataBytes = dataBytes;
     }
 
-    public String getDataText() {
-        return dataText;
-    }
-
-    public void setDataText(String dataText) {
-        this.dataText = dataText;
-    }
 }

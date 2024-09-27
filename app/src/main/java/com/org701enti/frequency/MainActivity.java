@@ -29,6 +29,7 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothStatusCodes;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -59,7 +60,6 @@ import android.view.MenuItem;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 import com.org701enti.bluetoothfocuser.BluetoothControl;
-import com.org701enti.bluetoothfocuser.ControlModelBluetooth;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -220,27 +220,51 @@ public class MainActivity extends AppCompatActivity {
 
 
     //蓝牙相关部分实现
-    private BluetoothGatt gatt;//蓝牙BLE-GATT实例
+    private BluetoothGatt gatt = null;//蓝牙BLE-GATT实例
     private int gattState = BluetoothGatt.STATE_DISCONNECTED;//蓝牙BLE-GATT实例的状态码
-    private String deviceSha256Bluetooth;//连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+    private String deviceSha256Bluetooth = null;//连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+    public  BluetoothControl bluetoothControl = null;
     //连接回调
-    public final BluetoothGattCallback connectGattCallback = new BluetoothGattCallback() {
+    public final BluetoothGattCallback bluetoothGattCallback = new BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
-
             MainActivity.this.gatt = gatt;//缓存实例引用
             gattState = newState;
             if(newState == BluetoothGatt.STATE_CONNECTED){
                 gatt.discoverServices();//如果状态为已经连接,就扫描服务
             }
-
         }
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
+            MainActivity.this.gatt = gatt;//缓存实例引用
 
+
+
+            bluetoothControl = new BluetoothControl(deviceSha256Bluetooth,BluetoothControl.FRAMEWORK_INNER_UI,mainBluetoothGattDataAccessCallback);
+
+
+
+
+        }
+
+        @Override
+        public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
+            super.onCharacteristicRead(gatt, characteristic, value, status);
+            MainActivity.this.gatt = gatt;//缓存实例引用
+
+
+
+
+
+
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            super.onCharacteristicWrite(gatt, characteristic, status);
             MainActivity.this.gatt = gatt;//缓存实例引用
 
         }
@@ -254,8 +278,9 @@ public class MainActivity extends AppCompatActivity {
      */
     public MainBluetoothGattDataAccessCallback mainBluetoothGattDataAccessCallback;
     public class MainBluetoothGattDataAccessCallback implements BluetoothControl.BluetoothGattDataAccessCallback{
+        @Override
         public List<BluetoothGattService> getAllServicesBluetoothGatt(String deviceSha256){
-            if(deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED){
+            if(gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED){
                 if(deviceSha256.equals(deviceSha256Bluetooth)){
                     return gatt.getServices();
                 }
@@ -263,8 +288,9 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
 
+        @Override
         public List<BluetoothGattCharacteristic> getThisServiceAllCharacteristicsBluetoothGatt(String deviceSha256,BluetoothGattService service){
-            if(deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED){
+            if(gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED){
                 if(deviceSha256.equals(deviceSha256Bluetooth)){
                     return service.getCharacteristics();
                 }
@@ -272,8 +298,9 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
 
+        @Override
         public BluetoothGattService getServiceBluetoothGatt(String deviceSha256,UUID serviceUuid){
-            if(deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED){
+            if(gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED){
                 if(deviceSha256.equals(deviceSha256Bluetooth)){
                     return gatt.getService(serviceUuid);
                 }
@@ -281,13 +308,48 @@ public class MainActivity extends AppCompatActivity {
             return null;
         }
 
+        @Override
         public BluetoothGattCharacteristic getCharacteristicsBluetoothGatt(String deviceSha256,UUID characteristicUuid,BluetoothGattService service){
-            if(deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED){
+            if(gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED){
                 if(deviceSha256.equals(deviceSha256Bluetooth)){
                     return service.getCharacteristic(characteristicUuid);
                 }
             }
             return null;
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public boolean readCharacteristic(String deviceSha256, BluetoothGattCharacteristic characteristic) {
+            if(gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && characteristic != null && gattState == BluetoothGatt.STATE_CONNECTED){
+                if(deviceSha256.equals(deviceSha256Bluetooth)){
+                   return gatt.readCharacteristic(characteristic);
+                }
+            }
+            return false;
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public boolean writeCharacteristic(String deviceSha256, byte[] data, int writeType, BluetoothGattCharacteristic characteristic) {
+            if(gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && characteristic != null && data != null && gattState == BluetoothGatt.STATE_CONNECTED){
+                if(deviceSha256.equals(deviceSha256Bluetooth)){
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if(gatt.writeCharacteristic(characteristic,data,writeType) == BluetoothStatusCodes.SUCCESS){
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    }
+                    else {
+                        characteristic.setValue(data);
+                        characteristic.setWriteType(writeType);
+                        return gatt.writeCharacteristic(characteristic);
+                    }
+                }
+            }
+            return false;
         }
     }
 
@@ -302,8 +364,19 @@ public class MainActivity extends AppCompatActivity {
             if(device == null || sha256 == null){
                 return;
             }
-            deviceSha256Bluetooth = sha256;
-            device.connectGatt(MainActivity.this,true,connectGattCallback);
+            if(deviceSha256Bluetooth != null){
+                if(deviceSha256Bluetooth.equals(sha256)){
+                    return;//不可重复连接
+                }
+            }
+
+            deviceSha256Bluetooth = sha256;//校验码引用更改,之前连接的设备无法再被访问
+
+            if(gatt != null){
+                gatt.disconnect();
+                gatt.close();
+            }
+            device.connectGatt(MainActivity.this,true, bluetoothGattCallback);
         }
     }
 

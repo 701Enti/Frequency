@@ -72,13 +72,13 @@ public class BluetoothControl {
                 
                 BluetoothGuess guess = new BluetoothGuess();
 
-                if(this.frameworkType == FRAMEWORK_INNER_UI){
-                    //如果需要,创建内部UI数据缓存
-                    BluetoothUI.DataInnerUI dataInnerUI = new BluetoothUI.DataInnerUI();
-
-
-
-                }
+//                if(this.frameworkType == FRAMEWORK_INNER_UI){
+//                    //如果需要,创建内部UI数据缓存
+//                    BluetoothUI.DataInnerUI dataInnerUI = new BluetoothUI.DataInnerUI();
+//
+//
+//
+//                }
                 
                 //保存到列表
                 this.controlModelWithInnerUiList.add(model);

@@ -22,7 +22,15 @@
 
 package com.org701enti.frequency;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothStatusCodes;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -51,12 +59,32 @@ import android.view.MenuItem;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
+import com.org701enti.bluetoothfocuser.BluetoothControl;
+import com.org701enti.bluetoothfocuser.StandardSync;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+
+import data.DeviceBle.DeviceBleDatabase;
+import data.DeviceBle.DeviceBleEntity;
+
 public class MainActivity extends AppCompatActivity {
 
-////权限检查和提取
+    //standardSync实例分发
+    private StandardSync standardSync = null;
+    public StandardSync getStandardSync() {
+        if(standardSync == null){
+            standardSync = new StandardSync(StandardSync.STANDARD_ACCORDING_FILE_IN_ASSETS,this);
+        }
+        return standardSync;
+    }
+
+    ////权限检查和提取
     public static final int AndroidVersion = Build.VERSION.SDK_INT;
     //    权限申请码定义
     private static final int REQUEST_COARSE_LOCATION = 100;
@@ -67,6 +95,358 @@ public class MainActivity extends AppCompatActivity {
 
     //    权限申请标志
     private static boolean PermissionRequestingFlag = false;
+
+    /**
+     * (含阻塞,请使用非主线程调用)插入或更新到BleDeviceMainDatabase数据库
+     *
+     * @param targetModel 目标蓝牙设备模型
+     * @param context     上下文,可以使用Activity作为上下文
+     * @return 操作设备的bleDeviceSha256, 发生异常为null
+     */
+    @SuppressLint("MissingPermission")
+    static String AddToBleDeviceMainDatabase(BleFragment.BluetoothDeviceModel targetModel, Context context) throws InterruptedException {
+        if (targetModel == null) {
+            return null;
+        }
+        if (targetModel.getDeviceSha256() == null) {
+            return null;
+        }
+        //禁止在主线程执行,因为本方法内含阻塞,会阻塞调用线程,应该使用其他非服务线程调用
+        if (Thread.currentThread().getName().equals("main")) {
+            throw new InterruptedException(context.getString(R.string.permissionapplycheckthreaderr));
+        }
+
+        AtomicReference<String> sha256Buf = new AtomicReference<>();
+        AtomicReference<Boolean> isComplete = new AtomicReference<>(Boolean.FALSE);
+
+        Thread thread = new Thread(() -> {
+            //检查
+            DeviceBleDatabase.BleDeviceMainDatabase database = null;
+            database = DeviceBleDatabase.BleDeviceMainDatabase.getDatabase(context);
+
+            if (database == null) {
+                isComplete.set(true);
+                return;
+            }
+
+            //缓存当前时间戳
+            long currentTimestamp = System.currentTimeMillis();
+
+            //缓存名称
+            String nameBuf = null;
+            if (targetModel.getDevice() == null) {//是伪造设备
+                nameBuf = context.getString(R.string.fakedevice_chinese);
+            } else {//不是伪造设备
+                if (targetModel.getDevice().getName() != null) {
+                    nameBuf = targetModel.getDevice().getName();
+                } else {//未知设备
+                    nameBuf = context.getString(R.string.unknowndevice_chinese);
+                }
+            }
+
+            //获取操作实体和目标动作
+            DeviceBleEntity.BleDeviceMainEntity updateTargetEntity =
+                    database.bleDeviceMainDao().getByNameThenBleDeviceSha256(nameBuf, targetModel.getDeviceSha256());
+            if (updateTargetEntity != null) {
+                //已经存在,进行更新操作
+                updateTargetEntity.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
+                updateTargetEntity.setLastActiveTimestamp(currentTimestamp);//设置最近活动时间戳为当前时间
+                database.bleDeviceMainDao().update(updateTargetEntity);
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.updatedeviceinformation));
+
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "bleDeviceId:" + "[" + updateTargetEntity.getBleDeviceId() + "]");
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "bleDeviceName:" + updateTargetEntity.getBleDeviceName());
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "bleDeviceIconId:" + updateTargetEntity.getBleDeviceIconId());
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "lastActiveTimestamp:" + updateTargetEntity.getLastActiveTimestamp());
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "bleDeviceSha256:" + updateTargetEntity.getBleDeviceSha256());
+
+                sha256Buf.set(updateTargetEntity.getBleDeviceSha256());
+            } else {
+                //新设备,进行插入操作
+                DeviceBleEntity.BleDeviceMainEntity entityNew = new DeviceBleEntity.BleDeviceMainEntity();
+                entityNew.setBleDeviceName(nameBuf);//设置设备名称
+                entityNew.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
+                entityNew.setLastActiveTimestamp(currentTimestamp);//设置最近活动时间戳为当前时间
+                entityNew.setBleDeviceSha256(targetModel.getDeviceSha256());//设置设备的SHA-256唯一性与安全校验码
+                database.bleDeviceMainDao().insert(entityNew);
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insertnewdeviceinformation));
+
+                //检查是否成功
+                DeviceBleEntity.BleDeviceMainEntity nowEntity =
+                        database.bleDeviceMainDao().getByNameThenBleDeviceSha256(entityNew.getBleDeviceName(), entityNew.getBleDeviceSha256());
+                if (nowEntity != null) {
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.completeinsertdatafollowing_chinese));
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceId:" + "[" + nowEntity.getBleDeviceId() + "]");
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceName:" + nowEntity.getBleDeviceName());
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceIconId:" + nowEntity.getBleDeviceIconId());
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "lastActiveTimestamp:" + nowEntity.getLastActiveTimestamp());
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceSha256:" + nowEntity.getBleDeviceSha256());
+
+                    sha256Buf.set(nowEntity.getBleDeviceSha256());
+                } else {
+                    Log.e("AddToBleDeviceMainDatabase", context.getString(R.string.insertdataerror_chinese));
+                    sha256Buf.set(null);
+                }
+            }
+            isComplete.set(true);
+
+        });
+
+        thread.start();
+        while (!isComplete.get()) {
+            Thread.sleep(50);
+        }
+
+        return sha256Buf.get();
+    }
+
+    /**
+     * 通过Log输出BleDeviceMainDatabase数据库数据,可以在AndroidStudio的"Logcat"查看Log打印
+     *
+     * @param context 上下文,可以使用Activity作为上下文
+     */
+    public static void LogShowBleDeviceMainDatabase(Context context) {
+        new Thread(() -> {
+            DeviceBleDatabase.BleDeviceMainDatabase database = null;
+            database = DeviceBleDatabase.BleDeviceMainDatabase.getDatabase(context);
+            if (database == null) {
+                return;
+            }
+
+            List<DeviceBleEntity.BleDeviceMainEntity> list = database.bleDeviceMainDao().allGet();
+            //遍历显示所有实体
+            for (DeviceBleEntity.BleDeviceMainEntity entity : list) {
+                Log.i("ShowBleDeviceMainDatabase", "------------------------------------------------------");
+                Log.i("ShowBleDeviceMainDatabase", "|" + "bleDeviceId:" + "[" + entity.getBleDeviceId() + "]");
+                Log.i("ShowBleDeviceMainDatabase", "|" + "bleDeviceName:" + entity.getBleDeviceName());
+                Log.i("ShowBleDeviceMainDatabase", "|" + "bleDeviceIconId:" + entity.getBleDeviceIconId());
+                Log.i("ShowBleDeviceMainDatabase", "|" + "lastActiveTimestamp:" + entity.getLastActiveTimestamp());
+                Log.i("ShowBleDeviceMainDatabase", "|" + "bleDeviceSha256:" + entity.getBleDeviceSha256());
+            }
+
+            Log.i("ShowBleDeviceMainDatabase", "------------------------------------------------------");
+        }).start();
+    }
+
+
+    //蓝牙相关
+    //蓝牙控制基础类的实例列表
+    private List<ControlBaseBluetooth> controlBaseListBluetooth = new ArrayList<>();
+    public List<ControlBaseBluetooth> getControlBaseListBluetooth() {
+        return controlBaseListBluetooth;
+    }
+    /**
+     * 蓝牙控制基础,每个独立唯一设备的控制和回调等相关资源被封装到ControlBaseBluetooth
+     * 将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
+     * 完善之后即可通过get设备的BluetoothControl实例,进行控制
+     */
+    public class ControlBaseBluetooth extends BluetoothGattCallback implements BluetoothControl.BluetoothGattDataAccessCallback {
+        private BluetoothGatt gatt = null;//蓝牙BLE-GATT实例
+        private int gattState;//蓝牙BLE-GATT实例的状态码
+        private String deviceSha256Bluetooth = null;//连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+        private BluetoothControl bluetoothControl = null;//蓝牙控制实例
+
+//     将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
+//     完善之后即可通过get设备的BluetoothControl实例,进行控制
+
+        /**
+         * 构造方法
+         * @param deviceSha256Bluetooth 连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+         */
+        public ControlBaseBluetooth(@NonNull String deviceSha256Bluetooth){
+            gattState = BluetoothGatt.STATE_DISCONNECTED;
+            this.deviceSha256Bluetooth = deviceSha256Bluetooth;
+        }
+
+
+        public BluetoothGatt getGatt() {
+            return gatt;
+        }
+
+        public String getDeviceSha256Bluetooth() {
+            return deviceSha256Bluetooth;
+        }
+
+        public BluetoothControl getBluetoothControl() {
+            return bluetoothControl;
+        }
+
+
+        //BluetoothControl.BluetoothGattDataAccessCallback实现
+
+        @Override
+        public StandardSync getStandardSync() {
+            return MainActivity.this.getStandardSync();
+        }
+
+        @Override
+        public int getGattState() {
+            if (gatt != null) {
+                return gattState;
+            } else {
+                return StandardSync.RESULT_FAIL_UNKNOWN;
+            }
+        }
+
+        @Override
+        public boolean isEqualDeviceSha256(String deviceSha256) {
+            if (deviceSha256 != null && deviceSha256Bluetooth != null) {
+                if (deviceSha256Bluetooth.equals(deviceSha256)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public List<BluetoothGattService> getAllServicesBluetoothGatt(String deviceSha256) {
+            if (gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256.equals(deviceSha256Bluetooth)) {
+                    return gatt.getServices();
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public List<BluetoothGattCharacteristic> getThisServiceAllCharacteristicsBluetoothGatt(String deviceSha256, BluetoothGattService service) {
+            if (gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256.equals(deviceSha256Bluetooth)) {
+                    return service.getCharacteristics();
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public BluetoothGattService getServiceBluetoothGatt(String deviceSha256, UUID serviceUuid) {
+            if (gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256.equals(deviceSha256Bluetooth)) {
+                    return gatt.getService(serviceUuid);
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public BluetoothGattCharacteristic getCharacteristicsBluetoothGatt(String deviceSha256, UUID characteristicUuid, BluetoothGattService service) {
+            if (gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && service != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256.equals(deviceSha256Bluetooth)) {
+                    return service.getCharacteristic(characteristicUuid);
+                }
+            }
+            return null;
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public boolean readCharacteristic(String deviceSha256, BluetoothGattCharacteristic characteristic) {
+            if (gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && characteristic != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256.equals(deviceSha256Bluetooth)) {
+                    return gatt.readCharacteristic(characteristic);
+                }
+            }
+            return false;
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public boolean writeCharacteristic(String deviceSha256, byte[] data, int writeType, BluetoothGattCharacteristic characteristic) {
+            if (gatt != null && deviceSha256 != null && deviceSha256Bluetooth != null && characteristic != null && data != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256.equals(deviceSha256Bluetooth)) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (gatt.writeCharacteristic(characteristic, data, writeType) == BluetoothStatusCodes.SUCCESS) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        characteristic.setValue(data);
+                        characteristic.setWriteType(writeType);
+                        return gatt.writeCharacteristic(characteristic);
+                    }
+                }
+            }
+            return false;
+        }
+
+        //BluetoothGattCallback实现
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+            this.gatt = gatt;//缓存实例引用
+            gattState = newState;
+            if (newState == BluetoothGatt.STATE_CONNECTED) {
+                gatt.discoverServices();//如果状态为已经连接,就扫描服务
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            super.onServicesDiscovered(gatt, status);
+            this.gatt = gatt;//缓存实例引用
+
+            bluetoothControl = new BluetoothControl(deviceSha256Bluetooth,StandardSync.FRAMEWORK_INNER_UI,this);
+
+        }
+
+        @Override
+        public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
+            super.onCharacteristicRead(gatt, characteristic, value, status);
+            this.gatt = gatt;//缓存实例引用
+            if (characteristic != null && value != null && status == BluetoothGatt.GATT_SUCCESS) {
+                BluetoothGattService service = null;
+                service = characteristic.getService();
+                if (service != null) {
+                    if (bluetoothControl != null) {
+                        bluetoothControl.dataUpdate(service.getUuid(), characteristic.getUuid(), value);
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            super.onCharacteristicWrite(gatt, characteristic, status);
+            this.gatt = gatt;//缓存实例引用
+        }
+    }
+
+
+    //Fragment需求操作实现
+    class BleFragmentFunctionRun implements BleFragment.BleFragmentRunUserWant {
+        @SuppressLint("MissingPermission")
+        @Override
+        public void StartControl(BluetoothDevice device, String sha256) {
+            if (device == null || sha256 == null) {
+                return;
+            }
+
+            for(ControlBaseBluetooth base:controlBaseListBluetooth){
+                if (base.getDeviceSha256Bluetooth() != null) {
+                    if (base.getDeviceSha256Bluetooth().equals(sha256)) {
+                        return;//不可重复创建同一设备的连接
+                    }
+                }
+            }
+
+            //创建并保存ControlBaseBluetooth实例
+            ControlBaseBluetooth controlBaseBluetooth = new ControlBaseBluetooth(sha256);
+            controlBaseListBluetooth.add(controlBaseBluetooth);
+
+            //运行连接进行ControlBaseBluetooth实例的完善
+            device.connectGatt(MainActivity.this, true,controlBaseBluetooth);
+        }
+    }
+
+    //Fragment需求操作实例的分配
+    BleFragmentFunctionRun bleFragmentFunctionRun = new BleFragmentFunctionRun();
+
+    public BleFragmentFunctionRun getBleFragmentFunctionRun() {
+        return bleFragmentFunctionRun;
+    }
+
 
     //Fragment管理
     FragmentManager managerFragmentMain = null;
@@ -83,12 +463,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         //配置fragment
-        if(savedInstanceState == null){
+        if (savedInstanceState == null) {
             managerFragmentMain = getSupportFragmentManager();
             FragmentTransaction fragmentTransaction = managerFragmentMain.beginTransaction();
 
             BleFragment bleFragment = BleFragment.newInstance();
-            fragmentTransaction.add(R.id.container_ble,bleFragment,getString(R.string.tag_blemaintransaction));
+            fragmentTransaction.add(R.id.container_ble, bleFragment, getString(R.string.tag_blemaintransaction));
             fragmentTransaction.hide(bleFragment);
             fragmentTransaction.commitNow();
         }
@@ -126,8 +506,7 @@ public class MainActivity extends AppCompatActivity {
             });
             AlertDialog dialog = builder.create();
             dialog.show();//弹出提示框
-        }
-        else {//如果同意对应请求
+        } else {//如果同意对应请求
             switch (requestCode) {
                 case REQUEST_COARSE_LOCATION:
 
@@ -155,6 +534,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * (含阻塞,必须使用非主线程调用)权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
+     *
      * @param requestCode 权限申请码,参考MainActivity开头的权限申请码定义
      */
     private void PermissionApplyCheck(int requestCode) throws InterruptedException {
@@ -209,12 +589,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-////UI-底部导航栏
-    private  final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
+    ////UI-底部导航栏
+    private final Handler[] HandlerMainBottomNavView = {null};//缓存ThreadMainBottomNavView线程handler
 
     //选择标签的监听
-    public class MainBottomNavigationListener implements NavigationBarView.OnItemSelectedListener{
+    public class MainBottomNavigationListener implements NavigationBarView.OnItemSelectedListener {
         @Override
         public boolean onNavigationItemSelected(@NonNull MenuItem item) {
 
@@ -222,7 +601,7 @@ public class MainActivity extends AppCompatActivity {
             HandlerMainBottomNavView[0].post(new Runnable() {
                 @Override
                 public void run() {
-                    switch (item.getItemId()){
+                    switch (item.getItemId()) {
                         case R.id.NavigationDevice:
 
                             break;
@@ -231,13 +610,12 @@ public class MainActivity extends AppCompatActivity {
 //                          权限检查
                             try {
                                 PermissionApplyCheck(REQUEST_FINE_LOCATION);
-                                if(AndroidVersion >= Build.VERSION_CODES.S){
+                                if (AndroidVersion >= Build.VERSION_CODES.S) {
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_SCAN);
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE);
                                     PermissionApplyCheck(REQUEST_BLUETOOTH_CONNECT);
                                 }
-                            }
-                            catch (InterruptedException Inter){
+                            } catch (InterruptedException Inter) {
                                 Thread.currentThread().interrupt();
                             }
 
@@ -260,7 +638,7 @@ public class MainActivity extends AppCompatActivity {
             //主线程执行
             HideFragment(getString(R.string.tag_blemaintransaction));
 
-            switch (item.getItemId()){
+            switch (item.getItemId()) {
                 case R.id.NavigationDevice:
 
                     break;
@@ -285,7 +663,8 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
     }
-    private void InitMainBottomNavigation(){
+
+    private void InitMainBottomNavigation() {
         BottomNavigationView mainBottomNavView = findViewById(R.id.MainBottomNavigation);
         //创建一个线程处理底部导航栏业务(含Looper)
         Thread ThreadMainBottomNavView = new Thread(new Runnable() {
@@ -303,59 +682,66 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 隐藏掉指定的Fragment,通过TAG
-     * @param tag 在add时注册的TAG
+     *
+     * @param tag              在add时注册的TAG
      * @param <F>设置Fragment的类型
      */
-    public <F> void HideFragment(@Nullable String tag){
+    public <F> void HideFragment(@Nullable String tag) {
         FragmentTransaction transaction = managerFragmentMain.beginTransaction();
-        F fragment = (F)managerFragmentMain.findFragmentByTag(tag);
-        if(fragment != null){
+        F fragment = (F) managerFragmentMain.findFragmentByTag(tag);
+        if (fragment != null) {
             transaction.hide((Fragment) fragment);
             transaction.commit();
         }
     }
+
     /**
      * 隐藏掉指定的Fragment,通过Fragment的容器ID
-     * @param id 布局文件中设置的Fragment的容器ID
+     *
+     * @param id  布局文件中设置的Fragment的容器ID
      * @param <F> 设置Fragment的类型
      */
-    public <F> void HideFragment(int id){
+    public <F> void HideFragment(int id) {
         FragmentTransaction transaction = managerFragmentMain.beginTransaction();
-        F fragment = (F)managerFragmentMain.findFragmentById(id);
-        if(fragment != null){
+        F fragment = (F) managerFragmentMain.findFragmentById(id);
+        if (fragment != null) {
             transaction.hide((Fragment) fragment);
             transaction.commit();
         }
     }
+
     /**
      * 显示出指定的Fragment,通过TAG
-     * @param tag 在add时注册的TAG
+     *
+     * @param tag              在add时注册的TAG
      * @param <F>设置Fragment的类型
      */
-    public <F> void ShowFragment(@Nullable String tag){
+    public <F> void ShowFragment(@Nullable String tag) {
         FragmentTransaction transaction = managerFragmentMain.beginTransaction();
-        F fragment = (F)managerFragmentMain.findFragmentByTag(tag);
-        if(fragment != null){
-            transaction.show((Fragment) fragment);
-            transaction.commit();
-        }
-    }
-    /**
-     * 显示出指定的Fragment,通过Fragment的容器ID
-     * @param id 布局文件中设置的Fragment的容器ID
-     * @param <F> 设置Fragment的类型
-     */
-    public <F> void ShowFragment(int id){
-        FragmentTransaction transaction = managerFragmentMain.beginTransaction();
-        F fragment = (F)managerFragmentMain.findFragmentById(id);
-        if(fragment != null){
+        F fragment = (F) managerFragmentMain.findFragmentByTag(tag);
+        if (fragment != null) {
             transaction.show((Fragment) fragment);
             transaction.commit();
         }
     }
 
-////主UI
-    private void InitMainUI(){
+    /**
+     * 显示出指定的Fragment,通过Fragment的容器ID
+     *
+     * @param id  布局文件中设置的Fragment的容器ID
+     * @param <F> 设置Fragment的类型
+     */
+    public <F> void ShowFragment(int id) {
+        FragmentTransaction transaction = managerFragmentMain.beginTransaction();
+        F fragment = (F) managerFragmentMain.findFragmentById(id);
+        if (fragment != null) {
+            transaction.show((Fragment) fragment);
+            transaction.commit();
+        }
+    }
+
+    ////主UI
+    private void InitMainUI() {
         InitMainBottomNavigation();
     }
 }

@@ -75,6 +75,15 @@ import data.DeviceBle.DeviceBleEntity;
 
 public class MainActivity extends AppCompatActivity {
 
+    //standardSync实例分发
+    private StandardSync standardSync = null;
+    public StandardSync getStandardSync() {
+        if(standardSync == null){
+            standardSync = new StandardSync(StandardSync.STANDARD_ACCORDING_FILE_IN_ASSETS,this);
+        }
+        return standardSync;
+    }
+
     ////权限检查和提取
     public static final int AndroidVersion = Build.VERSION.SDK_INT;
     //    权限申请码定义
@@ -262,7 +271,14 @@ public class MainActivity extends AppCompatActivity {
             return bluetoothControl;
         }
 
+
         //BluetoothControl.BluetoothGattDataAccessCallback实现
+
+        @Override
+        public StandardSync getStandardSync() {
+            return MainActivity.this.getStandardSync();
+        }
+
         @Override
         public int getGattState() {
             if (gatt != null) {
@@ -371,7 +387,7 @@ public class MainActivity extends AppCompatActivity {
             super.onServicesDiscovered(gatt, status);
             this.gatt = gatt;//缓存实例引用
 
-            bluetoothControl = new BluetoothControl(deviceSha256Bluetooth, BluetoothControl.FRAMEWORK_INNER_UI,this);
+            bluetoothControl = new BluetoothControl(deviceSha256Bluetooth,StandardSync.FRAMEWORK_INNER_UI,this);
 
         }
 

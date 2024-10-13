@@ -34,13 +34,15 @@ import java.util.UUID;
 
 public class BluetoothControl {
     //基本控制模型列表
-    private List<ControlBasicModelBluetooth> controlModelWithInnerUiList = new ArrayList<ControlBasicModelBluetooth>();
+    private List<ControlBasicModelBluetooth> controlModelList = new ArrayList<ControlBasicModelBluetooth>();
 
     private String deviceSha256;//设备的广播数据的SHA-256校验码
     private int frameworkType;//控制框架类型,这是一个枚举,通过StandardSync.FRAMEWORK_ ... 以继续选择
     public BluetoothGattDataAccessCallback callback;//数据请求回调
     private BluetoothGuess bluetoothGuess = null;//未知猜测,直接用于对应设备未知数据猜测和收集
-    private BluetoothUI bluetoothUI = null;//用户界面,直接用于对应设备UI加载
+
+
+
 
     /**
      * 构造方法
@@ -52,6 +54,8 @@ public class BluetoothControl {
         this.deviceSha256 = deviceSha256;
         this.frameworkType = frameworkType;
         this.callback = callback;
+
+        bluetoothGuess = new BluetoothGuess(callback.getStandardSync());
 
         //遍历存储设备所有特征到controlModelList
         List<BluetoothGattService> listServices = null;
@@ -70,18 +74,18 @@ public class BluetoothControl {
                 //先创建基本模型(初步构造)
                 ControlBasicModelBluetooth model = new ControlBasicModelBluetooth(listServices.get(s).getUuid(), listCharacteristics.get(c).getUuid());
                 
-                BluetoothGuess guess = new BluetoothGuess();
+//                BluetoothGuess guess = new BluetoothGuess();
 
 //                if(this.frameworkType == FRAMEWORK_INNER_UI){
 //                    //如果需要,创建内部UI数据缓存
-//                    BluetoothUI.DataInnerUI dataInnerUI = new BluetoothUI.DataInnerUI();
+//                    BluetoothUI.InnerUiUnit dataInnerUI = new BluetoothUI.InnerUiUnit();
 //
 //
 //
 //                }
                 
                 //保存到列表
-                this.controlModelWithInnerUiList.add(model);
+                this.controlModelList.add(model);
             }
         }
 
@@ -102,16 +106,26 @@ public class BluetoothControl {
         return StandardSync.RESULT_OK;
     }
 
+    /**
+     * 获取当前模型在内部列表的最大索引位置
+     * @return 模型在内部列表的最大索引位置
+     */
+    public int getMaxIndex(){
+        if(deviceStatusCheck() == StandardSync.RESULT_OK){
+            return controlModelList.size() - 1;
+        }
+        return -1;
+    }
 
     /**
      * 搜索控制模型
      *
-     * @param index 模型在内部列表的位置
-     * @return 控制模型, 父级是基本控制模型,不存在/异常 = null
+     * @param index 模型在内部列表的索引位置
+     * @return 控制模型,不存在/异常 = null
      */
     public ControlBasicModelBluetooth search(int index) {
         if(deviceStatusCheck() == StandardSync.RESULT_OK){
-            return controlModelWithInnerUiList.get(index);
+            return controlModelList.get(index);
         }
         return null;
     }
@@ -122,11 +136,11 @@ public class BluetoothControl {
      *
      * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
-     * @return 控制模型, 父级是基本控制模型,不存在/异常 = null
+     * @return 控制模型,不存在/异常 = null
      */
     public ControlBasicModelBluetooth search(UUID uuidService, UUID uuidCharacteristic) {
         if(deviceStatusCheck() == StandardSync.RESULT_OK) {
-            for (ControlBasicModelBluetooth model : controlModelWithInnerUiList) {
+            for (ControlBasicModelBluetooth model : controlModelList) {
                 if (model.getUuidService() == uuidService && model.getUuidCharacteristic() == uuidCharacteristic) {
                     return model;
                 }
@@ -135,11 +149,12 @@ public class BluetoothControl {
         return null;
     }
 
+
     /**
      * 更新模型数据
-     * @param index 模型在内部列表的位置
+     * @param index 模型在内部列表的索引位置
      * @param data 新的数据
-     * @return 结果码, 通过StandardSync.RESULT_...以枚举对比(+FAIL_CHARACTERISTIC_NOT_EXIST不存在的更新目标)
+     * @return 结果码,通过StandardSync.RESULT_...以枚举对比(+FAIL_CHARACTERISTIC_NOT_EXIST不存在的更新目标)
      */
     public int dataUpdate(int index,byte[] data){
         //检查参数和设备
@@ -202,7 +217,7 @@ public class BluetoothControl {
     /**
      * 控制写入到蓝牙设备
      *
-     * @param model     可以是任何类型的控制模型
+     * @param model     控制模型
      * @param data      字节数据,如果持有其他类型数据,可以使用StandardSync的相关转换
      * @param writeType 写入执行类型 通过 BluetoothGattCharacteristic.WRITE_TYPE...以枚举选择
      * @return 结果码, 通过StandardSync.RESULT_...以枚举对比
@@ -249,7 +264,7 @@ public class BluetoothControl {
     /**
      * 控制写入到蓝牙设备(将使用默认写入执行类型)
      *
-     * @param model 可以是任何类型的控制模型
+     * @param model 控制模型
      * @param data  字节数据,如果持有其他类型数据,可以使用StandardSync的相关转换
      * @return 结果码, 通过StandardSync.RESULT_...以枚举对比
      */
@@ -261,7 +276,7 @@ public class BluetoothControl {
     /**
      * 控制读取蓝牙设备特征到BluetoothControl内部列表缓存
      *
-     * @param model 可以是任何类型的控制模型
+     * @param model 控制模型
      * @return 结果码, 通过StandardSync.RESULT_...以枚举对比
      */
     public int controlRead(ControlBasicModelBluetooth model) {
@@ -305,6 +320,12 @@ public class BluetoothControl {
      * 蓝牙GATT数据请求回调
      */
     public interface BluetoothGattDataAccessCallback {
+
+        /**
+         * 获取StandardSync实例
+         * @return StandardSync实例
+         */
+        public StandardSync getStandardSync();
 
         /**
          * 获取GATT的状态

@@ -54,7 +54,7 @@ dependencies {
     androidTestImplementation libs.espresso.core
     implementation libs.appcompat
 
-    implementation 'com.airbnb.android:lottie:6.5.0'
+    implementation libs.lottie
     implementation libs.recyclerview
     implementation libs.material.v1120
 

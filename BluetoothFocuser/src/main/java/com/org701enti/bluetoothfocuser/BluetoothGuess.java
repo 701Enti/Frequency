@@ -22,9 +22,118 @@
 
 package com.org701enti.bluetoothfocuser;
 
+import static com.google.android.material.internal.ContextUtils.getActivity;
+import static com.org701enti.bluetoothfocuser.StandardSync.DATA_TYPE_OFFSET_FROM_YAML;
+
+import android.app.Activity;
+import android.content.Context;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
+
+import java.util.UUID;
+
 public class BluetoothGuess {
 
+    String TAG = "BluetoothGuess";
+    StandardSync standardSync = null;
 
+
+    public BluetoothGuess(@NonNull StandardSync standardSync){
+        this.standardSync = standardSync;
+    }
+
+
+    /**
+     * 猜测数据的类型,通过特征的UUID和数据样本大小
+     * @param uuid 特征的UUID实例
+     * @param dataLength (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
+     * @return 数据的类型, 根据StandardSync.DATA_TYPE_...枚举
+     */
+    public int dataTypeByCharacteristicUuid(UUID uuid,int dataLength) {
+        int dataType = StandardSync.DATA_TYPE_UNKNOWN;
+        if (uuid == null) {
+            return dataType;
+        }
+        //获取简化UUID,不添加0x前缀,结果诸如"2900" "2A19"
+        String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(uuid,false);
+        if (stringSimplifiedUuid == null) {
+            return dataType;
+        }
+        else {
+            return dataTypeByCharacteristicUuid(stringSimplifiedUuid,dataLength);
+        }
+    }
+
+    /**
+     * 猜测数据的类型,通过特征的UUID和数据样本大小
+     * @param stringSimplifiedUuid 特征的UUID的16位16进制简化字符串表达,如"2900" "2A19"
+     * @param dataLength (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
+     * @return 数据的类型, 根据StandardSync.DATA_TYPE_...枚举
+     */
+    public int dataTypeByCharacteristicUuid(String stringSimplifiedUuid,int dataLength) {
+        int dataType = StandardSync.DATA_TYPE_UNKNOWN;
+
+        if (stringSimplifiedUuid == null) {
+            return dataType;
+        }
+
+        try {
+            //通过简化的特征UUID获取特征名称
+            StandardSync.YamlResolver yamlResolver = standardSync.new YamlResolver(standardSync.getYamlCharacteristicUuids());
+            String name = (String)
+                    yamlResolver
+                            .enterThisMapList("uuids")
+                            .reserveTheItemsHave("uuid",Integer.parseInt(stringSimplifiedUuid,16))
+                            .getResultList().get(0).get("name");
+            assert name != null;
+            //通过特征名称获取基本类型
+            yamlResolver = standardSync.new YamlResolver(standardSync.getYamlCharacteristicDataBasicType());
+            String basicType = (String)
+                    yamlResolver
+                            .enterThisMapList("characteristic_data_basic_type")
+                            .reserveTheItemsHave("name",name)
+                            .getResultList().get(0).get("basic_type");
+            assert basicType != null;
+            //获取较完整类型名,如果需要补充类型名,例如 uint -> uint16,根据dataLength补充
+            String type;//较完整类型名
+            if(basicType.startsWith("uint") || basicType.startsWith("sint") || basicType.startsWith("float") || basicType.startsWith("medfloat")){
+                type = new String(basicType + String.valueOf(dataLength*8));//dataLength为数据字节数
+            }
+            else {
+                type = new String(basicType);
+            }
+            //根据较完整类型名,获取类型对应码
+            yamlResolver = standardSync.new YamlResolver(standardSync.getYamlFormatTypes());
+            Integer typeId = (Integer)
+                    yamlResolver
+                            .enterThisMapList("formattypes")
+                            .reserveTheItemsHave("short_name",type)
+                            .getResultList().get(0).get("value");
+            assert typeId != null;
+            //根据StandardSync的规定映射成StandardSync.DATA_TYPE_...枚举值即dataType值
+            dataType = (int)typeId + DATA_TYPE_OFFSET_FROM_YAML;
+        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException | NumberFormatException e) {
+            Log.w(TAG, "dataTypeByCharacteristicUuid: 猜测时出现问题,因为:",e);
+            return dataType;
+        }
+
+        return dataType;
+    }
+
+
+
+//    /**
+//     * 猜测UI控制方式,通过数据的类型
+//     *
+//     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
+//     * @return UI控制方式, 通过BluetoothUI.CONTROL_WAY_...枚举对比
+//     */
+//    public int controlWayByDataType(int dataType) {
+//        int controlWay = BluetoothUI.CONTROL_WAY_UNKNOWN;
+//
+//
+//    }
 
 
 }

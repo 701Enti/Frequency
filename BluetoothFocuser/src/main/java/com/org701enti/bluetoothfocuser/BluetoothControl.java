@@ -38,10 +38,9 @@ public class BluetoothControl {
 
     private String deviceSha256;//设备的广播数据的SHA-256校验码
     private int frameworkType;//控制框架类型,这是一个枚举,通过StandardSync.FRAMEWORK_ ... 以继续选择
+
     public BluetoothGattDataAccessCallback callback;//数据请求回调
     private BluetoothGuess bluetoothGuess = null;//未知猜测,直接用于对应设备未知数据猜测和收集
-
-
 
 
     /**
@@ -54,8 +53,7 @@ public class BluetoothControl {
         this.deviceSha256 = deviceSha256;
         this.frameworkType = frameworkType;
         this.callback = callback;
-
-        bluetoothGuess = new BluetoothGuess(callback.getStandardSync());
+        this.bluetoothGuess = new BluetoothGuess(callback.getStandardSync());
 
         //遍历存储设备所有特征到controlModelList
         List<BluetoothGattService> listServices = null;
@@ -73,18 +71,11 @@ public class BluetoothControl {
             for (int c = 0; c < listCharacteristics.size(); c++) {
                 //先创建基本模型(初步构造)
                 ControlBasicModelBluetooth model = new ControlBasicModelBluetooth(listServices.get(s).getUuid(), listCharacteristics.get(c).getUuid());
-                
-//                BluetoothGuess guess = new BluetoothGuess();
-
-//                if(this.frameworkType == FRAMEWORK_INNER_UI){
-//                    //如果需要,创建内部UI数据缓存
-//                    BluetoothUI.InnerUiUnit dataInnerUI = new BluetoothUI.InnerUiUnit();
-//
-//
-//
-//                }
-                
-                //保存到列表
+                //读取当前的特征数据
+                controlRead(model);
+                //尝试补充模型数据
+                model.setDataType(bluetoothGuess.dataTypeByCharacteristicUuid(model.getUuidCharacteristic(),model.getDataBytes().length));
+                //保存到列表,每个特征对应一个条目
                 this.controlModelList.add(model);
             }
         }
@@ -315,6 +306,10 @@ public class BluetoothControl {
         }
     }
 
+
+    public BluetoothGuess getBluetoothGuess() {
+        return bluetoothGuess;
+    }
 
     /**
      * 蓝牙GATT数据请求回调

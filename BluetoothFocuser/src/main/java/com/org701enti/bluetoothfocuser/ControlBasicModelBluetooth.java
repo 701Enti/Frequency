@@ -28,8 +28,8 @@ public class ControlBasicModelBluetooth {
     private UUID uuidService;//所属服务的UUID
     private UUID uuidCharacteristic;//所属特征的UUID
 
-    private byte[] maxDataValue;//数值数据最大值
-    private byte[] minDataValue;//数值数据最小值
+    private byte[] maxDataValue;//数值数据最大值样版
+    private byte[] minDataValue;//数值数据最小值样版
     private byte[] dataBytes;//字节数据,任何数据都以字节存储
 
     private int dataType;//控制目标的数据的类型,将dataBytes中数据转换为这个类型,根据StandardSync.DATA_TYPE_...枚举

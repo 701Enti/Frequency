@@ -144,6 +144,7 @@ public class BluetoothUI {
             return;
         }
         //根据DataList保存的内容更新视图
+        //设置图标
         Bitmap bitmapTargetIcon = null;
         try (InputStream iconInput = context.getAssets().open("bluetoothserviceicon/btsu" + unit.getServiceIconId() + ".png")) {
             bitmapTargetIcon = BitmapFactory.decodeStream(iconInput);
@@ -153,6 +154,9 @@ public class BluetoothUI {
         if (bitmapTargetIcon != null) {
             targetIcon.setImageBitmap(bitmapTargetIcon);
         }
+        //设置推子进度
+        
+
 
 
 
@@ -169,6 +173,10 @@ public class BluetoothUI {
         private int serviceIconId;//服务图标ID
         private int characteristicIconId;//特征图标ID
 
+        private final static int DEFAULT_SERVICE_ICON_ID = 48;
+        private final static int DEFAULT_CHARACTERISTIC_ICON_ID = ;
+
+
         /**
          * 标准构造方法
          *
@@ -177,8 +185,8 @@ public class BluetoothUI {
         public InnerUiUnit(int indexControlModel) {
             this.indexControlModel = indexControlModel;
             this.controlWay = BluetoothUI.CONTROL_WAY_UNKNOWN;
-            this.serviceIconId = 0;
-            this.characteristicIconId = 0;
+            this.serviceIconId = DEFAULT_SERVICE_ICON_ID;
+            this.characteristicIconId = DEFAULT_CHARACTERISTIC_ICON_ID;
         }
 
         /**

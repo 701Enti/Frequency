@@ -258,8 +258,53 @@ public class StandardSync {
     final public static int RESULT_FAIL_CHARACTERISTIC_NOT_EXIST = -10;
 
 
+    //静态公共数据
+
+    //蓝牙标准128位UUID前缀和后缀
     final private static String BLUETOOTH_UUID128_PREFIX = "0000";
     final private static String BLUETOOTH_UUID128_SUFFIX = "-0000-1000-8000-00805F9B34FB";
+
+    //部分类型最小值模板
+    final public static byte[] MIN_DATA_VALUE_BOOLEAN = {0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT2 = {0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT4 = {0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT8 = {0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT12 = {0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT16 = {0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT24 = {0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT32 = {0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT48 = {0x00,0x00,0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT64 = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT128 = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT8 = {(byte)0x80};
+    final public static byte[] MIN_DATA_VALUE_SINT12 = {(byte)0x08,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT16 = {(byte)0x80,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT24 = {(byte)0x80,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT32 = {(byte)0x80,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT48 = {(byte)0x80,0x00,0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT64 = {(byte)0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT128 = {(byte)0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+
+    //部分类型最大值模板
+    final public static byte[] MAX_DATA_VALUE_BOOLEAN = {0x01};
+    final public static byte[] MAX_DATA_VALUE_UINT2 = {0x03};
+    final public static byte[] MAX_DATA_VALUE_UINT4 = {0x0F};
+    final public static byte[] MAX_DATA_VALUE_UINT8 = {(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT12 = {0x0F,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT16 = {(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT24 = {(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT32 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT48 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT64 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT128 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT8 = {(byte)0x7F};
+    final public static byte[] MAX_DATA_VALUE_SINT12 = {0x07,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT16 = {(byte)0x7F,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT24 = {(byte)0x7F,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT32 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT48 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT64 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT128 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
 
 
     public InputStream getYamlAppearanceValues() {

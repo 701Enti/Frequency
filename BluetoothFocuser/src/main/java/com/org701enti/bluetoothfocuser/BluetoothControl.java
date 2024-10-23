@@ -75,6 +75,8 @@ public class BluetoothControl {
                 controlRead(model);
                 //尝试补充模型数据
                 model.setDataType(bluetoothGuess.dataTypeByCharacteristicUuid(model.getUuidCharacteristic(),model.getDataBytes().length));
+                model.setMinDataValue(bluetoothGuess.minDataValueByDataType(model.getDataType()));
+                model.setMaxDataValue(bluetoothGuess.maxDataValueByDataType(model.getDataType()));
                 //保存到列表,每个特征对应一个条目
                 this.controlModelList.add(model);
             }

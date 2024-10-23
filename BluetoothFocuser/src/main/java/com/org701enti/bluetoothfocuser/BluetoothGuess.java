@@ -131,14 +131,13 @@ public class BluetoothGuess {
      */
     public int controlWayByDataType(int dataType) {
         return switch (dataType) {
-            case StandardSync.DATA_TYPE_BOOLEAN
-                    -> BluetoothUI.CONTROL_WAY_SWITCH_ONE;
-            case StandardSync.DATA_TYPE_UINT2, StandardSync.DATA_TYPE_UINT4
-                    -> BluetoothUI.CONTROL_WAY_SELECT_PATTERN_VALUE;
+            case StandardSync.DATA_TYPE_BOOLEAN -> BluetoothUI.CONTROL_WAY_SWITCH_ONE;
+            case StandardSync.DATA_TYPE_UINT2, StandardSync.DATA_TYPE_UINT4 ->
+                    BluetoothUI.CONTROL_WAY_SELECT_PATTERN_VALUE;
             case StandardSync.DATA_TYPE_UINT8, StandardSync.DATA_TYPE_UINT16,
                  StandardSync.DATA_TYPE_UINT32, StandardSync.DATA_TYPE_SINT8,
-                 StandardSync.DATA_TYPE_SINT16, StandardSync.DATA_TYPE_SINT32
-                    -> BluetoothUI.CONTROL_WAY_SLIDE_FREE_FADER_ONE;
+                 StandardSync.DATA_TYPE_SINT16, StandardSync.DATA_TYPE_SINT32 ->
+                    BluetoothUI.CONTROL_WAY_SLIDE_FREE_FADER_ONE;
             case StandardSync.DATA_TYPE_UINT12, StandardSync.DATA_TYPE_UINT24,
                  StandardSync.DATA_TYPE_UINT48, StandardSync.DATA_TYPE_UINT64,
                  StandardSync.DATA_TYPE_UINT128, StandardSync.DATA_TYPE_SINT12,
@@ -146,22 +145,64 @@ public class BluetoothGuess {
                  StandardSync.DATA_TYPE_SINT64, StandardSync.DATA_TYPE_SINT128,
                  StandardSync.DATA_TYPE_FLOAT32, StandardSync.DATA_TYPE_FLOAT64,
                  StandardSync.DATA_TYPE_MED_SFLOAT16, StandardSync.DATA_TYPE_MED_SFLOAT32,
-                 StandardSync.DATA_TYPE_UINT16_ARRAY_2
-                    -> BluetoothUI.CONTROL_WAY_INPUT_BYTES;
-            case StandardSync.DATA_TYPE_UTF8_STRING, StandardSync.DATA_TYPE_UTF16_STRING
-                    -> BluetoothUI.CONTROL_WAY_INPUT_TEXT;
-            case StandardSync.DATA_TYPE_STRUCT, StandardSync.DATA_TYPE_MED_ASN1_STRUCTURE
-                    -> BluetoothUI.CONTROL_WAY_STRUCT;
+                 StandardSync.DATA_TYPE_UINT16_ARRAY_2 -> BluetoothUI.CONTROL_WAY_INPUT_BYTES;
+            case StandardSync.DATA_TYPE_UTF8_STRING, StandardSync.DATA_TYPE_UTF16_STRING ->
+                    BluetoothUI.CONTROL_WAY_INPUT_TEXT;
+            case StandardSync.DATA_TYPE_STRUCT, StandardSync.DATA_TYPE_MED_ASN1_STRUCTURE ->
+                    BluetoothUI.CONTROL_WAY_STRUCT;
             default -> BluetoothUI.CONTROL_WAY_UNKNOWN;
         };
     }
 
-    public byte[] minDataValueByDataType(int dataType){
 
+    public byte[] minDataValueByDataType(int dataType) {
+        return switch (dataType) {
+            case StandardSync.DATA_TYPE_BOOLEAN -> StandardSync.MIN_DATA_VALUE_BOOLEAN;
+            case StandardSync.DATA_TYPE_UINT2 ->StandardSync.MIN_DATA_VALUE_UINT2;
+            case StandardSync.DATA_TYPE_UINT4 ->StandardSync.MIN_DATA_VALUE_UINT4;
+            case StandardSync.DATA_TYPE_UINT8 ->StandardSync.MIN_DATA_VALUE_UINT8;
+            case StandardSync.DATA_TYPE_UINT12 ->StandardSync.MIN_DATA_VALUE_UINT12;
+            case StandardSync.DATA_TYPE_UINT16 ->StandardSync.MIN_DATA_VALUE_UINT16;
+            case StandardSync.DATA_TYPE_UINT24 ->StandardSync.MIN_DATA_VALUE_UINT24;
+            case StandardSync.DATA_TYPE_UINT32 ->StandardSync.MIN_DATA_VALUE_UINT32;
+            case StandardSync.DATA_TYPE_UINT48 ->StandardSync.MIN_DATA_VALUE_UINT48;
+            case StandardSync.DATA_TYPE_UINT64 ->StandardSync.MIN_DATA_VALUE_UINT64;
+            case StandardSync.DATA_TYPE_UINT128 ->StandardSync.MIN_DATA_VALUE_UINT128;
+            case StandardSync.DATA_TYPE_SINT8 ->StandardSync.MIN_DATA_VALUE_SINT8;
+            case StandardSync.DATA_TYPE_SINT12 ->StandardSync.MIN_DATA_VALUE_SINT12;
+            case StandardSync.DATA_TYPE_SINT16 ->StandardSync.MIN_DATA_VALUE_SINT16;
+            case StandardSync.DATA_TYPE_SINT24 ->StandardSync.MIN_DATA_VALUE_SINT24;
+            case StandardSync.DATA_TYPE_SINT32 ->StandardSync.MIN_DATA_VALUE_SINT32;
+            case StandardSync.DATA_TYPE_SINT48 ->StandardSync.MIN_DATA_VALUE_SINT48;
+            case StandardSync.DATA_TYPE_SINT64 ->StandardSync.MIN_DATA_VALUE_SINT64;
+            case StandardSync.DATA_TYPE_SINT128 ->StandardSync.MIN_DATA_VALUE_SINT128;
+            default -> null;
+        };
     }
 
-    public byte[] maxDataValueByDataType(int dataType){
-
+    public byte[] maxDataValueByDataType(int dataType) {
+        return switch (dataType) {
+            case StandardSync.DATA_TYPE_BOOLEAN -> StandardSync.MAX_DATA_VALUE_BOOLEAN;
+            case StandardSync.DATA_TYPE_UINT2 ->StandardSync.MAX_DATA_VALUE_UINT2;
+            case StandardSync.DATA_TYPE_UINT4 ->StandardSync.MAX_DATA_VALUE_UINT4;
+            case StandardSync.DATA_TYPE_UINT8 ->StandardSync.MAX_DATA_VALUE_UINT8;
+            case StandardSync.DATA_TYPE_UINT12 ->StandardSync.MAX_DATA_VALUE_UINT12;
+            case StandardSync.DATA_TYPE_UINT16 ->StandardSync.MAX_DATA_VALUE_UINT16;
+            case StandardSync.DATA_TYPE_UINT24 ->StandardSync.MAX_DATA_VALUE_UINT24;
+            case StandardSync.DATA_TYPE_UINT32 ->StandardSync.MAX_DATA_VALUE_UINT32;
+            case StandardSync.DATA_TYPE_UINT48 ->StandardSync.MAX_DATA_VALUE_UINT48;
+            case StandardSync.DATA_TYPE_UINT64 ->StandardSync.MAX_DATA_VALUE_UINT64;
+            case StandardSync.DATA_TYPE_UINT128 ->StandardSync.MAX_DATA_VALUE_UINT128;
+            case StandardSync.DATA_TYPE_SINT8 ->StandardSync.MAX_DATA_VALUE_SINT8;
+            case StandardSync.DATA_TYPE_SINT12 ->StandardSync.MAX_DATA_VALUE_SINT12;
+            case StandardSync.DATA_TYPE_SINT16 ->StandardSync.MAX_DATA_VALUE_SINT16;
+            case StandardSync.DATA_TYPE_SINT24 ->StandardSync.MAX_DATA_VALUE_SINT24;
+            case StandardSync.DATA_TYPE_SINT32 ->StandardSync.MAX_DATA_VALUE_SINT32;
+            case StandardSync.DATA_TYPE_SINT48 ->StandardSync.MAX_DATA_VALUE_SINT48;
+            case StandardSync.DATA_TYPE_SINT64 ->StandardSync.MAX_DATA_VALUE_SINT64;
+            case StandardSync.DATA_TYPE_SINT128 ->StandardSync.MAX_DATA_VALUE_SINT128;
+            default -> null;
+        };
     }
 
 }

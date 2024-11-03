@@ -73,7 +73,6 @@ import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.org701enti.bluetoothfocuser.BluetoothAD;
-import com.org701enti.bluetoothfocuser.BluetoothGuess;
 import com.org701enti.bluetoothfocuser.StandardSync;
 
 import java.io.IOException;
@@ -81,7 +80,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -97,14 +95,29 @@ public class BleFragment extends Fragment {
         // Required empty public constructor
     }
 
-    private BleFragmentRunUserWant bleFragmentRunUserWant;
+    //运行需求
+    private BleFragmentRunWant bleFragmentRunWant;
+
+    public BleFragmentRunWant getBleFragmentRunWant() {
+        return bleFragmentRunWant;
+    }
+
+    public interface BleFragmentRunWant {
+        /**
+         * 开始设备控制
+         *
+         * @param device BluetoothDevice实例
+         * @param sha256 设备的SHA-256校验码
+         */
+        void StartControl(BluetoothDevice device, String sha256);
+    }
 
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
         if (context instanceof MainActivity) {
             MainActivity activity = (MainActivity) context;
-            bleFragmentRunUserWant = activity.getBleFragmentFunctionRun();
+            bleFragmentRunWant = activity.getBleFragmentFunctionRun();
         } else {
             throw new RuntimeException("must be attached by MainActivity but not by" + context.toString());
         }
@@ -149,8 +162,8 @@ public class BleFragment extends Fragment {
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_ble, container, false);
 
-        //创建其他布局
-        CreateRecyclerViewBluetooth(view);
+        //初始化其他布局
+        initRecyclerViewBluetooth(view);
 
         return view;
     }
@@ -403,8 +416,8 @@ public class BleFragment extends Fragment {
                     //获取StandardSync实例
                     StandardSync standardSync = mainActivity.getStandardSync();
                     if (standardSync != null) {
-                        if (standardSync.getYamlAdTypes() != null) {
-                            try {
+                        try {
+                            if (standardSync.getYamlAdTypes() != null) {
                                 //使用StandardSync的YamlResolver解析出需要的Value
                                 StandardSync.YamlResolver yamlResolver = standardSync.new YamlResolver(standardSync.getYamlAdTypes());
                                 Integer adType = (Integer)
@@ -420,9 +433,15 @@ public class BleFragment extends Fragment {
                                         iconID = ((structAppearance.getAdData()[1] << 8 | structAppearance.getAdData()[0]) & 0xFFC0) >> 6;
                                     }
                                 }
-                            } catch (AssertionError | NullPointerException | IndexOutOfBoundsException e) {
-                                Log.w(TAG, "onScanResult: 无法获取此设备的iconID,因为:",e);
                             }
+                        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
+                                 IOException e) {
+                            if (result.getDevice().getName() != null) {
+                                Log.w(TAG, "onScanResult: 无法获取" + result.getDevice().getName() + "的iconID,因为:", e);
+                            } else {
+                                Log.w(TAG, "onScanResult: 无法获取" + bluetoothAD.getSha256StringAdvertising() + "的iconID,因为:", e);
+                            }
+
                         }
                     }
                 }
@@ -479,7 +498,7 @@ public class BleFragment extends Fragment {
         }
     }
 
-    private void CreateRecyclerViewBluetooth(View view) {
+    private void initRecyclerViewBluetooth(View view) {
         bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
         recyclerViewBluetooth = view.findViewById(R.id.RecyclerViewBluetoothBLE);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
@@ -890,21 +909,30 @@ public class BleFragment extends Fragment {
                         if (confirmSha256 != null) {
                             //确定加入数据库的数据未发生错误或篡改
                             if (targetModel.getDeviceSha256().equals(confirmSha256)) {
-                                //执行用户需要的操作
-                                switch (want) {
-                                    case WANT_ADD_TO_DEVICE:
+                                Handler handler = new Handler(Looper.getMainLooper());
+                                BluetoothDeviceModel finalTargetModel = targetModel;
+                                Runnable taskMainThread = new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        //执行用户需要的操作
+                                        switch (want) {
+                                            case WANT_ADD_TO_DEVICE:
 
-                                        break;
-                                    case WANT_STICK_TO_TOP:
+                                                break;
+                                            case WANT_STICK_TO_TOP:
 
-                                        break;
-                                    case WANT_CHECK_INFORMATION:
+                                                break;
+                                            case WANT_CHECK_INFORMATION:
 
-                                        break;
-                                    case WANT_START_CONTROL:
-                                        bleFragmentRunUserWant.StartControl(targetModel.getDevice(),targetModel.getDeviceSha256());
-                                        break;
-                                }
+                                                break;
+                                            case WANT_START_CONTROL:
+                                                BluetoothScanStop();
+                                                bleFragmentRunWant.StartControl(finalTargetModel.getDevice(), finalTargetModel.getDeviceSha256());
+                                                break;
+                                        }
+                                    }
+                                };
+                                handler.post(taskMainThread);
                             }
 
                         }
@@ -962,18 +990,6 @@ public class BleFragment extends Fragment {
     final static byte WANT_NONE = 0;//无操作
     final static byte WANT_CHECK_INFORMATION = 1;//检查设备信息
     final static byte WANT_START_CONTROL = 2;//开始设备控制
-
-    //用户操作接口
-    public interface BleFragmentRunUserWant {
-        /**
-         * 开始设备控制
-         *
-         * @param device BluetoothDevice实例
-         * @param sha256 设备的SHA-256校验码
-         */
-        void StartControl(BluetoothDevice device, String sha256);
-    }
-
 
     /**
      * (内部回归主线程处理)清除蓝牙设备列表并请求列表刷新

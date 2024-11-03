@@ -143,6 +143,7 @@ public class ControlBasicModelBluetooth {
     }
 
 
+
     public UUID getUuidService() {
         return uuidService;
     }

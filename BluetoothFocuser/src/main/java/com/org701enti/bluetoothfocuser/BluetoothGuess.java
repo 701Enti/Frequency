@@ -31,18 +31,22 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import java.io.IOException;
 import java.util.UUID;
 
 public class BluetoothGuess {
 
     String TAG = "BluetoothGuess";
-    StandardSync standardSync = null;
+    private StandardSync standardSync = null;
 
 
     public BluetoothGuess(@NonNull StandardSync standardSync) {
         this.standardSync = standardSync;
     }
 
+    public StandardSync getStandardSync() {
+        return standardSync;
+    }
 
     /**
      * 猜测数据的类型,通过特征的UUID和数据样本大小
@@ -56,8 +60,8 @@ public class BluetoothGuess {
         if (uuid == null) {
             return dataType;
         }
-        //获取简化UUID,不添加0x前缀,结果诸如"2900" "2A19"
-        String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(uuid, false);
+        //获取简化UUID,不添加0x前缀,输出大写字母,结果诸如"2900" "2A19"
+        String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(uuid,false,true);
         if (stringSimplifiedUuid == null) {
             return dataType;
         } else {
@@ -68,7 +72,7 @@ public class BluetoothGuess {
     /**
      * 猜测数据的类型,通过特征的UUID和数据样本大小
      *
-     * @param stringSimplifiedUuid 特征的UUID的16位16进制简化字符串表达,如"2900" "2A19"
+     * @param stringSimplifiedUuid 特征的UUID的16位16进制简化字符串表达,如"2900" "2A19"(注意大小写)
      * @param dataLength           (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
      * @return 数据的类型, 根据StandardSync.DATA_TYPE_...枚举
      */
@@ -85,7 +89,7 @@ public class BluetoothGuess {
             String name = (String)
                     yamlResolver
                             .enterThisMapList("uuids")
-                            .reserveTheItemsHave("uuid", Integer.parseInt(stringSimplifiedUuid, 16))
+                            .reserveTheItemsHave("uuid",Integer.parseInt(stringSimplifiedUuid,16))
                             .getResultList().get(0).get("name");
             assert name != null;
             //通过特征名称获取基本类型
@@ -114,7 +118,7 @@ public class BluetoothGuess {
             //根据StandardSync的规定映射成StandardSync.DATA_TYPE_...枚举值即dataType值
             dataType = (int) typeId + DATA_TYPE_OFFSET_FROM_YAML;
         } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
-                 NumberFormatException e) {
+                 NumberFormatException | IOException e) {
             Log.w(TAG, "dataTypeByCharacteristicUuid: 猜测时出现问题,因为:", e);
             return dataType;
         }
@@ -161,7 +165,6 @@ public class BluetoothGuess {
             case StandardSync.DATA_TYPE_UINT2 ->StandardSync.MIN_DATA_VALUE_UINT2;
             case StandardSync.DATA_TYPE_UINT4 ->StandardSync.MIN_DATA_VALUE_UINT4;
             case StandardSync.DATA_TYPE_UINT8 ->StandardSync.MIN_DATA_VALUE_UINT8;
-            case StandardSync.DATA_TYPE_UINT12 ->StandardSync.MIN_DATA_VALUE_UINT12;
             case StandardSync.DATA_TYPE_UINT16 ->StandardSync.MIN_DATA_VALUE_UINT16;
             case StandardSync.DATA_TYPE_UINT24 ->StandardSync.MIN_DATA_VALUE_UINT24;
             case StandardSync.DATA_TYPE_UINT32 ->StandardSync.MIN_DATA_VALUE_UINT32;
@@ -194,7 +197,6 @@ public class BluetoothGuess {
             case StandardSync.DATA_TYPE_UINT64 ->StandardSync.MAX_DATA_VALUE_UINT64;
             case StandardSync.DATA_TYPE_UINT128 ->StandardSync.MAX_DATA_VALUE_UINT128;
             case StandardSync.DATA_TYPE_SINT8 ->StandardSync.MAX_DATA_VALUE_SINT8;
-            case StandardSync.DATA_TYPE_SINT12 ->StandardSync.MAX_DATA_VALUE_SINT12;
             case StandardSync.DATA_TYPE_SINT16 ->StandardSync.MAX_DATA_VALUE_SINT16;
             case StandardSync.DATA_TYPE_SINT24 ->StandardSync.MAX_DATA_VALUE_SINT24;
             case StandardSync.DATA_TYPE_SINT32 ->StandardSync.MAX_DATA_VALUE_SINT32;

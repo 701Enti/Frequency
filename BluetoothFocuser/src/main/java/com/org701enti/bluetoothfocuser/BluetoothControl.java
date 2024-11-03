@@ -25,70 +25,108 @@ package com.org701enti.bluetoothfocuser;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 public class BluetoothControl {
+
+    String TAG = new String("BluetoothControl");
+
     //基本控制模型列表
     private List<ControlBasicModelBluetooth> controlModelList = new ArrayList<ControlBasicModelBluetooth>();
 
     private String deviceSha256;//设备的广播数据的SHA-256校验码
-    private int frameworkType;//控制框架类型,这是一个枚举,通过StandardSync.FRAMEWORK_ ... 以继续选择
+    private String deviceName;//设备名,可能为null
 
     public BluetoothGattDataAccessCallback callback;//数据请求回调
     private BluetoothGuess bluetoothGuess = null;//未知猜测,直接用于对应设备未知数据猜测和收集
 
 
+
     /**
      * 构造方法
+     *
      * @param deviceSha256 连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
-     * @param frameworkType 控制框架类型,通过StandardSync.FRAMEWORK_ ... 以继续选择
-     * @param callback 蓝牙GATT数据请求回调,该回调必须具备访问对应控制设备的资源的能力,并且没有资源冲突问题
+     * @param callback     蓝牙GATT数据请求回调,该回调必须具备访问对应控制设备的资源的能力,并且没有资源冲突问题
      */
-    public BluetoothControl(@NonNull String deviceSha256, int frameworkType, @NonNull BluetoothGattDataAccessCallback callback) {
+    public BluetoothControl(@NonNull String deviceSha256, @Nullable String deviceName, @NonNull BluetoothGattDataAccessCallback callback) {
         this.deviceSha256 = deviceSha256;
-        this.frameworkType = frameworkType;
+        this.deviceName = deviceName;
         this.callback = callback;
         this.bluetoothGuess = new BluetoothGuess(callback.getStandardSync());
 
-        //遍历存储设备所有特征到controlModelList
-        List<BluetoothGattService> listServices = null;
-        listServices = callback.getAllServicesBluetoothGatt(this.deviceSha256);
-        if (listServices == null) {
-            return;
-        }
-        for (int s = 0; s < listServices.size(); s++) {
-            //获取角标为s的服务的所有特征
-            List<BluetoothGattCharacteristic> listCharacteristics = callback.getThisServiceAllCharacteristicsBluetoothGatt(this.deviceSha256, listServices.get(s));
-            if (listCharacteristics == null) {
+        new Thread(() -> {
+            //遍历存储设备所有特征到controlModelList
+            List<BluetoothGattService> listServices = null;
+            listServices = callback.getAllServicesBluetoothGatt(this.deviceSha256);
+            if (listServices == null) {
                 return;
             }
-            //遍历存储角标为s的服务的所有特征
-            for (int c = 0; c < listCharacteristics.size(); c++) {
-                //先创建基本模型(初步构造)
-                ControlBasicModelBluetooth model = new ControlBasicModelBluetooth(listServices.get(s).getUuid(), listCharacteristics.get(c).getUuid());
-                //读取当前的特征数据
-                controlRead(model);
-                //尝试补充模型数据
-                model.setDataType(bluetoothGuess.dataTypeByCharacteristicUuid(model.getUuidCharacteristic(),model.getDataBytes().length));
-                model.setMinDataValue(bluetoothGuess.minDataValueByDataType(model.getDataType()));
-                model.setMaxDataValue(bluetoothGuess.maxDataValueByDataType(model.getDataType()));
-                //保存到列表,每个特征对应一个条目
-                this.controlModelList.add(model);
+            for (int s = 0; s < listServices.size(); s++) {
+                //获取角标为s的服务的所有特征
+                List<BluetoothGattCharacteristic> listCharacteristics = callback.getThisServiceAllCharacteristicsBluetoothGatt(this.deviceSha256, listServices.get(s));
+                if (listCharacteristics != null) {
+                    //遍历存储角标为s的服务的所有特征
+                    for (int c = 0; c < listCharacteristics.size(); c++) {
+                        //先创建基本模型(初步构造)
+                        ControlBasicModelBluetooth model = new ControlBasicModelBluetooth(listServices.get(s).getUuid(), listCharacteristics.get(c).getUuid());
+                        //先保存到列表,因为之后读数据会调用dataUpdate,根据模型的特征服务UUID确定更新保存位置,这个位置必须预先存在
+                        this.controlModelList.add(model);
+                        //读取当前的特征数据,读取等待需要阻塞
+                        if(model.getDataBytes() == null){
+                            int checkResult = controlRead(model);
+                            if(checkResult != StandardSync.RESULT_OK){
+                                if(this.deviceName!=null){
+                                    Log.e(TAG, "BluetoothControl: 断言失败 - "+this.deviceName+" - "+StandardSync.stringOf(checkResult));
+                                }
+                                else {
+                                    Log.e(TAG, "BluetoothControl: 断言失败 - "+this.deviceSha256+" - "+StandardSync.stringOf(checkResult));
+                                }
+                            }
+                            else {
+                                //等待读取完成
+                                for (int d=0;d<100;d++){
+                                    try {
+                                        if(model.getDataBytes() != null){
+                                            break;
+                                        }
+                                        Thread.sleep(10);
+                                    } catch (InterruptedException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                }
+                                //尝试补充模型数据
+                                if(model.getDataBytes() != null) {
+                                    model.setDataType(bluetoothGuess.dataTypeByCharacteristicUuid(model.getUuidCharacteristic(), model.getDataBytes().length));
+                                    model.setMinDataValue(bluetoothGuess.minDataValueByDataType(model.getDataType()));
+                                    model.setMaxDataValue(bluetoothGuess.maxDataValueByDataType(model.getDataType()));
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        }
+
+            callback.onBluetoothControlInitFinished();
+
+        }).start();
+
 
     }
 
     /**
      * 检查设备的状态,建议在发现读写操作发生异常之后运行检查
+     *
      * @return 结果码, 通过StandardSync.RESULT_...以枚举对比(+OK:设备通讯环境正常,+FAIL_DEVICE_CHANGED:连接设备已切换,+FAIL_DEVICE_STATE:当前设备不是可通讯状态)
      */
-    public int deviceStatusCheck(){
+    public int deviceStatusCheck() {
         if (!callback.isEqualDeviceSha256(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
@@ -101,10 +139,11 @@ public class BluetoothControl {
 
     /**
      * 获取当前模型在内部列表的最大索引位置
+     *
      * @return 模型在内部列表的最大索引位置
      */
-    public int getMaxIndex(){
-        if(deviceStatusCheck() == StandardSync.RESULT_OK){
+    public int getMaxIndex() {
+        if (deviceStatusCheck() == StandardSync.RESULT_OK) {
             return controlModelList.size() - 1;
         }
         return -1;
@@ -114,10 +153,10 @@ public class BluetoothControl {
      * 搜索控制模型
      *
      * @param index 模型在内部列表的索引位置
-     * @return 控制模型,不存在/异常 = null
+     * @return 控制模型, 不存在/异常 = null
      */
     public ControlBasicModelBluetooth search(int index) {
-        if(deviceStatusCheck() == StandardSync.RESULT_OK){
+        if (deviceStatusCheck() == StandardSync.RESULT_OK) {
             return controlModelList.get(index);
         }
         return null;
@@ -129,10 +168,10 @@ public class BluetoothControl {
      *
      * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
-     * @return 控制模型,不存在/异常 = null
+     * @return 控制模型, 不存在/异常 = null
      */
     public ControlBasicModelBluetooth search(UUID uuidService, UUID uuidCharacteristic) {
-        if(deviceStatusCheck() == StandardSync.RESULT_OK) {
+        if (deviceStatusCheck() == StandardSync.RESULT_OK) {
             for (ControlBasicModelBluetooth model : controlModelList) {
                 if (model.getUuidService() == uuidService && model.getUuidCharacteristic() == uuidCharacteristic) {
                     return model;
@@ -145,11 +184,12 @@ public class BluetoothControl {
 
     /**
      * 更新模型数据
+     *
      * @param index 模型在内部列表的索引位置
-     * @param data 新的数据
-     * @return 结果码,通过StandardSync.RESULT_...以枚举对比(+FAIL_CHARACTERISTIC_NOT_EXIST不存在的更新目标)
+     * @param data  新的数据
+     * @return 结果码, 通过StandardSync.RESULT_...以枚举对比(+ FAIL_CHARACTERISTIC_NOT_EXIST不存在的更新目标)
      */
-    public int dataUpdate(int index,byte[] data){
+    public int dataUpdate(int index, byte[] data) {
         //检查参数和设备
         if (data == null) {
             return StandardSync.RESULT_FAIL_PARAM;
@@ -164,23 +204,30 @@ public class BluetoothControl {
         //尝试获取模型
         ControlBasicModelBluetooth model = null;
         model = search(index);
-        if(model == null){
+        if (model == null) {
             return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
         }
 
         //保存数据
         model.setDataBytes(data);
+        if(this.deviceName!=null){
+            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceName);
+        }
+        else {
+            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceSha256);
+        }
         return StandardSync.RESULT_OK;
     }
 
     /**
      * 更新模型数据
+     *
      * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
-     * @param data 新的数据
+     * @param data               新的数据
      * @return 结果码, 通过StandardSync.RESULT_...以枚举对比(+FAIL_CHARACTERISTIC_NOT_EXIST不存在的更新目标)
      */
-    public int dataUpdate(UUID uuidService, UUID uuidCharacteristic,byte[] data){
+    public int dataUpdate(UUID uuidService, UUID uuidCharacteristic, byte[] data) {
         //检查参数和设备
         if (data == null) {
             return StandardSync.RESULT_FAIL_PARAM;
@@ -194,17 +241,21 @@ public class BluetoothControl {
 
         //尝试获取模型
         ControlBasicModelBluetooth model = null;
-        model = search(uuidService,uuidCharacteristic);
-        if(model == null){
+        model = search(uuidService, uuidCharacteristic);
+        if (model == null) {
             return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
         }
 
         //保存数据
         model.setDataBytes(data);
+        if(this.deviceName!=null){
+            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceName);
+        }
+        else {
+            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceSha256);
+        }
         return StandardSync.RESULT_OK;
     }
-
-
 
 
     /**
@@ -267,10 +318,10 @@ public class BluetoothControl {
 
 
     /**
-     * 控制读取蓝牙设备特征到BluetoothControl内部列表缓存
+     * (非立即生效)请求控制读取蓝牙设备特征到BluetoothControl内部列表缓存
      *
      * @param model 控制模型
-     * @return 结果码, 通过StandardSync.RESULT_...以枚举对比
+     * @return 检查结果码, 通过StandardSync.RESULT_...以枚举对比,这里只是发送前的检查结果,不是最终读取结果标识
      */
     public int controlRead(ControlBasicModelBluetooth model) {
         //检查参数和设备
@@ -300,6 +351,19 @@ public class BluetoothControl {
             return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
         }
 
+        Log.d(TAG, "controlRead:读取 - "
+                + "服务 "
+                + StandardSync.getBluetoothSimplifiedUuid(service.getUuid(),true,true)
+                + " - "
+                + "特征 "
+                + StandardSync.getBluetoothSimplifiedUuid(characteristic.getUuid(),true,true)
+        );
+
+        if((characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_READ) == 0){
+            Log.w(TAG, "controlRead: 拒绝访问的特征");
+            return StandardSync.RESULT_FAIL_ACCESS_DENIED;
+        }
+
         //通过回调接口,请求外部访问GATT读取,请求之后外部回调会存储数据
         if (callback.readCharacteristic(this.deviceSha256, characteristic)) {
             return StandardSync.RESULT_OK;
@@ -320,6 +384,7 @@ public class BluetoothControl {
 
         /**
          * 获取StandardSync实例
+         *
          * @return StandardSync实例
          */
         public StandardSync getStandardSync();
@@ -338,6 +403,11 @@ public class BluetoothControl {
          * @return true = 一致
          */
         boolean isEqualDeviceSha256(String deviceSha256);
+
+        /**
+         * 当BluetoothControl构造完成,将调用该方法
+         */
+        public void onBluetoothControlInitFinished();
 
         /**
          * 获取蓝牙设备所有服务
@@ -374,7 +444,7 @@ public class BluetoothControl {
          * @return 蓝牙设备特征实例
          */
         public BluetoothGattCharacteristic getCharacteristicsBluetoothGatt(String deviceSha256, UUID characteristicUuid, BluetoothGattService service);
-
+        
         /**
          * 发起读取特征请求
          *

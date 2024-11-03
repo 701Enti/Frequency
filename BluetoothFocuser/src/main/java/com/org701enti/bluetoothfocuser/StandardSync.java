@@ -30,6 +30,7 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,7 +78,7 @@ public class StandardSync {
             this.YamlFormatTypes = null;
             this.yamlAdTypes = null;
             this.yamlCharacteristicDataBasicType = null;
-            Log.e(TAG, "useStandardFileInAssets:存在不可用的标准文件:",e);
+            Log.e(TAG, "useStandardFileInAssets:存在不可用的标准文件:", e);
         }
     }
 
@@ -96,7 +97,7 @@ public class StandardSync {
         public YamlResolver(InputStream inputStream) {
             yaml = new Yaml();
             resultList = new ArrayList<Map<Object, Object>>();
-            if(inputStream != null){
+            if (inputStream != null) {
                 resultList.add(yaml.load(inputStream));
             }
         }
@@ -116,16 +117,16 @@ public class StandardSync {
                 return this;
             }
             //遍历每一个父条目
-            for(Map<Object, Object> parentItem:resultList){
+            for (Map<Object, Object> parentItem : resultList) {
                 //将listName作为Key,获取这个父条目的Value
                 Object value = parentItem.get(listKey);
-                if(value != null){
+                if (value != null) {
                     //确定Value实际上是一个List
-                    if(value instanceof List<?> list){
+                    if (value instanceof List<?> list) {
                         resultList = new ArrayList<Map<Object, Object>>();//重置结果列表
                         //遍历存储这个List的每个Map条目到结果列表
-                        for (Object item:list){
-                            if(item instanceof Map map){
+                        for (Object item : list) {
+                            if (item instanceof Map map) {
                                 //这个条目是一个Map
                                 resultList.add(map);
                             }
@@ -157,11 +158,13 @@ public class StandardSync {
             return this;
         }
 
-        /**(可链式调用)获取结果列表
+        /**
+         * (可链式调用)获取结果列表
          * 先getResultList()接着.get()获取在ResultList中需要的Item
          * 一般结果Item只有一个,所以get(0) 得到一个Item,
          * 最后一步,继续get(需要的键),比如我最终要date这个key的值,
          * 就是. getResultList().get(0).get("date"),再强转成需要的类型
+         *
          * @return 结果列表
          */
         public List<Map<Object, Object>> getResultList() {
@@ -171,37 +174,59 @@ public class StandardSync {
 
 
     /**
-     * 获取简化的16位UUID,结果诸如"0x0001","0001"(addPrefix=false),"0x2900"等(蓝牙相关)
-     * @param uuid UUID实例,需要符合规范的UUID,否则无法获取
-     * @param addPrefix 是否需要添加"0x"前缀
-     * @return 简化的16位UUID / null(格式错误/输入为空)
+     * 获取简化的16位UUID,结果诸如"0x0001","0001"(addPrefix=false),"0x2900"等(含有字母根据设定匹配大小写形式)
+     *
+     * @param uuid        UUID实例,需要符合规范的UUID,否则无法获取
+     * @param addPrefix   是否需要添加"0x"前缀
+     * @param toUpperCase 如果UUID中含有字母,确保输出大写字母(如果添加"0x"前缀,其中的x不大写)
+     * @return 根据参数简化的16位UUID/ uuid.toString读到的完整128位UUID,无前缀和大小写处理(格式不符合标准简化形式) / null(输入uuid实例为空)
      */
-    public static String getBluetoothSimplifiedUuid(UUID uuid,boolean addPrefix){
-        if(uuid == null){
+    public static String getBluetoothSimplifiedUuid(UUID uuid, boolean addPrefix, boolean toUpperCase) {
+        if (uuid == null) {
             return null;
         }
-        String string = uuid.toString();
-        if(string.startsWith(BLUETOOTH_UUID128_PREFIX) && string.endsWith(BLUETOOTH_UUID128_SUFFIX)){
-            if(addPrefix){
-                return "0x" + string.substring(4,8);
+        String origin = uuid.toString();
+        if (origin.startsWith(BLUETOOTH_UUID128_PREFIX) && (origin.endsWith(BLUETOOTH_UUID128_SUFFIX) || origin.endsWith(BLUETOOTH_UUID128_SUFFIX_LOWERCASE))) {
+            String cut;
+            if (toUpperCase) {
+                cut = origin.substring(4, 8).toUpperCase();
+            } else {
+                cut = origin.substring(4, 8);
             }
-            else {
-                return string.substring(4,8);
+            if (addPrefix) {
+                return "0x" + cut;
+            } else {
+                return cut;
             }
-        }
-        else {
-            return null;
+        } else {
+            return origin;
         }
     }
 
 
+    //您可以使用编辑器自带的多行编辑功能处理以下映射的编辑
+    private static final Map<Integer, String> valueToStringMap = new HashMap<>();
+
+    /**
+     * 获取本类定义的常量的字符形式表示
+     *
+     * @param value 本类定义的常量
+     * @return 字符形式表示
+     */
+    public static String stringOf(int value) {
+        return new String(valueToStringMap.get(value));
+    }
+
+
+    //每个区从整十整百开始,两个区之间必须至少间隔500
 
     //标准依据 1 - 100
     final public static int STANDARD_ACCORDING_FILE_IN_ASSETS = 1;
 
+    static {
+        valueToStringMap.put(STANDARD_ACCORDING_FILE_IN_ASSETS, "STANDARD_ACCORDING_FILE_IN_ASSETS");
+    }
 
-    //每个区从整十整百开始,两个区之间必须至少间隔500
-    //1-100不允许使用
 
     //数据类型标识区 100 到 500
     //以YAML文档formattypes.yaml中定义加上偏移量100按顺序映射如下
@@ -236,12 +261,52 @@ public class StandardSync {
     final public static int DATA_TYPE_STRUCT = DATA_TYPE_OFFSET_FROM_YAML + 0x1B;
     final public static int DATA_TYPE_MED_ASN1_STRUCTURE = DATA_TYPE_OFFSET_FROM_YAML + 0x1C;
 
+    static {
+        valueToStringMap.put(DATA_TYPE_UNKNOWN, "DATA_TYPE_UNKNOWN");
+        valueToStringMap.put(DATA_TYPE_OFFSET_FROM_YAML, "DATA_TYPE_OFFSET_FROM_YAML");
+        valueToStringMap.put(DATA_TYPE_BOOLEAN, "DATA_TYPE_BOOLEAN");
+        valueToStringMap.put(DATA_TYPE_UINT2, "DATA_TYPE_UINT2");
+        valueToStringMap.put(DATA_TYPE_UINT4, "DATA_TYPE_UINT4");
+        valueToStringMap.put(DATA_TYPE_UINT8, "DATA_TYPE_UINT8");
+        valueToStringMap.put(DATA_TYPE_UINT12, "DATA_TYPE_UINT12");
+        valueToStringMap.put(DATA_TYPE_UINT16, "DATA_TYPE_UINT16");
+        valueToStringMap.put(DATA_TYPE_UINT24, "DATA_TYPE_UINT24");
+        valueToStringMap.put(DATA_TYPE_UINT32, "DATA_TYPE_UINT32");
+        valueToStringMap.put(DATA_TYPE_UINT48, "DATA_TYPE_UINT48");
+        valueToStringMap.put(DATA_TYPE_UINT64, "DATA_TYPE_UINT64");
+        valueToStringMap.put(DATA_TYPE_UINT128, "DATA_TYPE_UINT128");
+        valueToStringMap.put(DATA_TYPE_SINT8, "DATA_TYPE_SINT8");
+        valueToStringMap.put(DATA_TYPE_SINT12, "DATA_TYPE_SINT12");
+        valueToStringMap.put(DATA_TYPE_SINT16, "DATA_TYPE_SINT16");
+        valueToStringMap.put(DATA_TYPE_SINT24, "DATA_TYPE_SINT24");
+        valueToStringMap.put(DATA_TYPE_SINT32, "DATA_TYPE_SINT32");
+        valueToStringMap.put(DATA_TYPE_SINT48, "DATA_TYPE_SINT48");
+        valueToStringMap.put(DATA_TYPE_SINT64, "DATA_TYPE_SINT64");
+        valueToStringMap.put(DATA_TYPE_SINT128, "DATA_TYPE_SINT128");
+        valueToStringMap.put(DATA_TYPE_FLOAT32, "DATA_TYPE_FLOAT32");
+        valueToStringMap.put(DATA_TYPE_FLOAT64, "DATA_TYPE_FLOAT64");
+        valueToStringMap.put(DATA_TYPE_MED_SFLOAT16, "DATA_TYPE_MED_SFLOAT16");
+        valueToStringMap.put(DATA_TYPE_MED_SFLOAT32, "DATA_TYPE_MED_SFLOAT32");
+        valueToStringMap.put(DATA_TYPE_UINT16_ARRAY_2, "DATA_TYPE_UINT16_ARRAY_2");
+        valueToStringMap.put(DATA_TYPE_UTF8_STRING, "DATA_TYPE_UTF8_STRING");
+        valueToStringMap.put(DATA_TYPE_UTF16_STRING, "DATA_TYPE_UTF16_STRING");
+        valueToStringMap.put(DATA_TYPE_STRUCT, "DATA_TYPE_STRUCT");
+        valueToStringMap.put(DATA_TYPE_MED_ASN1_STRUCTURE, "DATA_TYPE_MED_ASN1_STRUCTURE");
+    }
+
 
     //运行框架区 1000 到 1500
     final public static int FRAMEWORK_UNKNOWN = 0;
     final public static int FRAMEWORK_INNER_UI = 1001;
     final public static int FRAMEWORK_OFFLINE_WEB_PAGE = 1002;
     final public static int FRAMEWORK_ONLINE_WEB_PAGE = 1003;
+
+    static {
+        valueToStringMap.put(FRAMEWORK_UNKNOWN, "FRAMEWORK_UNKNOWN");
+        valueToStringMap.put(FRAMEWORK_INNER_UI, "FRAMEWORK_INNER_UI");
+        valueToStringMap.put(FRAMEWORK_OFFLINE_WEB_PAGE, "FRAMEWORK_OFFLINE_WEB_PAGE");
+        valueToStringMap.put(FRAMEWORK_ONLINE_WEB_PAGE, "FRAMEWORK_ONLINE_WEB_PAGE ");
+    }
 
 
     //执行结果标识区 -1 到 -500
@@ -256,6 +321,22 @@ public class StandardSync {
     final public static int RESULT_FAIL_DEVICE_CHANGED = -8;
     final public static int RESULT_FAIL_SERVICE_NOT_EXIST = -9;
     final public static int RESULT_FAIL_CHARACTERISTIC_NOT_EXIST = -10;
+    final public static int RESULT_FAIL_ACCESS_DENIED = -11;
+
+    static {
+        valueToStringMap.put(RESULT_UNKNOWN, "RESULT_UNKNOWN");
+        valueToStringMap.put(RESULT_OK, "RESULT_OK");
+        valueToStringMap.put(RESULT_WAITING, "RESULT_WAITING");
+        valueToStringMap.put(RESULT_THROW, "RESULT_THROW");
+        valueToStringMap.put(RESULT_CATCH, "RESULT_CATCH");
+        valueToStringMap.put(RESULT_FAIL_UNKNOWN, "RESULT_FAIL_UNKNOWN");
+        valueToStringMap.put(RESULT_FAIL_PARAM, "RESULT_FAIL_PARAM");
+        valueToStringMap.put(RESULT_FAIL_DEVICE_STATE, "RESULT_FAIL_DEVICE_STATE");
+        valueToStringMap.put(RESULT_FAIL_DEVICE_CHANGED, "RESULT_FAIL_DEVICE_CHANGED");
+        valueToStringMap.put(RESULT_FAIL_SERVICE_NOT_EXIST, "RESULT_FAIL_SERVICE_NOT_EXIST");
+        valueToStringMap.put(RESULT_FAIL_CHARACTERISTIC_NOT_EXIST, "RESULT_FAIL_CHARACTERISTIC_NOT_EXIST");
+        valueToStringMap.put(RESULT_FAIL_ACCESS_DENIED, "RESULT_FAIL_ACCESS_DENIED");
+    }
 
 
     //静态公共数据
@@ -263,71 +344,74 @@ public class StandardSync {
     //蓝牙标准128位UUID前缀和后缀
     final private static String BLUETOOTH_UUID128_PREFIX = "0000";
     final private static String BLUETOOTH_UUID128_SUFFIX = "-0000-1000-8000-00805F9B34FB";
+    final private static String BLUETOOTH_UUID128_SUFFIX_LOWERCASE = "-0000-1000-8000-00805f9b34fb";
 
     //部分类型最小值模板
     final public static byte[] MIN_DATA_VALUE_BOOLEAN = {0x00};
     final public static byte[] MIN_DATA_VALUE_UINT2 = {0x00};
     final public static byte[] MIN_DATA_VALUE_UINT4 = {0x00};
     final public static byte[] MIN_DATA_VALUE_UINT8 = {0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT12 = {0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT16 = {0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT24 = {0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT32 = {0x00,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT48 = {0x00,0x00,0x00,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT64 = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_UINT128 = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT8 = {(byte)0x80};
-    final public static byte[] MIN_DATA_VALUE_SINT12 = {(byte)0x08,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT16 = {(byte)0x80,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT24 = {(byte)0x80,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT32 = {(byte)0x80,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT48 = {(byte)0x80,0x00,0x00,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT64 = {(byte)0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-    final public static byte[] MIN_DATA_VALUE_SINT128 = {(byte)0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT16 = {0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT24 = {0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT32 = {0x00, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT48 = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT64 = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_UINT128 = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT8 = {(byte) 0x80};
+    final public static byte[] MIN_DATA_VALUE_SINT12 = {(byte) 0x08, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT16 = {(byte) 0x80, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT24 = {(byte) 0x80, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT32 = {(byte) 0x80, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT48 = {(byte) 0x80, 0x00, 0x00, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT64 = {(byte) 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    final public static byte[] MIN_DATA_VALUE_SINT128 = {(byte) 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
     //部分类型最大值模板
     final public static byte[] MAX_DATA_VALUE_BOOLEAN = {0x01};
     final public static byte[] MAX_DATA_VALUE_UINT2 = {0x03};
     final public static byte[] MAX_DATA_VALUE_UINT4 = {0x0F};
-    final public static byte[] MAX_DATA_VALUE_UINT8 = {(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT12 = {0x0F,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT16 = {(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT24 = {(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT32 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT48 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT64 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_UINT128 = {(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT8 = {(byte)0x7F};
-    final public static byte[] MAX_DATA_VALUE_SINT12 = {0x07,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT16 = {(byte)0x7F,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT24 = {(byte)0x7F,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT32 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT48 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT64 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-    final public static byte[] MAX_DATA_VALUE_SINT128 = {(byte)0x7F,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF,(byte)0xFF};
-
-
-    public InputStream getYamlAppearanceValues() {
-        return YamlAppearanceValues;
-    }
-
-    public InputStream getYamlCharacteristicUuids() {
-        return YamlCharacteristicUuids;
-    }
-
-    public InputStream getYamlFormatTypes() {
-        return YamlFormatTypes;
-    }
+    final public static byte[] MAX_DATA_VALUE_UINT8 = {(byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT12 = {0x0F, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT16 = {(byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT24 = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT32 = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT48 = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT64 = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_UINT128 = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT8 = {(byte) 0x7F};
+    final public static byte[] MAX_DATA_VALUE_SINT16 = {(byte) 0x7F, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT24 = {(byte) 0x7F, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT32 = {(byte) 0x7F, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT48 = {(byte) 0x7F, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT64 = {(byte) 0x7F, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
+    final public static byte[] MAX_DATA_VALUE_SINT128 = {(byte) 0x7F, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
 
     public int getStandardAccording() {
         return standardAccording;
     }
 
-    public InputStream getYamlAdTypes() {
+    public InputStream getYamlAppearanceValues() throws IOException {
+        YamlAppearanceValues.reset();
+        return YamlAppearanceValues;
+    }
+
+    public InputStream getYamlCharacteristicUuids() throws IOException {
+        YamlCharacteristicUuids.reset();
+        return YamlCharacteristicUuids;
+    }
+
+    public InputStream getYamlFormatTypes() throws IOException {
+        YamlFormatTypes.reset();
+        return YamlFormatTypes;
+    }
+
+    public InputStream getYamlAdTypes() throws IOException {
+        yamlAdTypes.reset();
         return yamlAdTypes;
     }
 
-    public InputStream getYamlCharacteristicDataBasicType() {
+    public InputStream getYamlCharacteristicDataBasicType() throws IOException {
+        yamlCharacteristicDataBasicType.reset();
         return yamlCharacteristicDataBasicType;
     }
 }

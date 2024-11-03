@@ -24,6 +24,7 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="returnapp_chinese">退出APP</string>
     <string name="tag_blemaintransaction">TagBleMainTransaction</string>
+    <string name="tag_controlmaintransaction">TagControlMainTransaction</string>
     <string name="pleasecontinuewhenbluetoothenabled_chinese">您现在可以继续操作</string>
     <string name="addtodevice_chinese">加入设备</string>
     <string name="sticktotop_chinese">将其置顶</string>

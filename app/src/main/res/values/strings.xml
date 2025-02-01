@@ -20,8 +20,6 @@
     <string name="error_chinese">异常</string>
     <string name="userdevicehardwareunsupport">抱歉,您的设备的硬件当前可能无法支持所需操作</string>
     <string name="cancel_chinese">取消</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="returnapp_chinese">退出APP</string>
     <string name="tag_blemaintransaction">TagBleMainTransaction</string>
     <string name="tag_controlmaintransaction">TagControlMainTransaction</string>
@@ -37,4 +35,5 @@
     <string name="insertdataerror_chinese">在插入数据时发现异常</string>
     <string name="insert_chinese">插入</string>
     <string name="update_chinese">更新</string>
+    <string name="connected_chinese">已连接</string>
 </resources>

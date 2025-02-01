@@ -203,6 +203,33 @@ public class StandardSync {
         }
     }
 
+    /**
+     * 如果有,删除byte数组前部的0x00,如[0x00][0x13][0x35]会被切成[0x13][0x35],[0x26][0x34]输入所得为原值且引用一致,因为前部没有0x00
+     * @param bytesInput 输入数组
+     * @return 输出数组
+     */
+    public static byte[] cutZeroInTheFrontOf(byte[] bytesInput){
+        //截取前部为0x00数据
+        ArrayList<Byte> buf = new ArrayList<>();
+        boolean getFlag = false;
+        for (byte b : bytesInput) {
+            if (b != 0x00) {
+                getFlag = true;
+            }
+            if (getFlag) {
+                buf.add(b);
+            }
+        }
+        if(!buf.isEmpty()){
+            byte[] bytesOutput = new byte[buf.size()];
+            for(int j=0;j< buf.size();j++){
+                bytesOutput[j] = buf.get(j);
+            }
+            return bytesOutput;
+        }
+        return bytesInput;
+    }
+
 
     //您可以使用编辑器自带的多行编辑功能处理以下映射的编辑
     private static final Map<Integer, String> valueToStringMap = new HashMap<>();
@@ -232,6 +259,7 @@ public class StandardSync {
     //以YAML文档formattypes.yaml中定义加上偏移量100按顺序映射如下
     final public static int DATA_TYPE_UNKNOWN = 0;
     final public static int DATA_TYPE_OFFSET_FROM_YAML = 100;//从YAML文档formattypes.yaml提取值需要加上的固有偏移量
+
     final public static int DATA_TYPE_BOOLEAN = DATA_TYPE_OFFSET_FROM_YAML + 0x01;
     final public static int DATA_TYPE_UINT2 = DATA_TYPE_OFFSET_FROM_YAML + 0x02;
     final public static int DATA_TYPE_UINT4 = DATA_TYPE_OFFSET_FROM_YAML + 0x03;
@@ -260,6 +288,8 @@ public class StandardSync {
     final public static int DATA_TYPE_UTF16_STRING = DATA_TYPE_OFFSET_FROM_YAML + 0x1A;
     final public static int DATA_TYPE_STRUCT = DATA_TYPE_OFFSET_FROM_YAML + 0x1B;
     final public static int DATA_TYPE_MED_ASN1_STRUCTURE = DATA_TYPE_OFFSET_FROM_YAML + 0x1C;
+
+    final public static String PREFIX_SHOW_DATA_TYPE_IS_UINT = "DATA_TYPE_UINT";
 
     static {
         valueToStringMap.put(DATA_TYPE_UNKNOWN, "DATA_TYPE_UNKNOWN");

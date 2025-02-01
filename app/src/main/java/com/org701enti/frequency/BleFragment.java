@@ -35,6 +35,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -109,7 +110,8 @@ public class BleFragment extends Fragment {
          * @param device BluetoothDevice实例
          * @param sha256 设备的SHA-256校验码
          */
-        void StartControl(BluetoothDevice device, String sha256);
+        void startControl(BluetoothDevice device, String sha256);
+        MainActivity.ControlBaseBluetooth getControlBaseBluetooth(String sha256);
     }
 
     @Override
@@ -323,11 +325,14 @@ public class BleFragment extends Fragment {
 
         private int deviceDistance;//与设备的距离(单位:米)
 
+        private MainActivity.ControlBaseBluetooth controlBaseBluetooth;//控制基础(创建GATT连接后获得并绑定到此)
+
         public BluetoothDeviceModel(BluetoothDevice device, int deviceDistance, @NonNull String deviceSha256) {
             this.device = device;
             this.deviceDistance = deviceDistance;
             this.deviceSha256 = deviceSha256;
             this.iconID = 0;
+            controlBaseBluetooth = null;
         }
 
         public BluetoothDeviceModel(BluetoothDevice device, int deviceDistance, int iconID, @NonNull String deviceSha256) {
@@ -335,6 +340,7 @@ public class BleFragment extends Fragment {
             this.deviceDistance = deviceDistance;
             this.deviceSha256 = deviceSha256;
             this.iconID = iconID;
+            controlBaseBluetooth = null;
         }
 
         public BluetoothDevice getDevice() {
@@ -355,6 +361,14 @@ public class BleFragment extends Fragment {
 
         public String getDeviceSha256() {
             return deviceSha256;
+        }
+
+        public MainActivity.ControlBaseBluetooth getControlBaseBluetooth() {
+            return controlBaseBluetooth;
+        }
+
+        public void setControlBaseBluetooth(MainActivity.ControlBaseBluetooth controlBaseBluetooth) {
+            this.controlBaseBluetooth = controlBaseBluetooth;
         }
     }
 
@@ -387,17 +401,17 @@ public class BleFragment extends Fragment {
                 BluetoothDeviceModel model = bluetoothDeviceRecyclerViewAdapter.getModelList().get(i);
                 //如果已经存在相同设备在列表
                 if (result.getDevice().equals(model.getDevice())) {
+
                     //更新设备的deviceDistance,但使用内部解析
                     int distanceNow = 0;
-
                     int powerTXint = 0;//Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
                     powerTXint = result.getTxPower(); //(使用内部解析以节约资源)获取蓝牙设备的信号发射功率水平(单位:dBm)
                     if (powerTXint == Byte.MAX_VALUE) {//如果无法读取
                         powerTXint = 0;
                     }
                     distanceNow = (int) Distance2400MHZ(powerTXint, result.getRssi());
-
                     model.setDeviceDistance(distanceNow);
+
                     if (isAllowNotifyChanged.get()) {
                         bluetoothDeviceRecyclerViewAdapter.notifyItemChanged(i);//提示信息更新,需要RecyclerView刷新显示
                     }
@@ -567,7 +581,20 @@ public class BleFragment extends Fragment {
                 //与设备的距离
                 int distance = targetModel.getDeviceDistance();
                 String showDistance = distance + getString(R.string.meter_rice_chinese);
-                holder.deviceDistance.setText(showDistance);
+
+                //判断要显示的是距离还是状态
+                if(targetModel.getControlBaseBluetooth()==null){
+                    holder.deviceDistance.setText(showDistance);
+                }
+                else {
+                    holder.deviceDistance.setText(
+                            switch (targetModel.getControlBaseBluetooth().getGattState()){
+                                case BluetoothGatt.STATE_CONNECTED -> getString(R.string.connected_chinese);
+                                default -> showDistance;
+                            }
+                    );
+                }
+
                 holder.fadeInDeviceDistance.start();
 
             }
@@ -769,6 +796,7 @@ public class BleFragment extends Fragment {
                                 isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
                                 RecoverAnimation();
                                 OperationRun(user_want, modelList, positionBuf, requireActivity());
+                                isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
                                 break;
                             }
 
@@ -784,7 +812,7 @@ public class BleFragment extends Fragment {
                                 //使用isRunningRecover.set控制恢复动画是否要继续
                                 isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
                                 RecoverAnimation();
-
+                                isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
                                 break;
                             }
                         }
@@ -840,7 +868,6 @@ public class BleFragment extends Fragment {
                                     if (isScanningBluetooth) {
                                         lottieAnimationBluetoothScanning.playAnimation();
                                     }
-                                    isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
                                 }
 
                                 @Override
@@ -860,7 +887,6 @@ public class BleFragment extends Fragment {
                             if (isScanningBluetooth) {
                                 lottieAnimationBluetoothScanning.playAnimation();
                             }
-                            isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
                         }
                     }
 
@@ -883,7 +909,7 @@ public class BleFragment extends Fragment {
         }
 
 
-        /**
+        /** 运行需要的操作,执行操作就会将设备信息加入数据库
          * @param want     用户操作枚举 WANT_X
          * @param list     蓝牙设备模型列表,可以是实体BluetoothDeviceRecyclerViewAdapter中的,也可以是外部自己拼接的
          * @param position 选择操作的模型单元在list的位置
@@ -927,7 +953,34 @@ public class BleFragment extends Fragment {
                                                 break;
                                             case WANT_START_CONTROL:
                                                 BluetoothScanStop();
-                                                bleFragmentRunWant.StartControl(finalTargetModel.getDevice(), finalTargetModel.getDeviceSha256());
+                                                bleFragmentRunWant.startControl(finalTargetModel.getDevice(), finalTargetModel.getDeviceSha256());
+                                                finalTargetModel.setControlBaseBluetooth(bleFragmentRunWant.getControlBaseBluetooth(finalTargetModel.getDeviceSha256()));
+                                                //在完成连接工作后将扫描结果中的"距离"项显示为已连接
+                                                new Thread(()->{
+                                                    //等待ControlBase就绪
+                                                    for (int t=0;t<1000;t++){
+                                                        try {
+                                                            if(finalTargetModel.getControlBaseBluetooth() != null){
+                                                                if(finalTargetModel.getControlBaseBluetooth().getGatt() != null){
+                                                                    break;
+                                                                }
+                                                            }
+                                                            Thread.sleep(100);
+                                                        } catch (InterruptedException e) {
+                                                            throw new RuntimeException(e);
+                                                        }
+                                                    }
+                                                    //由主线程通知RecyclerView刷新显示
+                                                    handler.post(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            if (isAllowNotifyChanged.get()) {
+                                                                bluetoothDeviceRecyclerViewAdapter.notifyItemChanged(position);//提示信息更新,需要RecyclerView刷新显示
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                                ).start();
                                                 break;
                                         }
                                     }

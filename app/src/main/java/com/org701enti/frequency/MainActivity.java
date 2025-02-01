@@ -254,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 蓝牙控制基础,每个独立唯一设备的控制和回调等相关资源被封装到ControlBaseBluetooth
      * 将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
-     * 完善之后即可通过get设备的BluetoothControl实例,进行控制
+     * 完善之后即可通过get设备的BluetoothControl和BluetoothUI实例,进行控制和用户界面绘制
      */
     public class ControlBaseBluetooth extends BluetoothGattCallback implements BluetoothControl.BluetoothGattDataAccessCallback {
         private BluetoothGatt gatt = null;//蓝牙BLE-GATT实例
@@ -409,7 +409,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
-            this.gatt = gatt;//缓存实例引用
             gattState = newState;
             if (newState == BluetoothGatt.STATE_CONNECTED) {
                 if (this.deviceName != null) {
@@ -419,6 +418,8 @@ public class MainActivity extends AppCompatActivity {
                 }
                 gatt.discoverServices();//如果状态为已经连接,就扫描服务
             }
+
+            this.gatt = gatt;//缓存实例引用
         }
 
         @SuppressLint("MissingPermission")
@@ -431,6 +432,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onBluetoothControlInitFinished() {
             bluetoothUI = new BluetoothUI(bluetoothControl, getAc());
+
+
         }
 
         @Override
@@ -487,7 +490,7 @@ public class MainActivity extends AppCompatActivity {
     class BleFragmentFunctionRun implements BleFragment.BleFragmentRunWant {
         @SuppressLint("MissingPermission")
         @Override
-        public void StartControl(BluetoothDevice device, String sha256) {
+        public void startControl(BluetoothDevice device, String sha256) {
             if (device == null || sha256 == null) {
                 return;
             }
@@ -510,6 +513,18 @@ public class MainActivity extends AppCompatActivity {
             controlBaseListBluetooth.add(controlBaseBluetooth);
             //运行连接,自动进行ControlBaseBluetooth实例的完善
             device.connectGatt(MainActivity.this, true, controlBaseBluetooth);
+        }
+
+        @Override
+        public ControlBaseBluetooth getControlBaseBluetooth(String sha256) {
+            if(!controlBaseListBluetooth.isEmpty() && sha256 != null){
+                for(ControlBaseBluetooth controlBase:controlBaseListBluetooth){
+                    if(controlBase.getDeviceSha256Bluetooth().equals(sha256)){
+                        return controlBase;
+                    }
+                }
+            }
+            return null;
         }
     }
 

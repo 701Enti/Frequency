@@ -222,12 +222,8 @@ public class ControlFragment extends Fragment {
             View unitView;
             BluetoothUI.InnerUiUnit unit = (BluetoothUI.InnerUiUnit) unitList.get(position);
             if (convertView == null){
-                //对每个之前未制作的控件都会制作并设置一样的布局
+                //对每个之前未制作的控件都会制作并设置布局参数
                 unitView = unit.makeUnitView(null,false,requireActivity());
-                if(unitView != null){
-                    unitView.setLayoutParams(new ViewGroup.LayoutParams(90,360));
-                    unitView.setPadding(30,30,30,30);
-                }
             }
             else {
                 unitView = convertView;

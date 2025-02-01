@@ -83,7 +83,12 @@ public class BluetoothUI {
             }
         }
 
-
+        if(bluetoothControl.getDeviceName()!=null){
+            Log.i(TAG, "就绪,使用内部生成式UI,共计 "+dataList.size()+" 个控件单元 - " +bluetoothControl.getDeviceName());
+        }
+        else {
+            Log.i(TAG, "就绪,使用内部生成式UI,共计 "+dataList.size()+" 个控件单元 - " +bluetoothControl.getDeviceSha256());
+        }
     }
 
     /**
@@ -150,9 +155,20 @@ public class BluetoothUI {
         byte[] maxData = model.getMaxDataValue();
         byte[] nowData = model.getDataBytes();
         if (minData != null && maxData != null && nowData != null) {
-            BigInteger lower = new BigInteger(minData);
-            BigInteger upper = new BigInteger(maxData);
-            BigInteger nowValue = new BigInteger(nowData);
+            BigInteger lower;
+            BigInteger upper;
+            BigInteger nowValue;
+            if(StandardSync.stringOf(model.getDataType()).startsWith(StandardSync.PREFIX_SHOW_DATA_TYPE_IS_UINT)){
+                lower = new BigInteger(1,minData);
+                upper = new BigInteger(1,maxData);
+                nowValue = new BigInteger(1,nowData);
+            }
+            else{
+                lower = new BigInteger(minData);
+                upper = new BigInteger(maxData);
+                nowValue = new BigInteger(nowData);
+            }
+
             if (upper.compareTo(lower) >= 0 && nowValue.compareTo(lower) >= 0 && nowValue.compareTo(upper) <= 0) {
                 BigDecimal range = new BigDecimal(upper.subtract(lower));//计算最小到最大的区间长度
                 //设置推子显示当前数据指代的进度
@@ -163,15 +179,21 @@ public class BluetoothUI {
                 faderSeekBar.setProgress(percentage.toBigInteger().intValue(), true);
                 //设置推子的用户操作配置
                 ControlBasicModelBluetooth finalModel = model;
+                BigInteger finalLower = lower;
+                BigInteger finalUpper = upper;
                 faderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                     @Override
                     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                         if (fromUser) {
                             BigDecimal setRate = new BigDecimal(progress)
                                     .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-                            BigInteger setValue = setRate.multiply(range).toBigInteger().add(lower);
-                            if (setValue.compareTo(lower) >= 0 && setValue.compareTo(upper) <= 0) {
-                                bluetoothControl.controlWrite(finalModel, setValue.toByteArray());
+                            BigInteger setValue = setRate.multiply(range).toBigInteger().add(finalLower);
+                            if (setValue.compareTo(finalLower) >= 0 && setValue.compareTo(finalUpper) <= 0) {
+                                byte[] bytesValue = setValue.toByteArray();
+                                if(bytesValue!=null){
+                                    //如果bytesValue前部含0x00,可能是由于.toByteArray()为避免输出被识别为负数所致,这里不需要这些额外添加的前缀0x00,而应该截去
+                                    bluetoothControl.controlWrite(finalModel,StandardSync.cutZeroInTheFrontOf(bytesValue));
+                                }
                             }
                         }
                     }
@@ -281,10 +303,8 @@ public class BluetoothUI {
 //
 //                    }
                 case CONTROL_WAY_SLIDE_FREE_FADER_ONE -> {
-                    unitView = inflater.inflate(R.id.ControlFaderSeekBar, root, attachToRoot);
+                    unitView = inflater.inflate(R.layout.fader_show_control, root, attachToRoot);
                     ViewConfigSlideFreeFaderOne(unitView, this, context);
-                    Log.e(TAG, "makeUnitView: ");
-
                 }
                 default -> {
                     unitView = new TextView(context);

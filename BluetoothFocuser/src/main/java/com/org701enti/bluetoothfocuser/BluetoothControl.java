@@ -32,6 +32,7 @@ import androidx.annotation.NonNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -210,11 +211,15 @@ public class BluetoothControl {
 
         //保存数据
         model.setDataBytes(data);
+        StringBuilder dataHex = new StringBuilder();
+        for(byte b:data){
+            dataHex.append("[").append(String.format("0x%02X", b)).append("]");
+        }
         if(this.deviceName!=null){
-            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceName);
+            Log.i(TAG, "dataUpdate: 数据 - "+dataHex.toString()+"更新完成 - "+this.deviceName);
         }
         else {
-            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceSha256);
+            Log.i(TAG, "dataUpdate: 数据 - "+dataHex.toString()+"更新完成 - "+this.deviceSha256);
         }
         return StandardSync.RESULT_OK;
     }
@@ -248,11 +253,15 @@ public class BluetoothControl {
 
         //保存数据
         model.setDataBytes(data);
+        StringBuilder dataHex = new StringBuilder();
+        for(byte b:data){
+            dataHex.append("[").append(String.format("0x%02X", b)).append("]");
+        }
         if(this.deviceName!=null){
-            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceName);
+            Log.i(TAG, "dataUpdate: 数据 - "+dataHex.toString()+"更新完成 - "+this.deviceName);
         }
         else {
-            Log.i(TAG, "dataUpdate: 数据更新完成 - "+this.deviceSha256);
+            Log.i(TAG, "dataUpdate: 数据 - "+dataHex.toString()+"更新完成 - "+this.deviceSha256);
         }
         return StandardSync.RESULT_OK;
     }
@@ -296,6 +305,24 @@ public class BluetoothControl {
         if (characteristic == null) {
             return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
         }
+
+
+        //保存数据
+        StringBuilder dataHex = new StringBuilder();
+        for(byte b:data){
+            dataHex.append("[").append(String.format("0x%02X", b)).append("]");
+        }
+        Log.d(TAG, "controlWrite:写入 - "
+                + "服务 "
+                + StandardSync.getBluetoothSimplifiedUuid(service.getUuid(),true,true)
+                + " - "
+                + "特征 "
+                + StandardSync.getBluetoothSimplifiedUuid(characteristic.getUuid(),true,true)
+                + " - "
+                + "数据 "
+                +dataHex.toString()
+        );
+
 
         //通过回调接口,请求外部访问GATT写入
         if (callback.writeCharacteristic(this.deviceSha256, model.getDataBytes(), writeType, characteristic)) {
@@ -375,6 +402,14 @@ public class BluetoothControl {
 
     public BluetoothGuess getBluetoothGuess() {
         return bluetoothGuess;
+    }
+
+    public String getDeviceName() {
+        return deviceName;
+    }
+
+    public String getDeviceSha256() {
+        return deviceSha256;
     }
 
     /**

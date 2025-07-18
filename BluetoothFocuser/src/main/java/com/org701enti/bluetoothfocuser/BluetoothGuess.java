@@ -22,11 +22,8 @@
 
 package com.org701enti.bluetoothfocuser;
 
-import static com.google.android.material.internal.ContextUtils.getActivity;
 import static com.org701enti.bluetoothfocuser.StandardSync.DATA_TYPE_OFFSET_FROM_YAML;
 
-import android.app.Activity;
-import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -49,7 +46,7 @@ public class BluetoothGuess {
     }
 
     /**
-     * 猜测数据的类型,通过特征的UUID和数据样本大小
+     * 猜测数据的类型,通过特征的UUID(UUID实例)和数据样本大小
      *
      * @param uuid       特征的UUID实例
      * @param dataLength (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
@@ -70,7 +67,7 @@ public class BluetoothGuess {
     }
 
     /**
-     * 猜测数据的类型,通过特征的UUID和数据样本大小
+     * 猜测数据的类型,通过由特征UUID已简化的String字符串表示和数据样本大小
      *
      * @param stringSimplifiedUuid 特征的UUID的16位16进制简化字符串表达,如"2900" "2A19"(注意大小写)
      * @param dataLength           (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
@@ -126,10 +123,8 @@ public class BluetoothGuess {
         return dataType;
     }
 
-
     /**
-     * 猜测UI控制方式,通过数据的类型
-     *
+     * 猜测UI控制方式即controlWay,通过数据的类型
      * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
      * @return UI控制方式, 通过BluetoothUI.CONTROL_WAY_...枚举对比
      */
@@ -159,6 +154,11 @@ public class BluetoothGuess {
     }
 
 
+    /**
+     * 猜测最小数据通过数据的类型
+     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
+     * @return 最小数据
+     */
     public byte[] minDataValueByDataType(int dataType) {
         return switch (dataType) {
             case StandardSync.DATA_TYPE_BOOLEAN -> StandardSync.MIN_DATA_VALUE_BOOLEAN;
@@ -183,6 +183,11 @@ public class BluetoothGuess {
         };
     }
 
+    /**
+     * 猜测最大数据通过数据的类型
+     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
+     * @return 最大数据
+     */
     public byte[] maxDataValueByDataType(int dataType) {
         return switch (dataType) {
             case StandardSync.DATA_TYPE_BOOLEAN -> StandardSync.MAX_DATA_VALUE_BOOLEAN;
@@ -206,5 +211,80 @@ public class BluetoothGuess {
             default -> null;
         };
     }
+
+    /**
+     * 推测服务ID(规定值为服务简化16位服务UUID的值减去标准定义的第一个服务的简化16位服务UUID的值)
+     * @param serviceUuid 服务UUID
+     * @return 服务ID
+     */
+    public int serviceId(UUID serviceUuid) {
+        int id = 0;
+        if (serviceUuid == null) {
+            return id;
+        }
+        try {
+            //获取简化UUID,不添加0x前缀,输出大写字母,结果诸如"2900" "2A19"
+            String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(serviceUuid,false,true);
+            if (stringSimplifiedUuid == null) {
+                return id;
+            }
+            int intSimplifiedUuid = Integer.parseInt(stringSimplifiedUuid,16);
+
+            //获取第一个服务的简化16位UUID的值即映射偏移量
+            StandardSync.YamlResolver resolver = standardSync.new YamlResolver(standardSync.getYamlServiceUuids());
+            Integer integerOffset = (Integer)
+                    resolver
+                            .enterThisMapList("uuids")
+                            .getResultList()
+                            .get(0).get("uuid");
+
+            //计算id的值
+            assert integerOffset != null;
+            id = intSimplifiedUuid - integerOffset;
+            return id;
+        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
+                 NumberFormatException e) {
+            Log.w(TAG, "serviceId: 推测时出现问题,因为:", e);
+            return id;
+        }
+    }
+
+    /**
+     * 推测特征ID(规定值为特征简化16位服务UUID的值减去标准定义的第一个特征的简化16位服务UUID的值)
+     * @param characteristicUuid 特征UUID
+     * @return 服务ID
+     */
+    public int characteristicId(UUID characteristicUuid) {
+        int id = 0;
+        if (characteristicUuid == null) {
+            return id;
+        }
+        try {
+            //获取简化UUID,不添加0x前缀,输出大写字母,结果诸如"2900" "2A19"
+            String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(characteristicUuid,false,true);
+            if (stringSimplifiedUuid == null) {
+                return id;
+            }
+            int intSimplifiedUuid = Integer.parseInt(stringSimplifiedUuid,16);
+
+            //获取第一个特征的简化16位UUID的值即映射偏移量
+            StandardSync.YamlResolver resolver = standardSync.new YamlResolver(standardSync.getYamlCharacteristicUuids());
+            Integer integerOffset = (Integer)
+                    resolver
+                            .enterThisMapList("uuids")
+                            .getResultList()
+                            .get(0).get("uuid");
+
+            //计算id的值
+            assert integerOffset != null;
+            id = intSimplifiedUuid - integerOffset;
+            return id;
+        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
+                 NumberFormatException | IOException e) {
+            Log.w(TAG, "characteristicId: 推测时出现问题,因为:", e);
+            return id;
+        }
+    }
+
 
 }

@@ -45,9 +45,11 @@ public class StandardSync {
 
     private InputStream YamlAppearanceValues = null;//外观值YAML输入流
     private InputStream YamlCharacteristicUuids = null;//特征UUID的YAML输入流
+    private InputStream YamlServiceUuids = null;//服务UUID的YAML输入流
     private InputStream YamlFormatTypes = null;//数据类型的YAML输入流
     private InputStream yamlAdTypes = null;//广播类型的YAML输入流
     private InputStream yamlCharacteristicDataBasicType = null;//特征数据基本类型的YAML输入流
+
 
     /**
      * @param standardAccording 标准依据,通过 StandardSync.STANDARD_ACCORDING_...以枚举选择
@@ -69,12 +71,14 @@ public class StandardSync {
             AssetManager assetManager = context.getAssets();
             this.YamlAppearanceValues = assetManager.open("public/assigned_numbers/core/appearance_values.yaml");
             this.YamlCharacteristicUuids = assetManager.open("public/assigned_numbers/uuids/characteristic_uuids.yaml");
+            this.YamlServiceUuids = assetManager.open("public/assigned_numbers/uuids/service_uuids.yaml");
             this.YamlFormatTypes = assetManager.open("public/assigned_numbers/core/formattypes.yaml");
             this.yamlAdTypes = assetManager.open("public/assigned_numbers/core/ad_types.yaml");
             this.yamlCharacteristicDataBasicType = assetManager.open("bluetoothstandardmap/characteristic_data_basic_type.yaml");
         } catch (IOException e) {
             this.YamlAppearanceValues = null;
             this.YamlCharacteristicUuids = null;
+            this.YamlServiceUuids = null;
             this.YamlFormatTypes = null;
             this.yamlAdTypes = null;
             this.yamlCharacteristicDataBasicType = null;
@@ -369,7 +373,7 @@ public class StandardSync {
     }
 
 
-    //静态公共数据
+    //静态数据和常量
 
     //蓝牙标准128位UUID前缀和后缀
     final private static String BLUETOOTH_UUID128_PREFIX = "0000";
@@ -428,6 +432,10 @@ public class StandardSync {
     public InputStream getYamlCharacteristicUuids() throws IOException {
         YamlCharacteristicUuids.reset();
         return YamlCharacteristicUuids;
+    }
+
+    public InputStream getYamlServiceUuids() {
+        return YamlServiceUuids;
     }
 
     public InputStream getYamlFormatTypes() throws IOException {

@@ -24,6 +24,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class BluetoothUI {
 
@@ -75,9 +76,12 @@ public class BluetoothUI {
         for (int i = 0; i <= this.bluetoothControl.getMaxIndex(); i++) {
             ControlBasicModelBluetooth controlModel = bluetoothControl.search(i);
             if (controlModel != null) {
-                //对每个特征生成对应UI控制单元
-                InnerUiUnit unit = new InnerUiUnit(i);
-                unit.setControlWay(this.bluetoothControl.getBluetoothGuess().controlWayByDataType(controlModel.getDataType()));
+                BluetoothGuess guess = this.bluetoothControl.getBluetoothGuess();
+                int controlWay = guess.controlWayByDataType(controlModel.getDataType());//通过DataType猜测controlWay
+                int serviceId = guess.serviceId(controlModel.getUuidService());//推测服务ID
+                int characteristicId = guess.characteristicId(controlModel.getUuidCharacteristic());//推测特征ID
+                //生成对应UI控制单元
+                InnerUiUnit unit = new InnerUiUnit(i,controlWay,serviceId,characteristicId);
                 //保存到数据列表
                 this.dataList.add(i, unit);
             }
@@ -142,7 +146,7 @@ public class BluetoothUI {
         //根据DataList保存的内容更新视图
         //设置图标
         Bitmap bitmapTargetIcon = null;
-        try (InputStream iconInput = context.getAssets().open("bluetoothserviceicon/btsu" + unit.getServiceIconId() + ".png")) {
+        try (InputStream iconInput = context.getAssets().open("bluetoothserviceicon/btsu" + unit.getServiceId() + ".png")) {
             bitmapTargetIcon = BitmapFactory.decodeStream(iconInput);
         } catch (IOException e) {
             return;
@@ -220,40 +224,27 @@ public class BluetoothUI {
         private int indexControlModel;//控制模型的索引位置,用于在BluetoothControl实例获取控制模型
         private int controlWay;//控制方式
 
-        private int serviceIconId;//服务图标ID
-        private int characteristicIconId;//特征图标ID
+        private int serviceId;//服务ID(规定值为其服务简化16位服务UUID的值减去标准定义的第一个服务的简化16位服务UUID的值)
+        private int characteristicId;//特征ID(规定值为其特征简化16位特征UUID的值减去标准定义的第一个特征的简化16位服务UUID的值)
 
-        private final static int DEFAULT_SERVICE_ICON_ID = 48;
-        private final static int DEFAULT_CHARACTERISTIC_ICON_ID = 0;
+        private final static int DEFAULT_SERVICE_ID = 48;
+        private final static int DEFAULT_CHARACTERISTIC_ID = 0;
 
-
-        /**
-         * 标准构造方法
-         *
-         * @param indexControlModel 控制模型的索引位置,用于在BluetoothControl实例获取控制模型
-         */
-        public InnerUiUnit(int indexControlModel) {
-            this.indexControlModel = indexControlModel;
-            this.controlWay = BluetoothUI.CONTROL_WAY_UNKNOWN;
-            this.serviceIconId = DEFAULT_SERVICE_ICON_ID;
-            this.characteristicIconId = DEFAULT_CHARACTERISTIC_ICON_ID;
-        }
 
         /**
-         * 自定义完全构造方法
+         * 构造方法
          *
          * @param indexControlModel    控制模型的索引位置,用于在BluetoothControl实例获取控制模型
          * @param controlWay           控制方式ID(推子,按钮,开关等)
-         * @param serviceIconId        服务图标ID
-         * @param characteristicIconId 特征图标ID
+         * @param serviceId        服务ID(规定值为服务简化16位服务UUID的值减去标准定义的第一个服务的简化16位服务UUID的值)
+         * @param characteristicId 特征ID(规定值为特征简化16位服务UUID的值减去标准定义的第一个特征的简化16位服务UUID的值)
          */
-        public InnerUiUnit(int indexControlModel, int controlWay, int serviceIconId, int characteristicIconId) {
+        public InnerUiUnit(int indexControlModel, int controlWay, int serviceId, int characteristicId) {
             this.indexControlModel = indexControlModel;
             this.controlWay = controlWay;
-            this.serviceIconId = serviceIconId;
-            this.characteristicIconId = characteristicIconId;
+            this.serviceId = serviceId;
+            this.characteristicId = characteristicId;
         }
-
 
         /**
          * 通过自身数据制作对应内部生成式UI单元的View视图
@@ -321,24 +312,24 @@ public class BluetoothUI {
             this.controlWay = controlWay;
         }
 
-        public void setServiceIconId(int serviceIconId) {
-            this.serviceIconId = serviceIconId;
+        public void setServiceId(int serviceId) {
+            this.serviceId = serviceId;
         }
 
-        public void setCharacteristicIconId(int characteristicIconId) {
-            this.characteristicIconId = characteristicIconId;
+        public void setCharacteristicId(int characteristicId) {
+            this.characteristicId = characteristicId;
         }
 
         public int getControlWay() {
             return controlWay;
         }
 
-        public int getServiceIconId() {
-            return serviceIconId;
+        public int getServiceId() {
+            return serviceId;
         }
 
-        public int getCharacteristicIconId() {
-            return characteristicIconId;
+        public int getCharacteristicId() {
+            return characteristicId;
         }
     }
 

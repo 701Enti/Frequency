@@ -170,31 +170,55 @@ public class ControlFragment extends Fragment {
         return webPageConsole;
     }
 
-    //内部生成式UI控制台相关,可以由蓝牙,WIFI等不同适配器作用(这里使用适配器单例模式便于管理)
-    private GridView innerUiConsole = null;
+
+
+    //内部生成式UI控制台相关,可以由蓝牙,WIFI等不同适配器作用
+
+    //这里使用适配器[单例模式]便于管理,如果有新的适配器定义,请在此处初始化一个单例
+    private GridView innerUiConsole = null;//innerUiConsole是一个GridView实例,通过initInnerUiConsole方法设置的父级view取里面的(R.id.InnerUiConsole)
     private BluetoothInnerUiAdapter bluetoothInnerUiAdapter = new BluetoothInnerUiAdapter();//蓝牙内部生成式UI适配器单例
 
+    /**
+     * 初始化innerUiConsole
+     * 设置的父级view将被用来获取一个id为(R.id.InnerUiConsole)的GridView,即innerUiConsole(初始化后默认为隐藏显示)
+     * @param view 父级view,决定了innerUiConsole显示位置
+     */
     private void initInnerUiConsole(View view){
        this.innerUiConsole = view.findViewById(R.id.InnerUiConsole);
        setVisibilityInnerUiConsole(View.GONE);
     }
+
+    /**
+     * 设置innerUiConsole的可见性
+     * @param visibility 可见性,这是一个枚举,通过View.xxx
+     */
     private void setVisibilityInnerUiConsole(int visibility){
         if(innerUiConsole != null){
             innerUiConsole.setVisibility(visibility);
         }
     }
+
+    /**
+     * 设置innerUiConsole的适配器为BluetoothInnerUiAdapter
+     * 作为一个GridView,innerUiConsole需要适配器才能工作
+     */
     private void setAdapterBluetoothInnerUi(){
         if(innerUiConsole != null){
             innerUiConsole.setAdapter(bluetoothInnerUiAdapter);
         }
     }
-    public GridView getInnerUiConsole() {
-        return innerUiConsole;
-    }
 
+    /**
+     * [GridView适配器]蓝牙内部生成式UI适配器,用于Grid展示的适配
+     */
     public class BluetoothInnerUiAdapter extends BaseAdapter{
-        private List<Object> unitList = Collections.emptyList();
+        private List<Object> unitList = Collections.emptyList();//显示数据列表
 
+        /**
+         * 设置显示数据列表
+         * [要求列表中每个Object都是BluetoothUI.InnerUiUnit实例,这样每个条目对应一个小控件,即GridView中一个子单元]
+         * @param unitList 显示是依据什么数据,提供显示数据列表,可随时切换,切换后立即更新
+         */
         public void selectShowAccording(List<Object> unitList){
             if(unitList != null){
                 this.unitList = unitList;
@@ -204,21 +228,24 @@ public class ControlFragment extends Fragment {
 
         @Override
         public int getCount() {
-            return unitList.size();
+            return unitList.size();//GridView需要条目数量,条目数量为数据列表中的实例个数
         }
 
         @Override
         public Object getItem(int position) {
-            return null;
+            return null;//GridView需要目标位置的条目数据,这里不需要这个功能
         }
 
         @Override
         public long getItemId(int position) {
-            return 0;
+            return 0;//GridView需要目标位置的条目id,这里不需要这个功能
         }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            //GridView需要目标位置的条目view,这里我们要自己根据数据列表制作view实例
+            //[要求列表中每个Object都是BluetoothUI.InnerUiUnit实例]
+            //[由于所有控件的视图更新,操作逻辑已经在每个都在makeUnitView注册自己独有的回调,不需要在这里完成]
             View unitView;
             BluetoothUI.InnerUiUnit unit = (BluetoothUI.InnerUiUnit) unitList.get(position);
             if (convertView == null){
@@ -226,10 +253,9 @@ public class ControlFragment extends Fragment {
                 unitView = unit.makeUnitView(null,false,requireActivity());
             }
             else {
-                unitView = convertView;
+                unitView = convertView;//如果已经制作了,使用之前的
             }
-            //由于所有控件的视图更新,操作逻辑已经在每个都在makeUnitView注册自己独有的回调,不需要在这里完成
-            return unitView;
+            return unitView;//提供view实例
         }
     }
 

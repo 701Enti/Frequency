@@ -22,56 +22,58 @@
 
 package com.org701enti.bluetoothfocuser;
 
-import static com.google.android.material.internal.ContextUtils.getActivity;
 import static com.org701enti.bluetoothfocuser.StandardSync.DATA_TYPE_OFFSET_FROM_YAML;
 
-import android.app.Activity;
-import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import java.io.IOException;
 import java.util.UUID;
 
 public class BluetoothGuess {
 
     String TAG = "BluetoothGuess";
-    StandardSync standardSync = null;
+    private StandardSync standardSync = null;
 
 
-    public BluetoothGuess(@NonNull StandardSync standardSync){
+    public BluetoothGuess(@NonNull StandardSync standardSync) {
         this.standardSync = standardSync;
     }
 
+    public StandardSync getStandardSync() {
+        return standardSync;
+    }
 
     /**
-     * 猜测数据的类型,通过特征的UUID和数据样本大小
-     * @param uuid 特征的UUID实例
+     * 猜测数据的类型,通过特征的UUID(UUID实例)和数据样本大小
+     *
+     * @param uuid       特征的UUID实例
      * @param dataLength (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
      * @return 数据的类型, 根据StandardSync.DATA_TYPE_...枚举
      */
-    public int dataTypeByCharacteristicUuid(UUID uuid,int dataLength) {
+    public int dataTypeByCharacteristicUuid(UUID uuid, int dataLength) {
         int dataType = StandardSync.DATA_TYPE_UNKNOWN;
         if (uuid == null) {
             return dataType;
         }
-        //获取简化UUID,不添加0x前缀,结果诸如"2900" "2A19"
-        String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(uuid,false);
+        //获取简化UUID,不添加0x前缀,输出大写字母,结果诸如"2900" "2A19"
+        String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(uuid,false,true);
         if (stringSimplifiedUuid == null) {
             return dataType;
-        }
-        else {
-            return dataTypeByCharacteristicUuid(stringSimplifiedUuid,dataLength);
+        } else {
+            return dataTypeByCharacteristicUuid(stringSimplifiedUuid, dataLength);
         }
     }
 
     /**
-     * 猜测数据的类型,通过特征的UUID和数据样本大小
-     * @param stringSimplifiedUuid 特征的UUID的16位16进制简化字符串表达,如"2900" "2A19"
-     * @param dataLength (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
+     * 猜测数据的类型,通过由特征UUID已简化的String字符串表示和数据样本大小
+     *
+     * @param stringSimplifiedUuid 特征的UUID的16位16进制简化字符串表达,如"2900" "2A19"(注意大小写)
+     * @param dataLength           (对大小不定类型,猜测时忽略此参数)存储这个数据的byte数组的.length结果值,即这个数据占据最多几个字节
      * @return 数据的类型, 根据StandardSync.DATA_TYPE_...枚举
      */
-    public int dataTypeByCharacteristicUuid(String stringSimplifiedUuid,int dataLength) {
+    public int dataTypeByCharacteristicUuid(String stringSimplifiedUuid, int dataLength) {
         int dataType = StandardSync.DATA_TYPE_UNKNOWN;
 
         if (stringSimplifiedUuid == null) {
@@ -92,15 +94,14 @@ public class BluetoothGuess {
             String basicType = (String)
                     yamlResolver
                             .enterThisMapList("characteristic_data_basic_type")
-                            .reserveTheItemsHave("name",name)
+                            .reserveTheItemsHave("name", name)
                             .getResultList().get(0).get("basic_type");
             assert basicType != null;
             //获取较完整类型名,如果需要补充类型名,例如 uint -> uint16,根据dataLength补充
             String type;//较完整类型名
-            if(basicType.startsWith("uint") || basicType.startsWith("sint") || basicType.startsWith("float") || basicType.startsWith("medfloat")){
-                type = new String(basicType + String.valueOf(dataLength*8));//dataLength为数据字节数
-            }
-            else {
+            if (basicType.startsWith("uint") || basicType.startsWith("sint") || basicType.startsWith("float") || basicType.startsWith("medfloat")) {
+                type = new String(basicType + String.valueOf(dataLength * 8));//dataLength为数据字节数
+            } else {
                 type = new String(basicType);
             }
             //根据较完整类型名,获取类型对应码
@@ -108,32 +109,182 @@ public class BluetoothGuess {
             Integer typeId = (Integer)
                     yamlResolver
                             .enterThisMapList("formattypes")
-                            .reserveTheItemsHave("short_name",type)
+                            .reserveTheItemsHave("short_name", type)
                             .getResultList().get(0).get("value");
             assert typeId != null;
             //根据StandardSync的规定映射成StandardSync.DATA_TYPE_...枚举值即dataType值
-            dataType = (int)typeId + DATA_TYPE_OFFSET_FROM_YAML;
-        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException | NumberFormatException e) {
-            Log.w(TAG, "dataTypeByCharacteristicUuid: 猜测时出现问题,因为:",e);
+            dataType = (int) typeId + DATA_TYPE_OFFSET_FROM_YAML;
+        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
+                 NumberFormatException | IOException e) {
+            Log.w(TAG, "dataTypeByCharacteristicUuid: 猜测时出现问题,因为:", e);
             return dataType;
         }
 
         return dataType;
     }
 
+    /**
+     * 猜测UI控制方式即controlWay,通过数据的类型
+     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
+     * @return UI控制方式, 通过BluetoothUI.CONTROL_WAY_...枚举对比
+     */
+    public int controlWayByDataType(int dataType) {
+        return switch (dataType) {
+            case StandardSync.DATA_TYPE_BOOLEAN -> BluetoothUI.CONTROL_WAY_SWITCH_ONE;
+            case StandardSync.DATA_TYPE_UINT2, StandardSync.DATA_TYPE_UINT4 ->
+                    BluetoothUI.CONTROL_WAY_SELECT_PATTERN_VALUE;
+            case StandardSync.DATA_TYPE_UINT8, StandardSync.DATA_TYPE_UINT16,
+                 StandardSync.DATA_TYPE_UINT32, StandardSync.DATA_TYPE_SINT8,
+                 StandardSync.DATA_TYPE_SINT16, StandardSync.DATA_TYPE_SINT32 ->
+                    BluetoothUI.CONTROL_WAY_SLIDE_FREE_FADER_ONE;
+            case StandardSync.DATA_TYPE_UINT12, StandardSync.DATA_TYPE_UINT24,
+                 StandardSync.DATA_TYPE_UINT48, StandardSync.DATA_TYPE_UINT64,
+                 StandardSync.DATA_TYPE_UINT128, StandardSync.DATA_TYPE_SINT12,
+                 StandardSync.DATA_TYPE_SINT24, StandardSync.DATA_TYPE_SINT48,
+                 StandardSync.DATA_TYPE_SINT64, StandardSync.DATA_TYPE_SINT128,
+                 StandardSync.DATA_TYPE_FLOAT32, StandardSync.DATA_TYPE_FLOAT64,
+                 StandardSync.DATA_TYPE_MED_SFLOAT16, StandardSync.DATA_TYPE_MED_SFLOAT32,
+                 StandardSync.DATA_TYPE_UINT16_ARRAY_2 -> BluetoothUI.CONTROL_WAY_INPUT_BYTES;
+            case StandardSync.DATA_TYPE_UTF8_STRING, StandardSync.DATA_TYPE_UTF16_STRING ->
+                    BluetoothUI.CONTROL_WAY_INPUT_TEXT;
+            case StandardSync.DATA_TYPE_STRUCT, StandardSync.DATA_TYPE_MED_ASN1_STRUCTURE ->
+                    BluetoothUI.CONTROL_WAY_STRUCT;
+            default -> BluetoothUI.CONTROL_WAY_UNKNOWN;
+        };
+    }
 
 
-//    /**
-//     * 猜测UI控制方式,通过数据的类型
-//     *
-//     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
-//     * @return UI控制方式, 通过BluetoothUI.CONTROL_WAY_...枚举对比
-//     */
-//    public int controlWayByDataType(int dataType) {
-//        int controlWay = BluetoothUI.CONTROL_WAY_UNKNOWN;
-//
-//
-//    }
+    /**
+     * 猜测最小数据通过数据的类型
+     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
+     * @return 最小数据
+     */
+    public byte[] minDataValueByDataType(int dataType) {
+        return switch (dataType) {
+            case StandardSync.DATA_TYPE_BOOLEAN -> StandardSync.MIN_DATA_VALUE_BOOLEAN;
+            case StandardSync.DATA_TYPE_UINT2 ->StandardSync.MIN_DATA_VALUE_UINT2;
+            case StandardSync.DATA_TYPE_UINT4 ->StandardSync.MIN_DATA_VALUE_UINT4;
+            case StandardSync.DATA_TYPE_UINT8 ->StandardSync.MIN_DATA_VALUE_UINT8;
+            case StandardSync.DATA_TYPE_UINT16 ->StandardSync.MIN_DATA_VALUE_UINT16;
+            case StandardSync.DATA_TYPE_UINT24 ->StandardSync.MIN_DATA_VALUE_UINT24;
+            case StandardSync.DATA_TYPE_UINT32 ->StandardSync.MIN_DATA_VALUE_UINT32;
+            case StandardSync.DATA_TYPE_UINT48 ->StandardSync.MIN_DATA_VALUE_UINT48;
+            case StandardSync.DATA_TYPE_UINT64 ->StandardSync.MIN_DATA_VALUE_UINT64;
+            case StandardSync.DATA_TYPE_UINT128 ->StandardSync.MIN_DATA_VALUE_UINT128;
+            case StandardSync.DATA_TYPE_SINT8 ->StandardSync.MIN_DATA_VALUE_SINT8;
+            case StandardSync.DATA_TYPE_SINT12 ->StandardSync.MIN_DATA_VALUE_SINT12;
+            case StandardSync.DATA_TYPE_SINT16 ->StandardSync.MIN_DATA_VALUE_SINT16;
+            case StandardSync.DATA_TYPE_SINT24 ->StandardSync.MIN_DATA_VALUE_SINT24;
+            case StandardSync.DATA_TYPE_SINT32 ->StandardSync.MIN_DATA_VALUE_SINT32;
+            case StandardSync.DATA_TYPE_SINT48 ->StandardSync.MIN_DATA_VALUE_SINT48;
+            case StandardSync.DATA_TYPE_SINT64 ->StandardSync.MIN_DATA_VALUE_SINT64;
+            case StandardSync.DATA_TYPE_SINT128 ->StandardSync.MIN_DATA_VALUE_SINT128;
+            default -> null;
+        };
+    }
+
+    /**
+     * 猜测最大数据通过数据的类型
+     * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
+     * @return 最大数据
+     */
+    public byte[] maxDataValueByDataType(int dataType) {
+        return switch (dataType) {
+            case StandardSync.DATA_TYPE_BOOLEAN -> StandardSync.MAX_DATA_VALUE_BOOLEAN;
+            case StandardSync.DATA_TYPE_UINT2 ->StandardSync.MAX_DATA_VALUE_UINT2;
+            case StandardSync.DATA_TYPE_UINT4 ->StandardSync.MAX_DATA_VALUE_UINT4;
+            case StandardSync.DATA_TYPE_UINT8 ->StandardSync.MAX_DATA_VALUE_UINT8;
+            case StandardSync.DATA_TYPE_UINT12 ->StandardSync.MAX_DATA_VALUE_UINT12;
+            case StandardSync.DATA_TYPE_UINT16 ->StandardSync.MAX_DATA_VALUE_UINT16;
+            case StandardSync.DATA_TYPE_UINT24 ->StandardSync.MAX_DATA_VALUE_UINT24;
+            case StandardSync.DATA_TYPE_UINT32 ->StandardSync.MAX_DATA_VALUE_UINT32;
+            case StandardSync.DATA_TYPE_UINT48 ->StandardSync.MAX_DATA_VALUE_UINT48;
+            case StandardSync.DATA_TYPE_UINT64 ->StandardSync.MAX_DATA_VALUE_UINT64;
+            case StandardSync.DATA_TYPE_UINT128 ->StandardSync.MAX_DATA_VALUE_UINT128;
+            case StandardSync.DATA_TYPE_SINT8 ->StandardSync.MAX_DATA_VALUE_SINT8;
+            case StandardSync.DATA_TYPE_SINT16 ->StandardSync.MAX_DATA_VALUE_SINT16;
+            case StandardSync.DATA_TYPE_SINT24 ->StandardSync.MAX_DATA_VALUE_SINT24;
+            case StandardSync.DATA_TYPE_SINT32 ->StandardSync.MAX_DATA_VALUE_SINT32;
+            case StandardSync.DATA_TYPE_SINT48 ->StandardSync.MAX_DATA_VALUE_SINT48;
+            case StandardSync.DATA_TYPE_SINT64 ->StandardSync.MAX_DATA_VALUE_SINT64;
+            case StandardSync.DATA_TYPE_SINT128 ->StandardSync.MAX_DATA_VALUE_SINT128;
+            default -> null;
+        };
+    }
+
+    /**
+     * 推测服务ID(规定值为服务简化16位服务UUID的值减去标准定义的第一个服务的简化16位服务UUID的值)
+     * @param serviceUuid 服务UUID
+     * @return 服务ID
+     */
+    public int serviceId(UUID serviceUuid) {
+        int id = 0;
+        if (serviceUuid == null) {
+            return id;
+        }
+        try {
+            //获取简化UUID,不添加0x前缀,输出大写字母,结果诸如"2900" "2A19"
+            String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(serviceUuid,false,true);
+            if (stringSimplifiedUuid == null) {
+                return id;
+            }
+            int intSimplifiedUuid = Integer.parseInt(stringSimplifiedUuid,16);
+
+            //获取第一个服务的简化16位UUID的值即映射偏移量
+            StandardSync.YamlResolver resolver = standardSync.new YamlResolver(standardSync.getYamlServiceUuids());
+            Integer integerOffset = (Integer)
+                    resolver
+                            .enterThisMapList("uuids")
+                            .getResultList()
+                            .get(0).get("uuid");
+
+            //计算id的值
+            assert integerOffset != null;
+            id = intSimplifiedUuid - integerOffset;
+            return id;
+        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
+                 NumberFormatException e) {
+            Log.w(TAG, "serviceId: 推测时出现问题,因为:", e);
+            return id;
+        }
+    }
+
+    /**
+     * 推测特征ID(规定值为特征简化16位服务UUID的值减去标准定义的第一个特征的简化16位服务UUID的值)
+     * @param characteristicUuid 特征UUID
+     * @return 服务ID
+     */
+    public int characteristicId(UUID characteristicUuid) {
+        int id = 0;
+        if (characteristicUuid == null) {
+            return id;
+        }
+        try {
+            //获取简化UUID,不添加0x前缀,输出大写字母,结果诸如"2900" "2A19"
+            String stringSimplifiedUuid = StandardSync.getBluetoothSimplifiedUuid(characteristicUuid,false,true);
+            if (stringSimplifiedUuid == null) {
+                return id;
+            }
+            int intSimplifiedUuid = Integer.parseInt(stringSimplifiedUuid,16);
+
+            //获取第一个特征的简化16位UUID的值即映射偏移量
+            StandardSync.YamlResolver resolver = standardSync.new YamlResolver(standardSync.getYamlCharacteristicUuids());
+            Integer integerOffset = (Integer)
+                    resolver
+                            .enterThisMapList("uuids")
+                            .getResultList()
+                            .get(0).get("uuid");
+
+            //计算id的值
+            assert integerOffset != null;
+            id = intSimplifiedUuid - integerOffset;
+            return id;
+        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
+                 NumberFormatException | IOException e) {
+            Log.w(TAG, "characteristicId: 推测时出现问题,因为:", e);
+            return id;
+        }
+    }
 
 
 }

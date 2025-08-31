@@ -4,7 +4,7 @@ junit = "4.13.2"
 junitVersion = "1.1.5"
 espressoCore = "3.5.1"
 appcompat = "1.6.1"
-lottie = "6.5.0"
+lottie = "6.6.0"
 material = "1.10.0"
 activity = "1.8.0"
 constraintlayout = "2.1.4"
@@ -23,7 +23,7 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 material-v1120 = { module = "com.google.android.material:material", version.ref = "materialVersion" }
 recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
-snakeyaml = { module = "org.yaml:snakeyaml", version = "2.0" }
+snakeyaml = { module = "org.yaml:snakeyaml", version = "2.3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

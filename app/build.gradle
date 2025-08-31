@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace 'com.org701enti.frequency'
+    namespace 'com.org701enti.frealicane'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.org701enti.frequency"
+        applicationId "com.org701enti.frealicane"
         minSdk 26
         targetSdk 34
         versionCode 1

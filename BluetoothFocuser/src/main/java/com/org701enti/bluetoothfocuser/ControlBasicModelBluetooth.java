@@ -22,14 +22,16 @@
 
 package com.org701enti.bluetoothfocuser;
 
+import androidx.annotation.Nullable;
+
 import java.util.UUID;
 
 public class ControlBasicModelBluetooth {
     private UUID uuidService;//所属服务的UUID
     private UUID uuidCharacteristic;//所属特征的UUID
 
-    private byte[] maxDataValue;//数值数据最大值
-    private byte[] minDataValue;//数值数据最小值
+    private byte[] maxDataValue;//数值数据最大值样版
+    private byte[] minDataValue;//数值数据最小值样版
     private byte[] dataBytes;//字节数据,任何数据都以字节存储
 
     private int dataType;//控制目标的数据的类型,将dataBytes中数据转换为这个类型,根据StandardSync.DATA_TYPE_...枚举
@@ -44,7 +46,8 @@ public class ControlBasicModelBluetooth {
 
     /**
      * 初步构造方法(之后 数据类型 dataType = StandardSync.DATA_TYPE_UNKNOWN,初始字节数据 dataBytes = null,最大字节数据样版 maxDataValue = null,最小字节数据样版 minDataValue = null)
-     * @param uuidService 服务UUID
+     *
+     * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
      */
     public ControlBasicModelBluetooth(UUID uuidService, UUID uuidCharacteristic) {
@@ -60,8 +63,9 @@ public class ControlBasicModelBluetooth {
 
     /**
      * 初步构造方法(之后 初始字节数据 dataBytes = null,最大字节数据样版 maxDataValue = null,最小字节数据样版 minDataValue = null)
-     * @param dataType 数据类型,通过StandardSync.DATA_TYPE_...枚举
-     * @param uuidService 服务UUID
+     *
+     * @param dataType           数据类型,通过StandardSync.DATA_TYPE_...枚举
+     * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
      */
     public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic) {
@@ -78,10 +82,11 @@ public class ControlBasicModelBluetooth {
 
     /**
      * 初步构造方法(之后 最大字节数据样版 maxDataValue = null,最小字节数据样版 minDataValue = null)
-     * @param dataType 数据类型,通过StandardSync.DATA_TYPE_...枚举
-     * @param uuidService 服务UUID
+     *
+     * @param dataType           数据类型,通过StandardSync.DATA_TYPE_...枚举
+     * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
-     * @param dataBytes 初始字节数据
+     * @param dataBytes          初始字节数据
      */
     public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic, byte[] dataBytes) {
         this.maxDataValue = null;
@@ -97,11 +102,12 @@ public class ControlBasicModelBluetooth {
 
     /**
      * 初步构造方法(之后 初始字节数据 dataBytes = null)
-     * @param dataType 数据类型,通过StandardSync.DATA_TYPE_...枚举
-     * @param uuidService 服务UUID
+     *
+     * @param dataType           数据类型,通过StandardSync.DATA_TYPE_...枚举
+     * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
-     * @param maxDataValue 最大字节数据样版,数值上,dataBytes具有小于等于maxDataValue的限制
-     * @param minDataValue 最小字节数据样版,数值上,dataBytes具有大于等于minDataValue的限制
+     * @param maxDataValue       最大字节数据样版,数值上,dataBytes具有小于等于maxDataValue的限制
+     * @param minDataValue       最小字节数据样版,数值上,dataBytes具有大于等于minDataValue的限制
      */
     public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic, byte[] maxDataValue, byte[] minDataValue) {
         this.maxDataValue = maxDataValue;
@@ -117,12 +123,13 @@ public class ControlBasicModelBluetooth {
 
     /**
      * 完全构造方法
-     * @param dataType 数据类型,通过StandardSync.DATA_TYPE_...枚举
-     * @param uuidService 服务UUID
+     *
+     * @param dataType           数据类型,通过StandardSync.DATA_TYPE_...枚举
+     * @param uuidService        服务UUID
      * @param uuidCharacteristic 特征UUID
-     * @param dataBytes 初始字节数据
-     * @param maxDataValue 最大字节数据样版,数值上,dataBytes具有小于等于maxDataValue的限制
-     * @param minDataValue 最小字节数据样版,数值上,dataBytes具有大于等于minDataValue的限制
+     * @param dataBytes          初始字节数据
+     * @param maxDataValue       最大字节数据样版,数值上,dataBytes具有小于等于maxDataValue的限制
+     * @param minDataValue       最小字节数据样版,数值上,dataBytes具有大于等于minDataValue的限制
      */
     public ControlBasicModelBluetooth(int dataType, UUID uuidService, UUID uuidCharacteristic, byte[] dataBytes, byte[] maxDataValue, byte[] minDataValue) {
         this.maxDataValue = maxDataValue;
@@ -134,8 +141,6 @@ public class ControlBasicModelBluetooth {
         this.uuidService = uuidService;
         this.uuidCharacteristic = uuidCharacteristic;
     }
-
-
 
 
 
@@ -163,19 +168,22 @@ public class ControlBasicModelBluetooth {
         this.dataType = dataType;
     }
 
+    @Nullable
     public byte[] getMaxDataValue() {
         return maxDataValue;
     }
 
-    public void setMaxDataValue(byte[] maxDataValue) {
+    public void setMaxDataValue(@Nullable byte[] maxDataValue) {
         this.maxDataValue = maxDataValue;
     }
 
+    @Nullable
     public byte[] getMinDataValue() {
         return minDataValue;
     }
 
-    public void setMinDataValue(byte[] minDataValue) {
+
+    public void setMinDataValue(@Nullable byte[] minDataValue) {
         this.minDataValue = minDataValue;
     }
 

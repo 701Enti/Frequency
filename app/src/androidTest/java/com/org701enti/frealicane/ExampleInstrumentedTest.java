@@ -1,4 +1,4 @@
-package com.org701enti.frequency;
+package com.org701enti.frealicane;
 
 import android.content.Context;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("com.org701enti.frequency", appContext.getPackageName());
+        assertEquals("com.org701enti.frealicane", appContext.getPackageName());
     }
 }

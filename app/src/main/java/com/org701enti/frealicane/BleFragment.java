@@ -20,12 +20,12 @@
 //        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //        SOFTWARE.
 
-package com.org701enti.frequency;
+package com.org701enti.frealicane;
 
 import static android.content.Context.BLUETOOTH_SERVICE;
 import static android.content.Context.WINDOW_SERVICE;
 
-import static com.org701enti.frequency.MainActivity.AddToBleDeviceMainDatabase;
+import static com.org701enti.frealicane.MainActivity.AddToBleDeviceMainDatabase;
 
 import android.animation.Animator;
 import android.animation.ObjectAnimator;

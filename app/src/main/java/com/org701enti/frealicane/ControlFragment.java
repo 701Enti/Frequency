@@ -20,7 +20,7 @@
 //        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //        SOFTWARE.
 
-package com.org701enti.frequency;
+package com.org701enti.frealicane;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -28,16 +28,13 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
 
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.BaseAdapter;
 import android.widget.GridView;
-import android.widget.ListAdapter;
 
 import com.org701enti.bluetoothfocuser.BluetoothUI;
 import com.org701enti.bluetoothfocuser.StandardSync;

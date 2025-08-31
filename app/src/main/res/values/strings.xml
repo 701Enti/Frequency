@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Frequency</string>
+    <string name="app_name">Frealicane</string>
     <string name="device_chinese">设备</string>
     <string name="ble_english">BLE</string>
     <string name="control_chinese">控制</string>
@@ -10,7 +10,7 @@
     <string name="give_chinese">授予</string>
     <string name="reject_chinese">拒绝</string>
     <string name="permissionapplycheckthreaderr">PermissionApplyCheck method cannot be called from the main Thread</string>
-    <string name="packagename">com.org701enti.frequency</string>
+    <string name="packagename">com.org701enti.frealicane</string>
     <string name="unknowndevice_chinese">未知设备</string>
     <string name="devicename_english">DeviceName</string>
     <string name="verticalslidevavetostopsacn_chinese_chinese">上下滑动波形以停止扫描</string>

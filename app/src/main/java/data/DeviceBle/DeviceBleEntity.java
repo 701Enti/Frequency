@@ -1,11 +1,9 @@
 package data.DeviceBle;
 
-import android.content.Context;
-
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
-import com.org701enti.frequency.R;
+import com.org701enti.frealicane.R;
 
 import org.jetbrains.annotations.NotNull;
 

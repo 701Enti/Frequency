@@ -20,7 +20,7 @@
 //        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //        SOFTWARE.
 
-package com.org701enti.frequency;
+package com.org701enti.frealicane;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;

@@ -1,4 +1,4 @@
-package com.org701enti.frequency;
+package com.org701enti.frealicane;
 
 import org.junit.Test;
 

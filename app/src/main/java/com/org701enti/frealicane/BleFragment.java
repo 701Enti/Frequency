@@ -594,9 +594,6 @@ public class BleFragment extends Fragment {
                             }
                     );
                 }
-
-                holder.fadeInDeviceDistance.start();
-
             }
         }
 
@@ -623,21 +620,6 @@ public class BleFragment extends Fragment {
 
             public ObjectAnimator fadeInDeviceDistance = null;
 
-            //用户操作相关
-            float progress = 0;//扫描动画播放进度
-            String nameBuf = getString(R.string.unknowndevice_chinese);
-            RelativeLayout.LayoutParams deviceNameParams = null;//
-            //以下坐标单位均为像素px
-            float startX = 0;//开始按下时的横坐标
-            float currentX = 0;//当前手指滑动位置的横坐标
-            float displayX = 0;//屏幕的最大横坐标
-            int deviceNameBufX = 0;//deviceName的横坐标缓存
-            int deviceNameBufY = 0;//deviceName的纵坐标缓存
-            //操作需求
-            byte user_want = WANT_NONE;
-            //动画恢复运行标识
-            AtomicReference<Boolean> isRunningRecover = null;
-
             //在构造方法将各种View引用缓存到ViewHolder池
             public ViewHolder(View view) {
                 //super调用父类RecyclerView.ViewHolder构造方法,并传递了参数viewHandle
@@ -656,255 +638,6 @@ public class BleFragment extends Fragment {
                     fadeInDeviceDistance.setDuration(1000);
                     fadeInDeviceDistance.setInterpolator(new DecelerateInterpolator());
                 }
-
-
-                //在行单元触发对应结果的控制面板,不松手继续滑动选择指定操作
-                view.setOnTouchListener(new View.OnTouchListener() {
-                    @SuppressLint({"ClickableViewAccessibility", "MissingPermission"})
-                    @Override
-                    public boolean onTouch(View v, MotionEvent event) {
-                        switch (event.getAction()) {
-                            //在开始按下时
-                            case MotionEvent.ACTION_DOWN: {
-                                //强制停止正在运行的动画,因为恢复动画是耗时的,如果未完成,用户又开始操作,触发"按下",所以我们必须停止它
-                                //同时现在保存上次的缓存还未覆盖,可以立即恢复坐标即跳过动画完成恢复
-                                //如果是第一次运行,缓存是没有数据的,这样我们不应该恢复
-                                if (isRunningRecover == null) {
-                                    isRunningRecover = new AtomicReference<>(Boolean.FALSE);
-                                } else {
-                                    if (isRunningRecover.get()) {//需要强制停止
-                                        isRunningRecover.set(false);//强制停止正在运行的恢复动画
-                                    }
-                                }
-
-                                lottieAnimationBluetoothScanning.pauseAnimation();//保证停止动画
-                                isAllowNotifyChanged.set(false);//禁止列表对已存在条目的数据刷新
-
-                                //进行坐标的快速复位,保证坐标的正常复位,安全地继续操作
-                                if (deviceNameParams != null) {
-                                    deviceNameParams.leftMargin = deviceNameBufX;
-                                    deviceNameParams.topMargin = deviceNameBufY;
-                                    deviceName.setLayoutParams(deviceNameParams);
-                                }
-
-                                //切换到中间进度(实际为25%,因为50%-100%是0%-50%的倒放)
-                                lottieAnimationBluetoothScanning.setProgress(0.25F);
-                                //重置变量
-                                user_want = WANT_NONE;
-                                //缓存设备名称
-                                BluetoothDeviceModel targetModel = null;
-                                targetModel = modelList.get(positionBuf);//获取要读取操作列表中的的deviceModel实例
-                                if (targetModel != null) {
-                                    BluetoothDevice device = null;
-                                    device = targetModel.getDevice();
-                                    if (device != null) {
-                                        if (device.getName() != null)
-                                            nameBuf = device.getName();
-                                        else
-                                            nameBuf = getString(R.string.unknowndevice_chinese);
-                                    }
-                                }
-                                //获取屏幕的最大横坐标(单位像素px)
-                                DisplayMetrics displayMetrics = new DisplayMetrics();
-                                WindowManager windowManager = (WindowManager) requireActivity().getSystemService(WINDOW_SERVICE);
-                                windowManager.getDefaultDisplay().getMetrics(displayMetrics);
-                                displayX = displayMetrics.widthPixels;
-                                //记录开始按下的坐标
-                                startX = event.getX();
-                                //记录开始的deviceName横纵坐标
-                                deviceNameParams = (RelativeLayout.LayoutParams) deviceName.getLayoutParams();
-                                deviceNameBufX = deviceNameParams.leftMargin;
-                                deviceNameBufY = deviceNameParams.topMargin;
-                                //显示主文本提示
-                                MainTextViewBLE.setText(getString(R.string.horizontalslidedevicetoselectoperaction_chinese));
-                                MainTextViewBLE.setAlpha(1F);
-                                break;
-                            }
-
-                            //以下对View元素的设置是一时的,一但发生RecyclerView的视图重构会马上重新绘制,这些状态就丢失了
-                            // 当然在我们恢复对列表已存在条目数据更新的允许之后
-                            //在线设备被扫描到就会更新视图,不用等到视图重构,所以会马上恢复,但是还是可以停留几秒,因为扫描是耗时的
-                            //如果这个设备一直扫描不到即离线了,恢复概率会大大降低
-
-                            //在滑动时
-                            case MotionEvent.ACTION_MOVE: {
-                                currentX = event.getX();
-                                if (displayX != 0) {
-                                    progress = 0.25F + 0.25F * (currentX - startX) / (displayX / 2);
-                                    if (progress >= 0F && progress <= 0.5F) {
-
-                                        //设置动画进度在25%根据滑动距离和方向偏移±25%
-                                        //因为50%-100%的片段其实是0%-50%的倒放,使用一半即可
-                                        lottieAnimationBluetoothScanning.setProgress(progress);
-
-                                        //显示实时的触摸横坐标偏移
-                                        String dxShow = (int) (currentX - startX) + "PX";
-                                        deviceDistance.setText(dxShow);
-
-
-                                        //防止用户手指遮挡deviceName,在滑动时偏移其横纵坐标
-                                        deviceNameParams.leftMargin = deviceNameBufX + (int) (currentX - startX);//偏移触摸横坐标的偏移值
-                                        deviceNameParams.alignWithParent = false;
-                                        if (!(progress > 0.20F && progress < 0.30F)) {
-                                            deviceNameParams.topMargin = 0;
-                                        }
-                                        deviceName.setLayoutParams(deviceNameParams);
-
-
-                                        //选择操作,期间蓝牙设备图标会变成操作的标识图标
-                                        //   |             |             |
-                                        //   0%           25%           50%
-                                        // |0-15||15-20||20-30||30-35||35-50|
-                                        //加入设备 将其置顶 无效/取消 检查信息 开始控制
-                                        //-------------------------------------
-                                        if (progress <= 0.15F) {
-                                            user_want = WANT_ADD_TO_DEVICE;
-                                            deviceIcon.setImageResource(R.drawable.addtodevice);//加入设备
-                                            deviceName.setText(R.string.addtodevice_chinese);
-                                        }
-                                        if (progress > 0.15F && progress <= 0.20F) {
-                                            user_want = WANT_STICK_TO_TOP;
-                                            deviceIcon.setImageResource(R.drawable.sticktotop);//将其置顶
-                                            deviceName.setText(R.string.sticktotop_chinese);
-                                        }
-                                        if (progress > 0.20F && progress < 0.30F) {
-                                            //如果用户之前移动到了有效选项又回来,显示取消,否则不更改内容
-                                            if (user_want != WANT_NONE) {
-                                                user_want = WANT_NONE;
-                                                deviceIcon.setImageResource(R.drawable.undo);//取消
-                                                deviceName.setText(R.string.cancel_chinese);
-                                            }
-                                        }
-                                        if (progress >= 0.30F && progress < 0.35F) {
-                                            user_want = WANT_CHECK_INFORMATION;
-                                            deviceIcon.setImageResource(R.drawable.checkinformation);//检查信息
-                                            deviceName.setText(R.string.checkinformation_chinese);
-                                        }
-                                        if (progress >= 0.35F) {
-                                            user_want = WANT_START_CONTROL;
-                                            deviceIcon.setImageResource(R.drawable.startcontrol);//开始控制
-                                            deviceName.setText(R.string.startcontrol_chinese);
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-
-                            //在松开时
-                            case MotionEvent.ACTION_UP: {
-                                //使用isRunningRecover.set控制动画是否要继续
-                                isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
-                                RecoverAnimation();
-                                OperationRun(user_want, modelList, positionBuf, requireActivity());
-                                isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
-                                break;
-                            }
-
-                            //在取消时,取消可能是由于其他事件切入,如来电和用户应用切换,系统警告等等
-                            case MotionEvent.ACTION_CANCEL: {
-                                //如果用户之前移动到了有效选项,显示取消,否则不显示内容
-                                if (user_want != WANT_NONE) {
-                                    user_want = WANT_NONE;
-                                    deviceIcon.setImageResource(R.drawable.undo);
-                                    deviceName.setText(R.string.cancel_chinese);
-                                }
-
-                                //使用isRunningRecover.set控制恢复动画是否要继续
-                                isRunningRecover.set(true);//在下次触发"在开始按下时",会重置为false
-                                RecoverAnimation();
-                                isAllowNotifyChanged.set(true);//允许列表对已存在条目的数据刷新
-                                break;
-                            }
-                        }
-
-                        return true;
-                    }
-                });
-            }
-
-
-            /**
-             * 恢复deviceName在滑动之前的坐标,以及扫描状态,伴随更新动画,同步更新之前的偏移显示等
-             * (使用isRunningRecover.set控制动画是否要继续)
-             */
-            private void RecoverAnimation() {
-                if (deviceNameParams == null || nameBuf == null || deviceName == null || deviceDistance == null) {
-                    return;
-                }
-
-                //考虑用户没有滑动超出20%-30%无效区域的情况,但是确实移动了deviceName,所以也应该进行横坐标恢复,但是不恢复纵坐标,因为现在纵坐标还没有变化
-                ValueAnimator animatorX = ValueAnimator.ofInt((int) (currentX - startX), 0);
-                animatorX.addUpdateListener(animation -> {
-                    if (!isRunningRecover.get()) {
-                        return;//如果外部需要退出动画,退出
-                    }
-
-                    deviceNameParams.leftMargin = deviceNameBufX + (int) animation.getAnimatedValue();
-                    deviceName.setLayoutParams(deviceNameParams);
-                    //同步更新之前的偏移显示(之前的偏移显示:String dxShow = (int)(currentX - startX) + "PX")
-                    String dxShow = (int) animation.getAnimatedValue() + "PX";
-                    deviceDistance.setText(dxShow);
-                });
-                animatorX.addListener(new Animator.AnimatorListener() {
-                    @Override
-                    public void onAnimationEnd(@NonNull Animator animation) {
-//                      考虑用户没有滑动超出20%-30%无效区域的情况,但是确实移动了deviceName,所以也应该进行横坐标恢复,但是不恢复纵坐标,因为现在纵坐标还没有变化
-                        if (!deviceName.getText().equals(nameBuf)) {
-                            deviceName.setText(nameBuf);//恢复deviceName之前显示的设备名
-                            ValueAnimator animatorY = ValueAnimator.ofInt(0, deviceNameBufY);
-                            animatorY.addUpdateListener(animaton -> {
-                                if (!isRunningRecover.get()) {
-                                    return;//如果外部需要退出动画,退出
-                                }
-
-                                deviceNameParams.topMargin = (int) animatorY.getAnimatedValue();
-                                deviceName.setLayoutParams(deviceNameParams);
-                            });
-                            animatorY.setDuration(100);
-                            animatorY.setInterpolator(new AccelerateInterpolator());
-                            animatorY.addListener(new Animator.AnimatorListener() {
-                                @Override
-                                public void onAnimationEnd(@NonNull Animator animation) {
-                                    if (isScanningBluetooth) {
-                                        lottieAnimationBluetoothScanning.playAnimation();
-                                    }
-                                }
-
-                                @Override
-                                public void onAnimationStart(@NonNull Animator animation) {
-                                }
-
-                                @Override
-                                public void onAnimationCancel(@NonNull Animator animation) {
-                                }
-
-                                @Override
-                                public void onAnimationRepeat(@NonNull Animator animation) {
-                                }
-                            });
-                            animatorY.start();
-                        } else {
-                            if (isScanningBluetooth) {
-                                lottieAnimationBluetoothScanning.playAnimation();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onAnimationStart(@NonNull Animator animation) {
-                    }
-
-                    @Override
-                    public void onAnimationCancel(@NonNull Animator animation) {
-                    }
-
-                    @Override
-                    public void onAnimationRepeat(@NonNull Animator animation) {
-                    }
-                });
-                animatorX.setDuration(200);
-                animatorX.setInterpolator(new DecelerateInterpolator());
-                animatorX.start();
             }
         }
 
@@ -1136,20 +869,6 @@ public class BleFragment extends Fragment {
             if (Math.abs(velocityX) > Math.abs(velocityY)) {
                 if (!isScanningBluetooth) {
                     BluetoothScanStart();//扫描启动
-                } else {
-                    //如果已经启动,调节播放速度
-                    float speedAnimation = lottieAnimationBluetoothScanning.getSpeed();
-                    if (velocityX < 0 && speedAnimation + 1F <= 7) {//向左滑动,正向时加速/反向时减速
-                        speedAnimation += 1F;
-                        lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
-                    }
-                    if (velocityX > 0 && speedAnimation - 1F > 0) {//向右滑动,正向时减速/反向时加速
-                        speedAnimation -= 1F;
-                        lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
-                    } else if (velocityX > 0 && speedAnimation - 0.1F > 0) {//向右滑动,正向时减速/反向时加速
-                        speedAnimation -= 0.1F;
-                        lottieAnimationBluetoothScanning.setSpeed(speedAnimation);
-                    }
                 }
             } else {//如果以垂直滑动为主
                 if (isScanningBluetooth) {
@@ -1165,10 +884,6 @@ public class BleFragment extends Fragment {
 
 
             if (isScanningBluetooth) {
-                //随机到任意播放位置
-                Random random = new Random();
-                lottieAnimationBluetoothScanning.setProgress(random.nextFloat());
-
                 MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
             } else {
                 MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));

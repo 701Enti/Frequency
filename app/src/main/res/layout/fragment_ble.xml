@@ -10,42 +10,56 @@
     tools:context=".BleFragment">
 
     <TextView
-        android:id="@+id/MainTextViewBLE"
+        android:id="@+id/mainTextViewBLE"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/horizontalslidevavetostartsacn_chinese"
+        android:text="@string/horizontalslidetexttostartsacn_chinese"
         android:textSize="24sp"
         android:textColor="@color/black"
         android:gravity="center"
+        app:layout_constraintTop_toTopOf="@id/circularProgressIndicatorBLE"
+        app:layout_constraintBottom_toBottomOf="@id/circularProgressIndicatorBLE"
+        app:layout_constraintStart_toEndOf="@id/circularProgressIndicatorBLE"
+        android:layout_marginTop="30dp"
+        android:layout_marginBottom="30dp"
+        android:layout_marginStart="30dp"
+        />
+
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/circularProgressIndicatorBLE"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:indeterminate="true"
+        android:visibility="invisible"
+        app:indicatorColor="@color/blue"
+        app:trackColor="@color/lightblue"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="30dp"
         android:layout_marginStart="30dp"
         />
 
-
-    <com.airbnb.lottie.LottieAnimationView
-        android:id="@+id/LottieAnimationBluetoothScanningBLE"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintDimensionRatio="16:3"
-        app:layout_constraintTop_toBottomOf="@id/MainTextViewBLE"
-        app:lottie_rawRes="@raw/bluetoothscanning"
-        app:lottie_loop="true"
-        app:lottie_autoPlay="false"
-        android:focusable="true"
-        android:clickable="true"
+    <ImageView
+        android:id="@+id/mainImageViewBLE"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/radar"
+        android:visibility="visible"
+        app:layout_constraintTop_toTopOf="@id/circularProgressIndicatorBLE"
+        app:layout_constraintStart_toStartOf="@id/circularProgressIndicatorBLE"
+        android:layout_marginTop="0dp"
+        android:layout_marginStart="0dp"
         />
 
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/RecyclerViewBluetoothBLE"
+        android:id="@+id/recyclerViewBluetoothBLE"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintDimensionRatio="9:16"
-        app:layout_constraintTop_toBottomOf="@id/LottieAnimationBluetoothScanningBLE"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/circularProgressIndicatorBLE"
         android:layout_marginTop="30dp"
         android:layout_marginStart="0dp"
         android:layout_marginEnd="0dp"

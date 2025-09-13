@@ -23,13 +23,10 @@
 package com.org701enti.frealicane;
 
 import static android.content.Context.BLUETOOTH_SERVICE;
-import static android.content.Context.WINDOW_SERVICE;
 
 import static com.org701enti.frealicane.MainActivity.AddToBleDeviceMainDatabase;
 
-import android.animation.Animator;
 import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -57,7 +54,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.GestureDetector;
@@ -65,14 +61,10 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
-import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import com.airbnb.lottie.LottieAnimationView;
 import com.org701enti.bluetoothfocuser.BluetoothAD;
 import com.org701enti.bluetoothfocuser.StandardSync;
 
@@ -80,7 +72,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -237,8 +228,8 @@ public class BleFragment extends Fragment {
             if (bluetoothLeScanner != null) {
                 if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
                     bluetoothLeScanner.startScan(filters, settings, bluetoothScanCallback);
-                    lottieAnimationBluetoothScanning.playAnimation();
-                    MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                    AnimationBluetoothScanning.setVisibility(View.VISIBLE);
+                    MainTextViewBLE.setText(getString(R.string.verticalslidetexttostopsacn_chinese_chinese));
                     isScanningBluetooth = true;
                     fadeOutMainTextViewBLE.start();
                 } else {
@@ -266,8 +257,8 @@ public class BleFragment extends Fragment {
             if (bluetoothLeScanner != null) {
                 if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
                     bluetoothLeScanner.startScan(bluetoothScanCallback);
-                    lottieAnimationBluetoothScanning.playAnimation();
-                    MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                    AnimationBluetoothScanning.setVisibility(View.VISIBLE);
+                    MainTextViewBLE.setText(getString(R.string.verticalslidetexttostopsacn_chinese_chinese));
                     isScanningBluetooth = true;
                     fadeOutMainTextViewBLE.start();
                 } else {
@@ -301,8 +292,8 @@ public class BleFragment extends Fragment {
             if (bluetoothLeScanner != null) {
                 if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
                     bluetoothLeScanner.stopScan(bluetoothScanCallback);
-                    lottieAnimationBluetoothScanning.pauseAnimation();
-                    MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
+                    AnimationBluetoothScanning.setVisibility(View.INVISIBLE);
+                    MainTextViewBLE.setText(getString(R.string.horizontalslidetexttostartsacn_chinese));
                     isScanningBluetooth = false;
                     fadeOutMainTextViewBLE.start();
                 } else {
@@ -514,7 +505,7 @@ public class BleFragment extends Fragment {
 
     private void initRecyclerViewBluetooth(View view) {
         bluetoothDeviceRecyclerViewAdapter = new BluetoothDeviceRecyclerViewAdapter(bluetoothDevicesList);
-        recyclerViewBluetooth = view.findViewById(R.id.RecyclerViewBluetoothBLE);
+        recyclerViewBluetooth = view.findViewById(R.id.recyclerViewBluetoothBLE);
         recyclerViewBluetooth.setAdapter(bluetoothDeviceRecyclerViewAdapter);
         recyclerViewBluetooth.setLayoutManager(new LinearLayoutManager(requireActivity()));
         recyclerViewBluetooth.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(30));
@@ -837,7 +828,7 @@ public class BleFragment extends Fragment {
 
     private void InitMainTextViewBLE(View view) {
         //获取实例
-        MainTextViewBLE = view.findViewById(R.id.MainTextViewBLE);
+        MainTextViewBLE = view.findViewById(R.id.mainTextViewBLE);
         //创建消隐动画效果
         fadeOutMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE, "alpha", 1F, 0F);
         fadeOutMainTextViewBLE.setDuration(5000);
@@ -848,17 +839,17 @@ public class BleFragment extends Fragment {
 
 
     ////UI-蓝牙扫描动画
-    private LottieAnimationView lottieAnimationBluetoothScanning = null;
+    private View AnimationBluetoothScanning = null;
 
     private void InitAnimationBluetoothScanning(View view) {
-        lottieAnimationBluetoothScanning = view.findViewById(R.id.LottieAnimationBluetoothScanningBLE);
+        AnimationBluetoothScanning = view.findViewById(R.id.circularProgressIndicatorBLE);
     }
 
 
     ///UI-蓝牙扫描操作控制(基于动画实例)
-    private GestureDetector gestureBluetoothScanningAnimation = null;
+    private GestureDetector gestureMainText = null;
 
-    private class ListenerGestureBluetoothScanningAnimation extends GestureDetector.SimpleOnGestureListener {
+    private class ListenerGestureMainText extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onFling(@Nullable MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
             super.onFling(e1, e2, velocityX, velocityY);
@@ -884,9 +875,9 @@ public class BleFragment extends Fragment {
 
 
             if (isScanningBluetooth) {
-                MainTextViewBLE.setText(getString(R.string.verticalslidevavetostopsacn_chinese_chinese));
+                MainTextViewBLE.setText(getString(R.string.verticalslidetexttostopsacn_chinese_chinese));
             } else {
-                MainTextViewBLE.setText(getString(R.string.horizontalslidevavetostartsacn_chinese));
+                MainTextViewBLE.setText(getString(R.string.horizontalslidetexttostartsacn_chinese));
             }
 
             fadeInMainTextViewBLE.start();
@@ -895,15 +886,15 @@ public class BleFragment extends Fragment {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private void InitGestureBluetoothScanningAnimation(View view) {
-        gestureBluetoothScanningAnimation = new GestureDetector(requireActivity(), new ListenerGestureBluetoothScanningAnimation());
-        LottieAnimationView detectView = view.findViewById(R.id.LottieAnimationBluetoothScanningBLE);
+    private void InitGestureMainText(View view) {
+        gestureMainText = new GestureDetector(requireActivity(), new ListenerGestureMainText());
+        View detectView = view.findViewById(R.id.mainTextViewBLE);
 
         detectView.setOnTouchListener(new View.OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
-                return gestureBluetoothScanningAnimation.onTouchEvent(motionEvent);
+                return gestureMainText.onTouchEvent(motionEvent);
             }
         });
     }
@@ -917,7 +908,7 @@ public class BleFragment extends Fragment {
         InitAnimationBluetoothScanning(view);
         InitMainTextViewBLE(view);
 
-        InitGestureBluetoothScanningAnimation(view);
+        InitGestureMainText(view);
 
     }
 

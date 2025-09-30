@@ -74,7 +74,7 @@ public class StandardSync {
             this.YamlServiceUuids = assetManager.open("public/assigned_numbers/uuids/service_uuids.yaml");
             this.YamlFormatTypes = assetManager.open("public/assigned_numbers/core/formattypes.yaml");
             this.yamlAdTypes = assetManager.open("public/assigned_numbers/core/ad_types.yaml");
-            this.yamlCharacteristicDataBasicType = assetManager.open("bluetoothstandardmap/characteristic_data_basic_type.yaml");
+            this.yamlCharacteristicDataBasicType = assetManager.open("bluetooth-relevant-mapper/characteristic_data_basic_type.yaml");
         } catch (IOException e) {
             this.YamlAppearanceValues = null;
             this.YamlCharacteristicUuids = null;

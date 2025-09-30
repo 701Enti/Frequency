@@ -5,28 +5,28 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/layout_ble_fragment"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
     tools:context=".BleFragment">
 
     <TextView
-        android:id="@+id/mainTextViewBLE"
+        android:id="@+id/main_text_in_ble"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/horizontalslidetexttostartsacn_chinese"
         android:textSize="24sp"
         android:textColor="@color/black"
         android:gravity="center"
-        app:layout_constraintTop_toTopOf="@id/circularProgressIndicatorBLE"
-        app:layout_constraintBottom_toBottomOf="@id/circularProgressIndicatorBLE"
-        app:layout_constraintStart_toEndOf="@id/circularProgressIndicatorBLE"
+        app:layout_constraintTop_toTopOf="@id/scan_state_indicator_in_ble"
+        app:layout_constraintBottom_toBottomOf="@id/scan_state_indicator_in_ble"
+        app:layout_constraintStart_toEndOf="@id/scan_state_indicator_in_ble"
         android:layout_marginTop="30dp"
         android:layout_marginBottom="30dp"
         android:layout_marginStart="30dp"
         />
 
     <com.google.android.material.progressindicator.CircularProgressIndicator
-        android:id="@+id/circularProgressIndicatorBLE"
+        android:id="@+id/scan_state_indicator_in_ble"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:indeterminate="true"
@@ -40,26 +40,25 @@
         />
 
     <ImageView
-        android:id="@+id/mainImageViewBLE"
+        android:id="@+id/scan_state_image_in_ble"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:src="@drawable/radar"
         android:visibility="visible"
-        app:layout_constraintTop_toTopOf="@id/circularProgressIndicatorBLE"
-        app:layout_constraintStart_toStartOf="@id/circularProgressIndicatorBLE"
+        app:layout_constraintTop_toTopOf="@id/scan_state_indicator_in_ble"
+        app:layout_constraintStart_toStartOf="@id/scan_state_indicator_in_ble"
         android:layout_marginTop="0dp"
         android:layout_marginStart="0dp"
         />
 
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerViewBluetoothBLE"
+        android:id="@+id/scan_result_recycler_view_in_ble"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintDimensionRatio="9:16"
+        android:layout_height="wrap_content"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/circularProgressIndicatorBLE"
+        app:layout_constraintTop_toBottomOf="@id/scan_state_indicator_in_ble"
         android:layout_marginTop="30dp"
         android:layout_marginStart="0dp"
         android:layout_marginEnd="0dp"

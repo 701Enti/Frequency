@@ -155,7 +155,7 @@ public class ControlFragment extends Fragment {
     private URL wifiOnlineWebPageURL = null;
 
     private void initWebPageConsole(View view){
-        this.webPageConsole = view.findViewById(R.id.WebPageConsole);
+        this.webPageConsole = view.findViewById(R.id.web_page_console_in_control);
         setVisibilityWebPageConsole(View.GONE);
     }
     private void setVisibilityWebPageConsole(int visibility){
@@ -181,7 +181,7 @@ public class ControlFragment extends Fragment {
      * @param view 父级view,决定了innerUiConsole显示位置
      */
     private void initInnerUiConsole(View view){
-       this.innerUiConsole = view.findViewById(R.id.InnerUiConsole);
+       this.innerUiConsole = view.findViewById(R.id.inner_ui_console_in_control);
        setVisibilityInnerUiConsole(View.GONE);
     }
 

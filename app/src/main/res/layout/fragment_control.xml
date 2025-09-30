@@ -9,7 +9,7 @@
     tools:context=".ControlFragment">
 
     <ImageView
-        android:id="@+id/DeviceIconFragmentControl"
+        android:id="@+id/device_icon_in_control"
         android:layout_width="30dp"
         android:layout_height="30dp"
         android:src="@drawable/device"
@@ -20,11 +20,11 @@
         />
 
     <TextView
-        android:id="@+id/DeviceNameFragmentControl"
+        android:id="@+id/device_name_in_control"
         android:layout_width="wrap_content"
         android:layout_height="30dp"
         android:layout_alignParentTop="true"
-        android:layout_alignStart="@id/DeviceIconFragmentControl"
+        android:layout_alignStart="@id/device_icon_in_control"
         android:layout_marginStart="60dp"
         android:layout_marginTop="30dp"
         android:text="@string/devicename_english"
@@ -34,22 +34,22 @@
 
 
     <GridView
-        android:id="@+id/InnerUiConsole"
+        android:id="@+id/inner_ui_console_in_control"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignParentStart="true"
-        android:layout_below="@id/DeviceIconFragmentControl"
+        android:layout_below="@id/device_icon_in_control"
         android:layout_marginTop="30dp"
         android:orientation="vertical"
         android:scrollbars="vertical" />
 
 
     <WebView
-        android:id="@+id/WebPageConsole"
+        android:id="@+id/web_page_console_in_control"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignParentStart="true"
-        android:layout_below="@id/DeviceIconFragmentControl"
+        android:layout_below="@id/device_icon_in_control"
         android:layout_marginTop="30dp"
         android:orientation="vertical"
         android:scrollbars="vertical" />

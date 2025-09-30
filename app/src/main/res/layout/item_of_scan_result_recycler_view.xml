@@ -7,7 +7,7 @@
     android:orientation="vertical"><!--如果其中开头的layout_width,layout_height选择了match_parent,可能会导致绘制间距非常大,难以修正-->
 
     <ImageView
-        android:id="@+id/DeviceIconRecyclerViewBluetooth"
+        android:id="@+id/device_icon_in_item_of_scan_result_recycler_view"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="30dp"
@@ -17,20 +17,20 @@
         app:srcCompat="@drawable/ble" />
 
     <TextView
-        android:id="@+id/DeviceNameRecyclerViewBluetooth"
+        android:id="@+id/device_name_in_item_of_scan_result_recycler_view"
         android:layout_width="wrap_content"
         android:layout_height="48dp"
         android:layout_marginStart="78dp"
         android:layout_marginTop="30dp"
         android:layout_alignParentTop="true"
-        android:layout_alignStart="@id/DeviceIconRecyclerViewBluetooth"
+        android:layout_alignStart="@id/device_icon_in_item_of_scan_result_recycler_view"
         android:text="@string/devicename_english"
         android:gravity="center"
         android:textColor="@color/black"
         android:textSize="20sp"/>
 
     <TextView
-        android:id="@+id/DeviceDistanceRecyclerViewBluetooth"
+        android:id="@+id/device_distance_in_item_of_scan_result_recycler_view"
         android:layout_width="wrap_content"
         android:layout_height="48dp"
         android:layout_alignParentTop="true"

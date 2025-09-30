@@ -682,8 +682,8 @@ public class MainActivity extends AppCompatActivity {
 
             BleFragment bleFragment = BleFragment.newInstance();
             ControlFragment controlFragment = ControlFragment.newInstance();
-            fragmentTransaction.add(R.id.container_ble, bleFragment, getString(R.string.tag_blemaintransaction));
-            fragmentTransaction.add(R.id.container_control,controlFragment,getString(R.string.tag_controlmaintransaction));
+            fragmentTransaction.add(R.id.main_fragment_container_in_main, bleFragment, getString(R.string.tag_blemaintransaction));
+            fragmentTransaction.add(R.id.main_fragment_container_in_main,controlFragment,getString(R.string.tag_controlmaintransaction));
             fragmentTransaction.hide(bleFragment);
             fragmentTransaction.hide(controlFragment);
             fragmentTransaction.commitNow();
@@ -777,7 +777,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initMainBottomNavigation() {
-        BottomNavigationView mainBottomNavView = findViewById(R.id.MainBottomNavigation);
+        BottomNavigationView mainBottomNavView = findViewById(R.id.main_bottom_navigation_in_main);
         //创建一个线程处理底部导航栏业务(含Looper)
         Thread ThreadMainBottomNavView = new Thread(new Runnable() {
             @Override

@@ -7,8 +7,16 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:id="@+id/main_fragment_container_in_main"
+        app:layout_constraintBottom_toTopOf="@id/main_bottom_navigation_in_main"
+        app:layout_constraintTop_toTopOf="parent">
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
     <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/MainBottomNavigation"
+        android:id="@+id/main_bottom_navigation_in_main"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -17,19 +25,4 @@
         app:menu="@menu/main_bottom_nav_menu"
         android:background="?android:attr/windowBackground"
         tools:ignore="MissingConstraints" />
-
-    <RelativeLayout
-        android:id="@+id/container_ble"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="visible"/>
-
-    <RelativeLayout
-        android:id="@+id/container_control"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="visible"/>
-
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>

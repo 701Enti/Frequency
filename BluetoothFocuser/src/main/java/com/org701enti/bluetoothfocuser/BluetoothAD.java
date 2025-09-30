@@ -384,41 +384,40 @@ public class BluetoothAD {
      * @param standardAdType (标准的,可以直接根据规范映射数值,不用考虑符号)数据项即要搜索的结构的所属ADtype
      * @return null 遇到错误或没有匹配的发现,尽管没有indexID的索引 / 搜索结果即AdvertisingStruct实例
      */
-    public AdvertisingStruct Search(int standardAdType){
+    public List<AdvertisingStruct> Search(int standardAdType){
+        List<AdvertisingStruct> resultList = new ArrayList<>();
 
         //将标准AdType数据转换为非标准的byte
         if(standardAdType < 0 || standardAdType > 255){
-            return null;
+            return resultList;
         }
-        byte atypiaAdType = (byte)standardAdType;
+        byte atypicalAdType = (byte)standardAdType;
 
         //如果已经设置了排序规则,先索引排序规则给出的焦点表
         if(this.arrangeRule != null){
             int[] focusList = arrangeRule.OnSearchStart();
             if(focusList != null){
-                AdvertisingStruct focusStruct;
                 for (int focus : focusList){
                     try {
-                        focusStruct = mainListAdvertising.get(focus);
-                        if(focusStruct.getAtypiaAdType() == atypiaAdType){
-                            return focusStruct;
+                        AdvertisingStruct focusStruct = mainListAdvertising.get(focus);
+                        if(focusStruct.getAtypiaAdType() == atypicalAdType){
+                            resultList.add(focusStruct);
                         }
                     }
                     catch (IndexOutOfBoundsException e){
-                        return null;
+                        return resultList;
                     }
                 }
             }
         }
-
-        //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
-        for(AdvertisingStruct struct : mainListAdvertising){
-            if(struct.getAtypiaAdType() == atypiaAdType){
-                return struct;
+        else {
+            //没有设置排序规则或者没有在焦点表的索引下发现,线性搜索
+            for(AdvertisingStruct struct : mainListAdvertising){
+                if(struct.getAtypiaAdType() == atypicalAdType){
+                    resultList.add(struct);
+                }
             }
         }
-
-        //还没有搜索到,返回空
-        return null;
+        return resultList;
     }
 }

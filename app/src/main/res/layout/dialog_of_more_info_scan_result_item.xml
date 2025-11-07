@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/device_icon_in_dialog_of_more_info_scan_result_item"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/ble" />
+
+    <TextView
+        android:id="@+id/device_name_in_dialog_of_more_info_scan_result_item"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="24dp"
+        android:gravity="center"
+        android:text="@string/device_name_english"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        app:layout_constraintStart_toEndOf="@id/device_icon_in_dialog_of_more_info_scan_result_item"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/media_display_panel_in_dialog_of_more_info_scan_result_item"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="24dp"
+        app:layout_constraintDimensionRatio="16:9"
+        app:layout_constraintTop_toBottomOf="@id/device_icon_in_dialog_of_more_info_scan_result_item">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center_vertical"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/device_distance_in_dialog_of_more_info_scan_result_item"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="24dp"
+                    android:gravity="center"
+                    android:text="12米"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="16dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="24dp"
+                    android:gravity="center"
+                    android:text="12米"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="16dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="24dp"
+                    android:gravity="center"
+                    android:text="12米"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+
+            </LinearLayout>
+        </ScrollView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <!--    //用户操作枚举-->
+    <!--    final static byte WANT_START_CONTROL = 1;//开始设备控制-->
+    <!--    final static byte WANT_ADD_TO_DEVICE = 2;//添加入"设备"-->
+    <!--    final static byte WANT_STICK_TO_TOP = 3;//置顶,移动到列表顶部-->
+    <!--    final static byte WANT_NONE = 4;//无操作-->
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/media_display_panel_in_dialog_of_more_info_scan_result_item"
+        android:layout_marginTop="24dp"
+        android:gravity="center"
+        >
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/start_control_button_in_dialog_of_more_info_scan_result_item"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            app:icon="@drawable/control"
+            app:iconGravity="textTop"
+            app:iconTint="@color/dark_gray"
+            android:text="@string/control_chinese"
+            android:textColor="@color/dark_gray"
+            app:backgroundTint="@android:color/transparent"
+            style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
+            />
+
+        <Space
+            android:layout_width="8dp"
+            android:layout_height="match_parent"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/add_to_device_button_in_dialog_of_more_info_scan_result_item"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            app:icon="@drawable/device"
+            app:iconGravity="textTop"
+            app:iconTint="@color/dark_gray"
+            android:text="@string/add_chinese"
+            android:textColor="@color/dark_gray"
+            app:backgroundTint="@android:color/transparent"
+            style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
+            />
+
+        <Space
+            android:layout_width="8dp"
+            android:layout_height="match_parent"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/stick_to_top_button_in_dialog_of_more_info_scan_result_item"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            app:icon="@drawable/stick_to_top"
+            app:iconGravity="textTop"
+            app:iconTint="@color/dark_gray"
+            android:text="@string/stick_to_top_chinese"
+            android:textColor="@color/dark_gray"
+            app:backgroundTint="@android:color/transparent"
+            style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
+            />
+
+        <Space
+            android:layout_width="8dp"
+            android:layout_height="match_parent"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/undo_button_in_dialog_of_more_info_scan_result_item"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            app:icon="@drawable/undo"
+            app:iconGravity="textTop"
+            app:iconTint="@color/dark_gray"
+            android:text="@string/return_chinese"
+            android:textColor="@color/dark_gray"
+            app:backgroundTint="@android:color/transparent"
+            style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
+            />
+    </LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

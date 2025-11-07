@@ -31,7 +31,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
@@ -66,6 +65,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
 
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.org701enti.bluetoothfocuser.BluetoothAD;
 import com.org701enti.bluetoothfocuser.StandardSync;
 
@@ -136,14 +137,14 @@ public class BleFragment extends Fragment {
             //用户设备不支持蓝牙,弹出提示
             AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
             builder.setTitle(R.string.error_chinese);
-            builder.setMessage(R.string.userdevicehardwareunsupport);
+            builder.setMessage(R.string.user_device_hardware_unsupport);
             builder.setPositiveButton(getString(R.string.cancel_chinese), new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
 
                 }
             });
-            builder.setNegativeButton(getString(R.string.returnapp_chinese), new DialogInterface.OnClickListener() {
+            builder.setNegativeButton(getString(R.string.return_app_chinese), new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
 
@@ -204,7 +205,7 @@ public class BleFragment extends Fragment {
                     @Override
                     public void run() {
                         bluetoothAdapter.enable();
-                        MainTextViewBLE.setText(R.string.pleasecontinuewhenbluetoothenabled_chinese);
+                        MainTextViewBLE.setText(R.string.please_continue_when_bluetooth_enabled_chinese);
                         fadeInMainTextViewBLE.start();
                     }
                 });
@@ -231,7 +232,7 @@ public class BleFragment extends Fragment {
                 if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
                     bluetoothLeScanner.startScan(filters, settings, bluetoothScanCallback);
                     AnimationBluetoothScanning.setVisibility(View.VISIBLE);
-                    MainTextViewBLE.setText(getString(R.string.verticalslidetexttostopsacn_chinese_chinese));
+                    MainTextViewBLE.setText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese));
                     isScanningBluetooth = true;
                     fadeOutMainTextViewBLE.start();
                 } else {
@@ -260,7 +261,7 @@ public class BleFragment extends Fragment {
                 if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
                     bluetoothLeScanner.startScan(bluetoothScanCallback);
                     AnimationBluetoothScanning.setVisibility(View.VISIBLE);
-                    MainTextViewBLE.setText(getString(R.string.verticalslidetexttostopsacn_chinese_chinese));
+                    MainTextViewBLE.setText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese));
                     isScanningBluetooth = true;
                     fadeOutMainTextViewBLE.start();
                 } else {
@@ -295,7 +296,7 @@ public class BleFragment extends Fragment {
                 if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
                     bluetoothLeScanner.stopScan(bluetoothScanCallback);
                     AnimationBluetoothScanning.setVisibility(View.INVISIBLE);
-                    MainTextViewBLE.setText(getString(R.string.horizontalslidetexttostartsacn_chinese));
+                    MainTextViewBLE.setText(getString(R.string.horizontal_slide_text_to_start_sacn_chinese));
                     isScanningBluetooth = false;
                     fadeOutMainTextViewBLE.start();
                 } else {
@@ -539,7 +540,7 @@ public class BleFragment extends Fragment {
         scanResultRecyclerView.setAdapter(scanResultRecyclerViewAdapter);
         scanResultRecyclerView.setLayoutManager(new LinearLayoutManager(requireActivity()));
         float density = requireContext().getResources().getDisplayMetrics().density;
-        scanResultRecyclerView.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(1 * density, R.color.lightgray));//分隔线高度固定为1dp
+        scanResultRecyclerView.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(1 * density, R.color.light_gray));//分隔线高度固定为1dp
 
         //禁用变更动画
         RecyclerView.ItemAnimator animator = scanResultRecyclerView.getItemAnimator();
@@ -550,7 +551,7 @@ public class BleFragment extends Fragment {
 
 
     //BLE-RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
-    public class ScanResultRecyclerViewAdapter extends RecyclerView.Adapter<ScanResultRecyclerViewAdapter.ViewHolder> {
+    public class ScanResultRecyclerViewAdapter extends RecyclerView.Adapter<ScanResultRecyclerViewAdapter.ScanResultItemViewHolder> {
         private List<BluetoothDeviceModel> modelList;
 
         public ScanResultRecyclerViewAdapter(List<BluetoothDeviceModel> modelList) {
@@ -559,86 +560,92 @@ public class BleFragment extends Fragment {
 
         @SuppressLint("MissingPermission")
         @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        public void onBindViewHolder(@NonNull ScanResultItemViewHolder holder, int position) {
             BluetoothDeviceModel targetModel = null;
             targetModel = modelList.get(position);//获取要读取操作列表中的的deviceModel实例
             //holder包含了需要刷新区域的对应View引用,实际存储在之前实例化的ViewHolder池中
-
             if (targetModel != null) {
-
-                //设备图标
-                int iconID = targetModel.getIconID();
-                Bitmap iconBitmap = null;
-                try (InputStream iconInput = requireActivity().getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png")) {
-                    iconBitmap = BitmapFactory.decodeStream(iconInput);
-                    if (iconBitmap == null) {
-                        holder.deviceIcon.setImageResource(R.drawable.ble);
-                    }
-                } catch (IOException e) {
-                    holder.deviceIcon.setImageResource(R.drawable.ble);
-                }
-                if (iconBitmap != null) {
-                    holder.deviceIcon.setImageBitmap(iconBitmap);
-                }
-
-                //设备名
-                String name = null;
-                if (targetModel.getDevice() != null) {
-                    name = targetModel.getDevice().getName();
-                }
-                if (name == null) {
-                    holder.deviceName.setText(getString(R.string.unknowndevice_chinese));
-                } else {
-                    //确定显示的字符尺寸
-                    int len = name.length();
-                    if (len <= 12) {
-                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f - 4f * 1);
-                    } else if (len <= 16) {
-                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f - 4f * 2);
-                    } else if (len <= 20) {
-                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f - 4f * 3);
-                    } else {
-                        holder.deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f - 4f * 4);
-                    }
-
-                    holder.deviceName.setText(name);
-                }
-
-                //与设备的距离
-                int distance = targetModel.getDeviceDistance();
-                String showDistance = distance + getString(R.string.meter_rice_chinese);
-
-                //判断要显示的是距离还是状态
-                if (targetModel.getControlBaseBluetooth() == null) {
-                    holder.deviceDistance.setText(showDistance);
-                } else {
-                    holder.deviceDistance.setText(
-                            switch (targetModel.getControlBaseBluetooth().getGattState()) {
-                                case BluetoothGatt.STATE_CONNECTED ->
-                                        getString(R.string.connected_chinese);
-                                default -> showDistance;
-                            }
-                    );
-                }
+                //当前View配置
+                configImageViewDeviceIcon(targetModel, holder.deviceIcon);//设备图标
+                configTextViewDeviceName(targetModel, holder.deviceName, calculateSuitableTextSizeSp(holder.deviceName.length()));//设备名
+                int distance = targetModel.getDeviceDistance();//与设备的距离
+                String showDistance = distance + getString(R.string.meter_chinese);
+                holder.deviceDistance.setText(showDistance);
             }
+            //保存targetModel到holder
+            holder.setTargetModel(targetModel);
         }
 
         @NonNull
         @Override
-        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            LayoutInflater inflaterBuf = LayoutInflater.from(parent.getContext());
+        public ScanResultItemViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             //实例化自定义布局R.layout.recyclerviewbluetooth
-            View view = inflaterBuf.inflate(R.layout.item_of_scan_result_recycler_view, parent, false);
-
-            //创建ViewHolder实例
-            ViewHolder holder = new ViewHolder(view);
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_of_scan_result_recycler_view, parent, false);
+            ScanResultItemViewHolder holder = new ScanResultItemViewHolder(view);
 
             //触控事件注册
-            view.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext());
-                }
+            view.setOnClickListener(v -> {
+                //显示详细信息弹窗
+                MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
+                View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_of_more_info_scan_result_item, null);
+                builder.setView(dialogView);
+
+                //设备图标
+                ImageView deviceIcon = dialogView.findViewById(R.id.device_icon_in_dialog_of_more_info_scan_result_item);
+                configImageViewDeviceIcon(holder.targetModel, deviceIcon);
+
+                //设备名
+                TextView deviceName = dialogView.findViewById(R.id.device_name_in_dialog_of_more_info_scan_result_item);
+                configTextViewDeviceName(holder.targetModel, deviceName, calculateSuitableTextSizeSp(deviceName.length()));
+
+                //底部按钮
+                MaterialButton startControlButton = dialogView.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item);
+                MaterialButton addToDeviceButton = dialogView.findViewById(R.id.add_to_device_button_in_dialog_of_more_info_scan_result_item);
+                MaterialButton stickToTopButton = dialogView.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item);
+                MaterialButton undoButton = dialogView.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item);
+
+                //配置dialog
+                androidx.appcompat.app.AlertDialog dialog = builder.create();
+                dialog.show();
+
+                //设置事件监听
+                startControlButton.setOnClickListener(v1 -> {
+                    scanResultItemOperationRun(WANT_START_CONTROL, holder.getBindingAdapterPosition(), requireContext(), new OperationRunListener() {
+                        @Override
+                        public void onSuccess() {
+
+                        }
+
+                        @Override
+                        public void onFailure() {
+
+                        }
+                    });
+                });
+                addToDeviceButton.setOnClickListener(v2 -> {
+                    scanResultItemOperationRun(WANT_ADD_TO_DEVICE, holder.getBindingAdapterPosition(), requireContext(), new OperationRunListener() {
+                        @Override
+                        public void onSuccess() {
+
+                        }
+
+                        @Override
+                        public void onFailure() {
+
+                        }
+                    });
+                });
+                stickToTopButton.setOnClickListener(v3 -> {
+                    scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext(),null);
+                    dialog.dismiss();
+                });
+                undoButton.setOnClickListener(v4 -> dialog.dismiss());
+
+            });
+
+            view.setOnLongClickListener(v -> {
+                scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext(),null);
+                return true;
             });
 
             return holder;
@@ -647,17 +654,20 @@ public class BleFragment extends Fragment {
         /**
          * ViewHolder池,持有相关View引用,防止findViewById更多调用来优化性能
          */
-        public class ViewHolder extends RecyclerView.ViewHolder {
-            //独立View元素缓存
+        public class ScanResultItemViewHolder extends RecyclerView.ViewHolder {
+            //数据源
+            private BluetoothDeviceModel targetModel = null;
+
+            //View元素
             public TextView deviceName = null;
             public ImageView deviceIcon = null;
             public TextView deviceDistance = null;
 
-
+            //动画效果
             public ObjectAnimator fadeInDeviceDistance = null;
 
             //在构造方法将各种View引用缓存到ViewHolder池
-            public ViewHolder(View view) {
+            public ScanResultItemViewHolder(View view) {
                 //super调用父类RecyclerView.ViewHolder构造方法,并传递了参数viewHandle
                 //即自定义布局R.layout.recyclerviewbluetooth的实例,因此自定义布局文件的配置会对效果产生影响
                 //如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正
@@ -675,6 +685,14 @@ public class BleFragment extends Fragment {
                     fadeInDeviceDistance.setInterpolator(new DecelerateInterpolator());
                 }
             }
+
+            public BluetoothDeviceModel getTargetModel() {
+                return targetModel;
+            }
+
+            public void setTargetModel(BluetoothDeviceModel targetModel) {
+                this.targetModel = targetModel;
+            }
         }
 
         public List<BluetoothDeviceModel> getModelList() {
@@ -689,14 +707,73 @@ public class BleFragment extends Fragment {
                 return 0;
             }
         }
+
+        public float calculateSuitableTextSizeSp(int length) {
+            if (length <= 12) {
+                return 24f - 4f * 1;
+            } else if (length <= 16) {
+                return 24f - 4f * 2;
+            } else if (length <= 20) {
+                return 24f - 4f * 3;
+            } else {
+                return 24f - 4f * 4;
+            }
+        }
+
+        /***
+         * 配置DeviceIcon组件以展示需要的内容
+         * @param targetModel 选择数据来源的BluetoothDeviceModel实例
+         * @param deviceIcon 对该ImageView实例执行配置
+         */
+        private void configImageViewDeviceIcon(BluetoothDeviceModel targetModel, ImageView deviceIcon) {
+            int iconID = targetModel.getIconID();
+            Bitmap iconBitmap = null;
+            try (InputStream iconInput = requireActivity().getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png")) {
+                iconBitmap = BitmapFactory.decodeStream(iconInput);
+                if (iconBitmap == null) {
+                    deviceIcon.setImageResource(R.drawable.ble);
+                }
+            } catch (IOException e) {
+                deviceIcon.setImageResource(R.drawable.ble);
+            }
+            if (iconBitmap != null) {
+                deviceIcon.setImageBitmap(iconBitmap);
+            }
+        }
+
+        /***
+         * 配置DeviceName组件以展示需要的内容
+         * @param targetModel 选择数据来源的BluetoothDeviceModel实例
+         * @param deviceName 对该TextView实例执行配置
+         * @param sizeSP 字体大小,单位sp
+         */
+        @SuppressLint("MissingPermission")
+        private void configTextViewDeviceName(BluetoothDeviceModel targetModel, TextView deviceName, float sizeSP) {
+            String name = null;
+            if (targetModel.getDevice() != null) {
+                name = targetModel.getDevice().getName();
+            }
+            if (name == null) {
+                deviceName.setText(getString(R.string.unknown_device_chinese));
+            } else {
+                //确定显示的字符尺寸
+                deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSP);
+                deviceName.setText(name);
+            }
+        }
+
     }
 
-    //用户操作枚举
-    final static byte WANT_NONE = 0;//无操作
-    final static byte WANT_ADD_TO_DEVICE = 1;//添加入"设备"
-    final static byte WANT_STICK_TO_TOP = 2;//选中并移动对应显示行单元到列表顶部,与顶部控制面板呼应,控制面板将控制这个置顶条目
-    final static byte WANT_CHECK_INFORMATION = 3;//检查设备信息
-    final static byte WANT_START_CONTROL = 4;//开始设备控制
+    //用户操作枚举-->
+    final static byte WANT_START_CONTROL = 1;//开始设备控制
+    final static byte WANT_ADD_TO_DEVICE = 2;//添加入"设备"
+    final static byte WANT_STICK_TO_TOP = 3;//置顶,移动到列表顶部
+    final static byte WANT_NONE = 4;//无操作
+
+    public interface OperationRunListener{
+        void onSuccess();
+        void onFailure();
+    }
 
     /**
      * 对扫描结果条目运行需要的操作,执行操作就会将设备信息加入数据库
@@ -705,12 +782,12 @@ public class BleFragment extends Fragment {
      * @param position 选择操作的模型单元在list的位置
      * @param context  上下文,可以使用Activity作为上下文
      */
-    public void scanResultItemOperationRun(byte want, int position, Context context) {
+    public void scanResultItemOperationRun(byte want, int position, Context context,@Nullable OperationRunListener listener) {
         if (want == WANT_NONE) {
             return;
         }
 
-        //添加设备数据到数据库并继续处理
+        //添加设备数据到数据库并继续处理-在独立线程执行
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -719,53 +796,46 @@ public class BleFragment extends Fragment {
                 if (targetModel == null) {
                     return;
                 }
-
                 try {
                     String confirmSha256 = AddToBleDeviceMainDatabase(targetModel, context);//插入或更新到数据库
                     if (confirmSha256 != null) {
                         //确定加入数据库的数据未发生错误或篡改
                         if (targetModel.getDeviceSha256().equals(confirmSha256)) {
-                            Handler handler = new Handler(Looper.getMainLooper());
+
                             BluetoothDeviceModel finalTargetModel = targetModel;
+
+                            //在主线程执行
+                            Handler handler = new Handler(Looper.getMainLooper());
                             Runnable taskMainThread = new Runnable() {
                                 @Override
                                 public void run() {
                                     //执行用户需要的操作
                                     switch (want) {
-                                        case WANT_ADD_TO_DEVICE:
+                                        case WANT_ADD_TO_DEVICE: {
 
-                                            break;
+                                        }
+                                        break;
                                         case WANT_STICK_TO_TOP: {
                                             if (position >= 0 && position < scanResultRecyclerViewAdapter.getModelList().size()) {
-                                                //由主线程执行
-                                                handler.post(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        if (isAllowNotifyChanged.get()) {
-                                                            BluetoothDeviceModel targetItem = scanResultRecyclerViewAdapter.getModelList().remove(position);
-                                                            scanResultRecyclerViewAdapter.getModelList().add(0, targetItem);
-                                                            //完成置顶效果需要RecyclerView刷新显示
-                                                            scanResultRecyclerViewAdapter.notifyItemMoved(position, 0);
-                                                            scanResultRecyclerViewAdapter.notifyItemChanged(0);
-                                                            if (position != 0) {
-                                                                scanResultRecyclerViewAdapter.notifyItemChanged(1);//更新被挤下去的条目
-                                                            }
-                                                        }
+                                                if (isAllowNotifyChanged.get()) {
+                                                    BluetoothDeviceModel targetItem = scanResultRecyclerViewAdapter.getModelList().remove(position);
+                                                    scanResultRecyclerViewAdapter.getModelList().add(0, targetItem);
+                                                    //完成置顶效果需要RecyclerView刷新显示
+                                                    scanResultRecyclerViewAdapter.notifyItemMoved(position, 0);
+                                                    scanResultRecyclerViewAdapter.notifyItemChanged(0);
+                                                    if (position != 0) {
+                                                        scanResultRecyclerViewAdapter.notifyItemChanged(1);//更新被挤下去的条目
                                                     }
-                                                });
+                                                }
                                             }
                                         }
-
-                                        case WANT_CHECK_INFORMATION:
-
-                                            break;
+                                        break;
                                         case WANT_START_CONTROL: {
                                             BluetoothScanStop();
                                             bleFragmentRunWant.startControl(finalTargetModel.getDevice(), finalTargetModel.getDeviceSha256());
                                             finalTargetModel.setControlBaseBluetooth(bleFragmentRunWant.getControlBaseBluetooth(finalTargetModel.getDeviceSha256()));
-                                            //在完成连接工作后将扫描结果中的"距离"项显示为已连接
                                             new Thread(() -> {
-                                                //等待ControlBase就绪
+                                                //等待ControlBase部署完成-独立线程执行
                                                 for (int t = 0; t < 1000; t++) {
                                                     try {
                                                         if (finalTargetModel.getControlBaseBluetooth() != null) {
@@ -778,20 +848,10 @@ public class BleFragment extends Fragment {
                                                         throw new RuntimeException(e);
                                                     }
                                                 }
-                                                //由主线程通知RecyclerView刷新显示
-                                                handler.post(new Runnable() {
-                                                    @Override
-                                                    public void run() {
-                                                        if (isAllowNotifyChanged.get()) {
-                                                            scanResultRecyclerViewAdapter.notifyItemChanged(position);//提示信息更新,需要RecyclerView刷新显示
-                                                        }
-                                                    }
-                                                });
                                             }
                                             ).start();
                                         }
-
-
+                                        break;
                                     }
                                 }
                             };
@@ -913,9 +973,9 @@ public class BleFragment extends Fragment {
 
 
             if (isScanningBluetooth) {
-                MainTextViewBLE.setText(getString(R.string.verticalslidetexttostopsacn_chinese_chinese));
+                MainTextViewBLE.setText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese));
             } else {
-                MainTextViewBLE.setText(getString(R.string.horizontalslidetexttostartsacn_chinese));
+                MainTextViewBLE.setText(getString(R.string.horizontal_slide_text_to_start_sacn_chinese));
             }
 
             fadeInMainTextViewBLE.start();

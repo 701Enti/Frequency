@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
         }
         //禁止在主线程执行,因为本方法内含阻塞,会阻塞调用线程,应该使用其他非服务线程调用
         if (Thread.currentThread().getName().equals("main")) {
-            throw new InterruptedException(context.getString(R.string.permissionapplycheckthreaderr));
+            throw new InterruptedException(context.getString(R.string.permission_apply_check_threader));
         }
 
         AtomicReference<String> sha256Buf = new AtomicReference<>();
@@ -142,12 +142,12 @@ public class MainActivity extends AppCompatActivity {
             //缓存名称
             String nameBuf = null;
             if (targetModel.getDevice() == null) {//是伪造设备
-                nameBuf = context.getString(R.string.fakedevice_chinese);
+                nameBuf = context.getString(R.string.fake_device_chinese);
             } else {//不是伪造设备
                 if (targetModel.getDevice().getName() != null) {
                     nameBuf = targetModel.getDevice().getName();
                 } else {//未知设备
-                    nameBuf = context.getString(R.string.unknowndevice_chinese);
+                    nameBuf = context.getString(R.string.unknown_device_chinese);
                 }
             }
 
@@ -159,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
                 updateTargetEntity.setBleDeviceIconId(targetModel.getIconID());//设置图标ID
                 updateTargetEntity.setLastActiveTimestamp(currentTimestamp);//设置最近活动时间戳为当前时间
                 database.bleDeviceMainDao().update(updateTargetEntity);
-                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.updatedeviceinformation));
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_device_information_chinese));
 
                 Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "bleDeviceId:" + "[" + updateTargetEntity.getBleDeviceId() + "]");
                 Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.update_chinese) + "bleDeviceName:" + updateTargetEntity.getBleDeviceName());
@@ -176,13 +176,13 @@ public class MainActivity extends AppCompatActivity {
                 entityNew.setLastActiveTimestamp(currentTimestamp);//设置最近活动时间戳为当前时间
                 entityNew.setBleDeviceSha256(targetModel.getDeviceSha256());//设置设备的SHA-256唯一性与安全校验码
                 database.bleDeviceMainDao().insert(entityNew);
-                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insertnewdeviceinformation));
+                Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_new_device_information_chinese));
 
                 //检查是否成功
                 DeviceBleEntity.BleDeviceMainEntity nowEntity =
                         database.bleDeviceMainDao().getByNameThenBleDeviceSha256(entityNew.getBleDeviceName(), entityNew.getBleDeviceSha256());
                 if (nowEntity != null) {
-                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.completeinsertdatafollowing_chinese));
+                    Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.complete_insert_data_following_chinese));
                     Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceId:" + "[" + nowEntity.getBleDeviceId() + "]");
                     Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceName:" + nowEntity.getBleDeviceName());
                     Log.i("AddToBleDeviceMainDatabase", context.getString(R.string.insert_chinese) + "bleDeviceIconId:" + nowEntity.getBleDeviceIconId());
@@ -191,7 +191,7 @@ public class MainActivity extends AppCompatActivity {
 
                     sha256Buf.set(nowEntity.getBleDeviceSha256());
                 } else {
-                    Log.e("AddToBleDeviceMainDatabase", context.getString(R.string.insertdataerror_chinese));
+                    Log.e("AddToBleDeviceMainDatabase", context.getString(R.string.insert_data_error_chinese));
                     sha256Buf.set(null);
                 }
             }
@@ -555,7 +555,7 @@ public class MainActivity extends AppCompatActivity {
             //显示一个提示框,希望用户改变主意
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setTitle(R.string.hint_chinese);
-            builder.setMessage(R.string.appneedpermission_chinese);
+            builder.setMessage(R.string.app_need_permission_chinese);
             //配置授予按钮
             builder.setPositiveButton(R.string.give_chinese, new DialogInterface.OnClickListener() {
                 @Override
@@ -563,7 +563,7 @@ public class MainActivity extends AppCompatActivity {
                     //给用户再次的选择,用户点击"授予",会弹出系统的应用信息,里面有权限管理,但是用户这时可能又矛盾地没有允许对应权限
                     //如果用户一直这样做,最终会一直在当前这个if里循环,直到正式同意权限或点击这里创建的提示框的"拒绝"
                     Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                    Uri uri = Uri.fromParts("package", getString(R.string.packagename), null);
+                    Uri uri = Uri.fromParts("package", getString(R.string.package_name), null);
                     intent.setData(uri);
                     startActivity(intent);
                     PermissionRequestingFlag = false;//重置请求中标识,关闭独立线程的阻塞
@@ -612,7 +612,7 @@ public class MainActivity extends AppCompatActivity {
     private void PermissionApplyCheck(int requestCode) throws InterruptedException {
         //禁止在主线程执行,因为本方法内含阻塞,会阻塞调用线程,应该使用其他非服务线程调用
         if (Thread.currentThread().getName().equals("main")) {
-            throw new InterruptedException(getString(R.string.permissionapplycheckthreaderr));
+            throw new InterruptedException(getString(R.string.permission_apply_check_threader));
         }
         //权限申请时使用主线程请求,调用本方法的线程处理请求时的阻塞,防止连续请求
         Handler handler = new Handler(Looper.getMainLooper());
@@ -682,8 +682,8 @@ public class MainActivity extends AppCompatActivity {
 
             BleFragment bleFragment = BleFragment.newInstance();
             ControlFragment controlFragment = ControlFragment.newInstance();
-            fragmentTransaction.add(R.id.main_fragment_container_in_main, bleFragment, getString(R.string.tag_blemaintransaction));
-            fragmentTransaction.add(R.id.main_fragment_container_in_main,controlFragment,getString(R.string.tag_controlmaintransaction));
+            fragmentTransaction.add(R.id.main_fragment_container_in_main, bleFragment, getString(R.string.tag_ble_main_transaction));
+            fragmentTransaction.add(R.id.main_fragment_container_in_main,controlFragment,getString(R.string.tag_control_main_transaction));
             fragmentTransaction.hide(bleFragment);
             fragmentTransaction.hide(controlFragment);
             fragmentTransaction.commitNow();
@@ -740,21 +740,21 @@ public class MainActivity extends AppCompatActivity {
             });
 
             //主线程执行
-            hideFragment(getString(R.string.tag_blemaintransaction));
+            hideFragment(getString(R.string.tag_ble_main_transaction));
 
             switch (item.getItemId()) {
                 case R.id.NavigationDevice:
 
                     break;
                 case R.id.NavigationBLE:
-                    hideFragment(getString(R.string.tag_controlmaintransaction));
-                    showFragment(getString(R.string.tag_blemaintransaction));
+                    hideFragment(getString(R.string.tag_control_main_transaction));
+                    showFragment(getString(R.string.tag_ble_main_transaction));
 
                     break;
                 case R.id.NavigationControl:
-                    hideFragment(getString(R.string.tag_blemaintransaction));
-                    showFragment(getString(R.string.tag_controlmaintransaction));
-                    Object object = getFragment(getString(R.string.tag_controlmaintransaction));
+                    hideFragment(getString(R.string.tag_ble_main_transaction));
+                    showFragment(getString(R.string.tag_control_main_transaction));
+                    Object object = getFragment(getString(R.string.tag_control_main_transaction));
                     if(object instanceof ControlFragment controlFragment){
                         ControlFragment.ControlFragmentRunWant runWant = controlFragment.getControlFragmentRunWant();
                         controlFragment.consoleShowBluetooth(runWant.getControlBaseListBluetooth().get(0));

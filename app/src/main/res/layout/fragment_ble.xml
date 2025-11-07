@@ -13,16 +13,16 @@
         android:id="@+id/main_text_in_ble"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/horizontalslidetexttostartsacn_chinese"
+        android:text="@string/horizontal_slide_text_to_start_sacn_chinese"
         android:textSize="24sp"
         android:textColor="@color/black"
         android:gravity="center"
         app:layout_constraintTop_toTopOf="@id/scan_state_indicator_in_ble"
         app:layout_constraintBottom_toBottomOf="@id/scan_state_indicator_in_ble"
         app:layout_constraintStart_toEndOf="@id/scan_state_indicator_in_ble"
-        android:layout_marginTop="30dp"
-        android:layout_marginBottom="30dp"
-        android:layout_marginStart="30dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="24dp"
+        android:layout_marginStart="24dp"
         />
 
     <com.google.android.material.progressindicator.CircularProgressIndicator
@@ -32,11 +32,11 @@
         android:indeterminate="true"
         android:visibility="invisible"
         app:indicatorColor="@color/blue"
-        app:trackColor="@color/lightblue"
+        app:trackColor="@color/light_blue"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="30dp"
-        android:layout_marginStart="30dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginStart="24dp"
         />
 
     <ImageView
@@ -59,7 +59,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/scan_state_indicator_in_ble"
-        android:layout_marginTop="30dp"
+        android:layout_marginTop="24dp"
         android:layout_marginStart="0dp"
         android:layout_marginEnd="0dp"
         android:scrollbars="vertical"

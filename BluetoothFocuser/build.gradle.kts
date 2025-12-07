@@ -35,7 +35,5 @@ dependencies {
     implementation(libs.material)
     implementation(libs.core.ktx)
     implementation(libs.snakeyaml)
-
-    testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
 }

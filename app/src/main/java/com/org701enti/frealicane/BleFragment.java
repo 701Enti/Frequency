@@ -23,6 +23,7 @@
 package com.org701enti.frealicane;
 
 import static android.content.Context.BLUETOOTH_SERVICE;
+import static androidx.compose.ui.platform.ViewCompositionStrategy.*;
 import static com.org701enti.frealicane.MainActivity.AddToBleDeviceMainDatabase;
 
 import android.animation.ObjectAnimator;
@@ -60,7 +61,9 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.compose.ui.platform.ComposeView;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewTreeLifecycleOwner;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
@@ -69,6 +72,8 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.org701enti.bluetoothfocuser.BluetoothAD;
 import com.org701enti.bluetoothfocuser.StandardSync;
+import com.org701enti.frealicane.suit.event.StableDeviceStateEventBus;
+import com.org701enti.frealicane.ui.compose_view.proxy.unit.ProxyGeneralCircularIndicator;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -561,34 +566,28 @@ public class BleFragment extends Fragment {
         @SuppressLint("MissingPermission")
         @Override
         public void onBindViewHolder(@NonNull ScanResultItemViewHolder holder, int position) {
-            BluetoothDeviceModel targetModel = null;
-            targetModel = modelList.get(position);//获取要读取操作列表中的的deviceModel实例
-            //holder包含了需要刷新区域的对应View引用,实际存储在之前实例化的ViewHolder池中
-            if (targetModel != null) {
-                //当前View配置
-                configImageViewDeviceIcon(targetModel, holder.deviceIcon);//设备图标
-                configTextViewDeviceName(targetModel, holder.deviceName, calculateSuitableTextSizeSp(holder.deviceName.length()));//设备名
-                int distance = targetModel.getDeviceDistance();//与设备的距离
+
+            //缓存最新targetModel到holder
+            BluetoothDeviceModel targetModel = modelList.get(position);
+            holder.setTargetModel(targetModel);
+
+            //为holder名下的子视图进行数据显示更新(子视图本身不会绑定targetModel)
+            if (holder.targetModel != null) {
+                configImageViewDeviceIcon(holder.targetModel, holder.deviceIcon);//设备图标
+                configTextViewDeviceName(holder.targetModel, holder.deviceName, calculateSuitableTextSizeSp(holder.deviceName.length()));//设备名
+                int distance = holder.targetModel.getDeviceDistance();//与设备的距离
                 String showDistance = distance + getString(R.string.meter_chinese);
                 holder.deviceDistance.setText(showDistance);
             }
-            //保存targetModel到holder
-            holder.setTargetModel(targetModel);
-        }
 
-        @NonNull
-        @Override
-        public ScanResultItemViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            //实例化自定义布局R.layout.recyclerviewbluetooth
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_of_scan_result_recycler_view, parent, false);
-            ScanResultItemViewHolder holder = new ScanResultItemViewHolder(view);
+            //为holder名下的根视图即扫描结果条目设置用户操作监听
 
             //触控事件注册
-            view.setOnClickListener(v -> {
-                //显示详细信息弹窗
-                MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
+
+            //点击条目显示对应详细信息弹窗
+            holder.itemView.setOnClickListener(v -> {
+
                 View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_of_more_info_scan_result_item, null);
-                builder.setView(dialogView);
 
                 //设备图标
                 ImageView deviceIcon = dialogView.findViewById(R.id.device_icon_in_dialog_of_more_info_scan_result_item);
@@ -604,51 +603,71 @@ public class BleFragment extends Fragment {
                 MaterialButton stickToTopButton = dialogView.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item);
                 MaterialButton undoButton = dialogView.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item);
 
+                //ComposeView动画层
+                ComposeView startControlLoading = dialogView.findViewById(R.id.start_control_loading_in_dialog_of_more_info_scan_result_item);
+                ProxyGeneralCircularIndicator.setContent(
+                        startControlLoading,
+                        holder.targetModel.getDeviceSha256(),
+                        MainActivity.DeviceStateEvent.DEVICE_STATE_CONNECTING,
+                        MainActivity.DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYED,
+                        StableDeviceStateEventBus.INSTANCE.getInstance()
+                );
+
                 //配置dialog
+                MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
+                builder.setView(dialogView);
                 androidx.appcompat.app.AlertDialog dialog = builder.create();
-                dialog.show();
+                dialog.setOnShowListener(d -> {
 
-                //设置事件监听
-                startControlButton.setOnClickListener(v1 -> {
-                    scanResultItemOperationRun(WANT_START_CONTROL, holder.getBindingAdapterPosition(), requireContext(), new OperationRunListener() {
-                        @Override
-                        public void onSuccess() {
+                    //为dialog视图手动设置viewTreeLifecycleOwner
+                    if (dialog.getWindow() != null) {
+                        ViewTreeLifecycleOwner.set(dialog.getWindow().getDecorView(), BleFragment.this);
+                    }
 
-                        }
+                    //获取需要进一步设置的View
+                    MaterialButton dialogStartControlButton = dialog.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item);
+                    MaterialButton dialogAddToDeviceButton = dialog.findViewById(R.id.add_to_device_button_in_dialog_of_more_info_scan_result_item);
+                    MaterialButton dialogStickToTopButton = dialog.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item);
+                    MaterialButton dialogUndoButton = dialog.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item);
 
-                        @Override
-                        public void onFailure() {
+                    //追加按钮的点击事件监听
+                    try {
+                        dialogStartControlButton.setOnClickListener(v1 -> {
+                            scanResultItemOperationRun(WANT_START_CONTROL, holder.getBindingAdapterPosition(), requireContext());
+                        });
+                        dialogAddToDeviceButton.setOnClickListener(v2 -> {
+                            scanResultItemOperationRun(WANT_ADD_TO_DEVICE, holder.getBindingAdapterPosition(), requireContext());
+                        });
+                        dialogStickToTopButton.setOnClickListener(v3 -> {
+                            scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext());
+                            dialog.dismiss();
+                        });
+                        dialogUndoButton.setOnClickListener(v4 -> dialog.dismiss());
+                    }
+                    catch (NullPointerException e){
+                        throw new RuntimeException();
+                    }
 
-                        }
-                    });
                 });
-                addToDeviceButton.setOnClickListener(v2 -> {
-                    scanResultItemOperationRun(WANT_ADD_TO_DEVICE, holder.getBindingAdapterPosition(), requireContext(), new OperationRunListener() {
-                        @Override
-                        public void onSuccess() {
 
-                        }
-
-                        @Override
-                        public void onFailure() {
-
-                        }
-                    });
-                });
-                stickToTopButton.setOnClickListener(v3 -> {
-                    scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext(),null);
-                    dialog.dismiss();
-                });
-                undoButton.setOnClickListener(v4 -> dialog.dismiss());
-
+//                //展示dialog
+//                dialog.show();
             });
 
-            view.setOnLongClickListener(v -> {
-                scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext(),null);
+            //长按条目将对应条目置顶
+            holder.itemView.setOnLongClickListener(v -> {
+                scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext());
                 return true;
             });
 
-            return holder;
+
+        }
+
+        @NonNull
+        @Override
+        public ScanResultItemViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_of_scan_result_recycler_view, parent, false);
+            return new ScanResultItemViewHolder(view);
         }
 
         /**
@@ -770,11 +789,6 @@ public class BleFragment extends Fragment {
     final static byte WANT_STICK_TO_TOP = 3;//置顶,移动到列表顶部
     final static byte WANT_NONE = 4;//无操作
 
-    public interface OperationRunListener{
-        void onSuccess();
-        void onFailure();
-    }
-
     /**
      * 对扫描结果条目运行需要的操作,执行操作就会将设备信息加入数据库
      *
@@ -782,7 +796,7 @@ public class BleFragment extends Fragment {
      * @param position 选择操作的模型单元在list的位置
      * @param context  上下文,可以使用Activity作为上下文
      */
-    public void scanResultItemOperationRun(byte want, int position, Context context,@Nullable OperationRunListener listener) {
+    public void scanResultItemOperationRun(byte want, int position, Context context) {
         if (want == WANT_NONE) {
             return;
         }
@@ -834,22 +848,6 @@ public class BleFragment extends Fragment {
                                             BluetoothScanStop();
                                             bleFragmentRunWant.startControl(finalTargetModel.getDevice(), finalTargetModel.getDeviceSha256());
                                             finalTargetModel.setControlBaseBluetooth(bleFragmentRunWant.getControlBaseBluetooth(finalTargetModel.getDeviceSha256()));
-                                            new Thread(() -> {
-                                                //等待ControlBase部署完成-独立线程执行
-                                                for (int t = 0; t < 1000; t++) {
-                                                    try {
-                                                        if (finalTargetModel.getControlBaseBluetooth() != null) {
-                                                            if (finalTargetModel.getControlBaseBluetooth().getGatt() != null) {
-                                                                break;
-                                                            }
-                                                        }
-                                                        Thread.sleep(100);
-                                                    } catch (InterruptedException e) {
-                                                        throw new RuntimeException(e);
-                                                    }
-                                                }
-                                            }
-                                            ).start();
                                         }
                                         break;
                                     }

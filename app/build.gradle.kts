@@ -53,7 +53,9 @@ android {
             )
         }
     }
-
+    buildFeatures {
+        compose = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -66,12 +68,38 @@ dependencies {
     implementation(libs.appcompat)
     implementation(libs.recyclerview)
     implementation(libs.material)
+
+    //Compose
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+
+    //Compose集成
+    implementation(libs.accompanist.navigation.material3)
+    implementation(libs.accompanist.systemuicontroller)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+    //Compose调试
+    debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
+
+    //Room数据库
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    implementation(project(":BluetoothFocuser"))
+    //EventBus事件总线
+    implementation(libs.eventbus)
+    ksp(libs.eventbus.annotation.processor)
+    annotationProcessor(libs.eventbus.annotation.processor)
 
-    testImplementation(libs.junit)
+    //测试
+    testImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.espresso.core)
+
+
+
+    implementation(project(":BluetoothFocuser"))
 }

@@ -12,8 +12,10 @@ junit = "4.13.2"
 espressoCore = "3.5.1"
 snakeyaml = "2.3"
 compose-bom = "2024.02.01"
-compose-compiler = "1.5.14"
-activity-compose = "1.8.2"
+compose-compiler = "1.5.10"
+accompanist = "0.34.0"
+lifecycle = "2.7.0"
+eventbus = "3.3.1"
 
 
 
@@ -25,14 +27,29 @@ activity-compose = "1.8.2"
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
-# Kotlin
-kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
-
 # Compose
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
-androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-compose-activity = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
+
+# Compose 核心库
+compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+
+# Material 设计
+compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+accompanist-navigation-material3 = { group = "com.google.accompanist", name = "accompanist-navigation-material", version.ref = "accompanist" }
+
+# 其他 Compose 相关
+compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+compose-animation = { group = "androidx.compose.animation", name = "animation" }
+
+# Compose 集成
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+accompanist-systemuicontroller = { group = "com.google.accompanist", name = "accompanist-systemuicontroller", version.ref = "accompanist" }
 
 # Room数据库
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -40,7 +57,6 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 # 测试相关
-junit = { group = "junit", name = "junit", version.ref = "junit" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 
 # UI相关
@@ -51,8 +67,9 @@ recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "r
 # 数据处理
 snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 
-
-
+#数据总线
+eventbus = { group = "org.greenrobot", name = "eventbus", version.ref = "eventbus" }
+eventbus-annotation-processor = { group = "org.greenrobot", name = "eventbus-annotation-processor", version.ref = "eventbus" }
 
 
 

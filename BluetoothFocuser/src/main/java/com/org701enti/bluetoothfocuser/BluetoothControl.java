@@ -32,7 +32,6 @@ import androidx.annotation.NonNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,7 +51,7 @@ public class BluetoothControl {
 
 
     /**
-     * 构造方法
+     * BluetoothControl启动控制部署
      *
      * @param deviceSha256 连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
      * @param callback     蓝牙GATT数据请求回调,该回调必须具备访问对应控制设备的资源的能力,并且没有资源冲突问题
@@ -128,7 +127,7 @@ public class BluetoothControl {
      * @return 结果码, 通过StandardSync.RESULT_...以枚举对比(+OK:设备通讯环境正常,+FAIL_DEVICE_CHANGED:连接设备已切换,+FAIL_DEVICE_STATE:当前设备不是可通讯状态)
      */
     public int deviceStatusCheck() {
-        if (!callback.isEqualDeviceSha256(this.deviceSha256)) {
+        if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
         if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
@@ -156,7 +155,7 @@ public class BluetoothControl {
      * @param index 模型在内部列表的索引位置
      * @return 控制模型, 不存在/异常 = null
      */
-    public ControlBasicModelBluetooth search(int index) {
+    public ControlBasicModelBluetooth searchBasicModel(int index) {
         if (deviceStatusCheck() == StandardSync.RESULT_OK) {
             return controlModelList.get(index);
         }
@@ -171,7 +170,7 @@ public class BluetoothControl {
      * @param uuidCharacteristic 特征UUID
      * @return 控制模型, 不存在/异常 = null
      */
-    public ControlBasicModelBluetooth search(UUID uuidService, UUID uuidCharacteristic) {
+    public ControlBasicModelBluetooth searchBasicModel(UUID uuidService, UUID uuidCharacteristic) {
         if (deviceStatusCheck() == StandardSync.RESULT_OK) {
             for (ControlBasicModelBluetooth model : controlModelList) {
                 if (model.getUuidService() == uuidService && model.getUuidCharacteristic() == uuidCharacteristic) {
@@ -195,7 +194,7 @@ public class BluetoothControl {
         if (data == null) {
             return StandardSync.RESULT_FAIL_PARAM;
         }
-        if (!callback.isEqualDeviceSha256(this.deviceSha256)) {
+        if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
         if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
@@ -204,7 +203,7 @@ public class BluetoothControl {
 
         //尝试获取模型
         ControlBasicModelBluetooth model = null;
-        model = search(index);
+        model = searchBasicModel(index);
         if (model == null) {
             return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
         }
@@ -237,7 +236,7 @@ public class BluetoothControl {
         if (data == null) {
             return StandardSync.RESULT_FAIL_PARAM;
         }
-        if (!callback.isEqualDeviceSha256(this.deviceSha256)) {
+        if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
         if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
@@ -246,7 +245,7 @@ public class BluetoothControl {
 
         //尝试获取模型
         ControlBasicModelBluetooth model = null;
-        model = search(uuidService, uuidCharacteristic);
+        model = searchBasicModel(uuidService, uuidCharacteristic);
         if (model == null) {
             return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
         }
@@ -280,7 +279,7 @@ public class BluetoothControl {
         if (model == null || data == null) {
             return StandardSync.RESULT_FAIL_PARAM;
         }
-        if (!callback.isEqualDeviceSha256(this.deviceSha256)) {
+        if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
         if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
@@ -355,7 +354,7 @@ public class BluetoothControl {
         if (model == null) {
             return StandardSync.RESULT_FAIL_PARAM;
         }
-        if (!callback.isEqualDeviceSha256(this.deviceSha256)) {
+        if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
         if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
@@ -437,7 +436,7 @@ public class BluetoothControl {
          * @param deviceSha256 设备的广播数据的SHA-256校验码
          * @return true = 一致
          */
-        boolean isEqualDeviceSha256(String deviceSha256);
+        boolean isDeviceSha256EqualsTo(String deviceSha256);
 
         /**
          * 当BluetoothControl构造完成,将调用该方法

@@ -63,6 +63,8 @@ import com.org701enti.bluetoothfocuser.BluetoothControl;
 import com.org701enti.bluetoothfocuser.BluetoothUI;
 import com.org701enti.bluetoothfocuser.StandardSync;
 
+import org.greenrobot.eventbus.EventBus;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -77,11 +79,62 @@ public class MainActivity extends AppCompatActivity {
 
     String TAG = new String("MainActivity");
 
-    //standardSync实例分发
+
     private Context getAc() {
         return this;
     }
 
+    //全局事件总线单例
+    public static final EventBus DEVICE_STATE_EVENT_BUS = EventBus.builder().build();
+
+
+    //全局事件类型
+
+    //基本事件类型,建议继承以适配相关通用型业务
+    public abstract class BaseEvent {
+        public final String makerId;
+        public final int makerState;
+        public final long makeTimestamp;
+
+        public BaseEvent(@NotNull String makerId, int makerState) {
+            this.makerId = makerId;
+            this.makerState = makerState;
+            this.makeTimestamp = System.currentTimeMillis();
+        }
+
+        public String getMakerId() {
+            return makerId;
+        }
+
+        public int getMakerState() {
+            return makerState;
+        }
+
+        public long getMakeTimestamp() {
+            return makeTimestamp;
+        }
+    }
+
+    //设备状态相关事件类型
+    public class DeviceStateEvent extends BaseEvent {
+        //状态唯一决定,不同时对于两个或多个状态
+        //连接中 -> 已连接 -> 控制面板部署中 -> 控制面板部署完成
+        //正在断开连接 -> 连接已断开
+
+        public static final int DEVICE_STATE_CONNECTING = 100;//连接中
+        public static final int DEVICE_STATE_CONNECTED = 101;//已连接
+        public static final int DEVICE_STATE_DISCONNECTING = 102;//正在断开连接
+        public static final int DEVICE_STATE_DISCONNECTED = 103;//连接已断开
+        public static final int DEVICE_STATE_CONTROL_PLATE_DEPLOYING = 104;//控制面板部署中
+        public static final int DEVICE_STATE_CONTROL_PLATE_DEPLOYED = 105;//控制面板部署完成
+
+        public DeviceStateEvent(String makerId, int makerState) {
+            super(makerId, makerState);
+        }
+    }
+
+
+    //standardSync实例分发
     private StandardSync standardSync = null;
 
     public StandardSync getStandardSync() {
@@ -235,16 +288,7 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-
-
-    class mCallback extends BluetoothGattCallback{
-
-    }
-
-
-
-
-
+    //全局设备生命周期事件总线
 
 
     //蓝牙相关
@@ -264,7 +308,6 @@ public class MainActivity extends AppCompatActivity {
         private BluetoothControl bluetoothControl = null;//蓝牙控制实例(仅支持了非用户操作的控制)
         private BluetoothUI bluetoothUI = null;//蓝牙用户界面实例(支持有用户界面环境的用户控制,并在内部链接BluetoothControl到View控件或其他控制器)
 
-
         /**
          * 将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
          * 完善之后即可通过get设备的BluetoothUI实例进行有用户界面环境的用户控制,或者BluetoothControl实例进行非用户操作的控制
@@ -278,33 +321,6 @@ public class MainActivity extends AppCompatActivity {
             this.deviceSha256Bluetooth = deviceSha256Bluetooth;
         }
 
-        public BluetoothGatt getGatt() {
-            return gatt;
-        }
-
-
-        public void setDeviceName(@Nullable String deviceName) {
-            this.deviceName = deviceName;
-        }
-
-        @Nullable
-        public String getDeviceName() {
-            return deviceName;
-        }
-
-        public String getDeviceSha256Bluetooth() {
-            return deviceSha256Bluetooth;
-        }
-
-        @Nullable
-        public BluetoothControl getBluetoothControl() {
-            return bluetoothControl;
-        }
-
-        @Nullable
-        public BluetoothUI getBluetoothUI() {
-            return bluetoothUI;
-        }
 
         //BluetoothControl.BluetoothGattDataAccessCallback实现
 
@@ -323,11 +339,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public boolean isEqualDeviceSha256(String deviceSha256) {
+        public boolean isDeviceSha256EqualsTo(String deviceSha256) {
             if (deviceSha256 != null && deviceSha256Bluetooth != null) {
-                if (deviceSha256Bluetooth.equals(deviceSha256)) {
-                    return true;
-                }
+                return deviceSha256Bluetooth.equals(deviceSha256);
             }
             return false;
         }
@@ -404,19 +418,46 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
 
+        @Override
+        public void onBluetoothControlInitFinished() {
+            this.bluetoothUI = new BluetoothUI(bluetoothControl, getAc());
+            DEVICE_STATE_EVENT_BUS.post(new DeviceStateEvent(deviceSha256Bluetooth, DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYED));
+        }
+
+
         //BluetoothGattCallback实现
+
         @SuppressLint("MissingPermission")
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
             gattState = newState;
-            if (newState == BluetoothGatt.STATE_CONNECTED) {
-                if (this.deviceName != null) {
-                    Log.i(TAG, "onConnectionStateChange: 已连接到 - " + this.deviceName);
-                } else {
-                    Log.i(TAG, "onConnectionStateChange: 已连接到 - " + this.deviceSha256Bluetooth);
-                }
-                gatt.discoverServices();//如果状态为已经连接,就扫描服务
+
+            switch (newState) {
+                case BluetoothGatt.STATE_CONNECTING:
+                    DEVICE_STATE_EVENT_BUS.post(new DeviceStateEvent(deviceSha256Bluetooth, DeviceStateEvent.DEVICE_STATE_CONNECTING));
+                    break;
+
+                case BluetoothGatt.STATE_CONNECTED:
+                    DEVICE_STATE_EVENT_BUS.post(new DeviceStateEvent(deviceSha256Bluetooth, DeviceStateEvent.DEVICE_STATE_CONNECTED));
+                    if (this.deviceName != null) {
+                        Log.i(TAG, "onConnectionStateChange: 已连接到 - " + this.deviceName);
+                    } else {
+                        Log.i(TAG, "onConnectionStateChange: 已连接到 - " + this.deviceSha256Bluetooth);
+                    }
+                    gatt.discoverServices();//如果状态为已经连接,就扫描服务
+                    break;
+
+                case BluetoothGatt.STATE_DISCONNECTING:
+                    DEVICE_STATE_EVENT_BUS.post(new DeviceStateEvent(deviceSha256Bluetooth, DeviceStateEvent.DEVICE_STATE_DISCONNECTING));
+                    break;
+
+                case BluetoothGatt.STATE_DISCONNECTED:
+                    DEVICE_STATE_EVENT_BUS.post(new DeviceStateEvent(deviceSha256Bluetooth, DeviceStateEvent.DEVICE_STATE_DISCONNECTED));
+                    break;
+
+                default:
+                    break;
             }
 
             this.gatt = gatt;//缓存实例引用
@@ -426,28 +467,21 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
-            bluetoothControl = new BluetoothControl(this.deviceSha256Bluetooth,this.deviceName,this);
-        }
-
-        @Override
-        public void onBluetoothControlInitFinished() {
-            bluetoothUI = new BluetoothUI(bluetoothControl, getAc());
-
-
+            DEVICE_STATE_EVENT_BUS.post(new DeviceStateEvent(deviceSha256Bluetooth, DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYING));
+            bluetoothControl = new BluetoothControl(this.deviceSha256Bluetooth, this.deviceName, this);
         }
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicRead(gatt, characteristic, status);
-            if(this.deviceName!=null){
-                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - "+this.deviceName);
+            if (this.deviceName != null) {
+                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - " + this.deviceName);
+            } else {
+                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - " + this.deviceSha256Bluetooth);
             }
-            else {
-                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - "+this.deviceSha256Bluetooth);
-            }
-            if (characteristic != null  && status == BluetoothGatt.GATT_SUCCESS) {
+            if (characteristic != null && status == BluetoothGatt.GATT_SUCCESS) {
                 byte[] value = characteristic.getValue();
-                if(value != null){
+                if (value != null) {
                     BluetoothGattService service = null;
                     service = characteristic.getService();
                     if (service != null) {
@@ -462,11 +496,10 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
             super.onCharacteristicRead(gatt, characteristic, value, status);
-            if(this.deviceName!=null){
-                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - "+this.deviceName);
-            }
-            else {
-                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - "+this.deviceSha256Bluetooth);
+            if (this.deviceName != null) {
+                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - " + this.deviceName);
+            } else {
+                Log.i(TAG, "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - " + this.deviceSha256Bluetooth);
             }
             if (characteristic != null && value != null && status == BluetoothGatt.GATT_SUCCESS) {
                 BluetoothGattService service = null;
@@ -483,6 +516,34 @@ public class MainActivity extends AppCompatActivity {
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicWrite(gatt, characteristic, status);
         }
+
+
+        public BluetoothGatt getGatt() {
+            return gatt;
+        }
+
+        public void setDeviceName(@Nullable String deviceName) {
+            this.deviceName = deviceName;
+        }
+
+        @Nullable
+        public String getDeviceName() {
+            return deviceName;
+        }
+
+        public String getDeviceSha256Bluetooth() {
+            return deviceSha256Bluetooth;
+        }
+
+        @Nullable
+        public BluetoothControl getBluetoothControl() {
+            return bluetoothControl;
+        }
+
+        @Nullable
+        public BluetoothUI getBluetoothUI() {
+            return bluetoothUI;
+        }
     }
 
 
@@ -498,11 +559,10 @@ public class MainActivity extends AppCompatActivity {
             for (ControlBaseBluetooth base : controlBaseListBluetooth) {
                 if (base.getDeviceSha256Bluetooth() != null) {
                     if (base.getDeviceSha256Bluetooth().equals(sha256)) {
-                        if(device.getName()!=null){
-                            Log.w(TAG, "StartControl: 阻止了用户对同一个设备重复连接的请求 - "+device.getName());
-                        }
-                        else {
-                            Log.w(TAG, "StartControl: 阻止了用户对同一个设备重复连接的请求 - "+sha256);
+                        if (device.getName() != null) {
+                            Log.w(TAG, "StartControl: 阻止了用户对同一个设备重复连接的请求 - " + device.getName());
+                        } else {
+                            Log.w(TAG, "StartControl: 阻止了用户对同一个设备重复连接的请求 - " + sha256);
                         }
                         return;
                     }
@@ -517,9 +577,9 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public ControlBaseBluetooth getControlBaseBluetooth(String sha256) {
-            if(!controlBaseListBluetooth.isEmpty() && sha256 != null){
-                for(ControlBaseBluetooth controlBase:controlBaseListBluetooth){
-                    if(controlBase.getDeviceSha256Bluetooth().equals(sha256)){
+            if (!controlBaseListBluetooth.isEmpty() && sha256 != null) {
+                for (ControlBaseBluetooth controlBase : controlBaseListBluetooth) {
+                    if (controlBase.getDeviceSha256Bluetooth().equals(sha256)) {
                         return controlBase;
                     }
                 }
@@ -543,6 +603,7 @@ public class MainActivity extends AppCompatActivity {
     public BleFragmentFunctionRun getBleFragmentFunctionRun() {
         return bleFragmentFunctionRun;
     }
+
     public ControlFragmentFunctionRun getControlFragmentFunctionRun() {
         return controlFragmentFunctionRun;
     }
@@ -683,7 +744,7 @@ public class MainActivity extends AppCompatActivity {
             BleFragment bleFragment = BleFragment.newInstance();
             ControlFragment controlFragment = ControlFragment.newInstance();
             fragmentTransaction.add(R.id.main_fragment_container_in_main, bleFragment, getString(R.string.tag_ble_main_transaction));
-            fragmentTransaction.add(R.id.main_fragment_container_in_main,controlFragment,getString(R.string.tag_control_main_transaction));
+            fragmentTransaction.add(R.id.main_fragment_container_in_main, controlFragment, getString(R.string.tag_control_main_transaction));
             fragmentTransaction.hide(bleFragment);
             fragmentTransaction.hide(controlFragment);
             fragmentTransaction.commitNow();
@@ -755,7 +816,7 @@ public class MainActivity extends AppCompatActivity {
                     hideFragment(getString(R.string.tag_ble_main_transaction));
                     showFragment(getString(R.string.tag_control_main_transaction));
                     Object object = getFragment(getString(R.string.tag_control_main_transaction));
-                    if(object instanceof ControlFragment controlFragment){
+                    if (object instanceof ControlFragment controlFragment) {
                         ControlFragment.ControlFragmentRunWant runWant = controlFragment.getControlFragmentRunWant();
                         controlFragment.consoleShowBluetooth(runWant.getControlBaseListBluetooth().get(0));
                     }
@@ -855,7 +916,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 获取指定的Fragment,通过TAG
      *
-     * @param tag  在add时注册的TAG
+     * @param tag              在add时注册的TAG
      * @param <F>设置Fragment的类型
      */
     public <F> Object getFragment(@Nullable String tag) {

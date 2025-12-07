@@ -24,7 +24,6 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class BluetoothUI {
 
@@ -74,7 +73,7 @@ public class BluetoothUI {
         this.bluetoothControl = bluetoothControl;
         //尝试根据BluetoothControl数据,创建数据列表,并生成UI及其控制绑定
         for (int i = 0; i <= this.bluetoothControl.getMaxIndex(); i++) {
-            ControlBasicModelBluetooth controlModel = bluetoothControl.search(i);
+            ControlBasicModelBluetooth controlModel = bluetoothControl.searchBasicModel(i);
             if (controlModel != null) {
                 BluetoothGuess guess = this.bluetoothControl.getBluetoothGuess();
                 int controlWay = guess.controlWayByDataType(controlModel.getDataType());//通过DataType猜测controlWay
@@ -133,7 +132,7 @@ public class BluetoothUI {
             return;
         }
         //获取数据源
-        ControlBasicModelBluetooth model = this.bluetoothControl.search(unit.getIndexControlModel());
+        ControlBasicModelBluetooth model = this.bluetoothControl.searchBasicModel(unit.getIndexControlModel());
         if (model == null) {
             return;
         }

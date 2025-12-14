@@ -41,9 +41,9 @@ fun GeneralCircularIndicator(
         val subscriber = object {
             @Subscribe(threadMode = ThreadMode.MAIN)
             fun onEvent(event: MainActivity.BaseEvent) {
-                if (!event.getMakerId().isNullOrBlank() && event.getMakerId().equals(makerId)) {
-                    if (event.getMakerState() == makerStateToActive) isActive = true;
-                    if (event.getMakerState() == makerStateToStop) isActive = false;
+                if (!event.makerId.isNullOrBlank() && event.makerId.equals(makerId)) {
+                    if (event.makerState == makerStateToActive) isActive = true;
+                    if (event.makerState == makerStateToStop) isActive = false;
                 }
             }
         }

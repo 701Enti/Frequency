@@ -19,178 +19,143 @@
 //        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //        SOFTWARE.
+package com.org701enti.frealicane
 
-package com.org701enti.frealicane;
-
-import static android.content.Context.BLUETOOTH_SERVICE;
-import static androidx.compose.ui.platform.ViewCompositionStrategy.*;
-import static com.org701enti.frealicane.MainActivity.AddToBleDeviceMainDatabase;
-
-import android.animation.ObjectAnimator;
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
-import android.util.TypedValue;
-import android.view.GestureDetector;
-import android.view.LayoutInflater;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
-import android.widget.ImageView;
-import android.widget.TextView;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.compose.ui.platform.ComposeView;
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewTreeLifecycleOwner;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.SimpleItemAnimator;
-
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.org701enti.bluetoothfocuser.BluetoothAD;
-import com.org701enti.bluetoothfocuser.StandardSync;
-import com.org701enti.frealicane.suit.event.StableDeviceStateEventBus;
-import com.org701enti.frealicane.ui.compose_view.proxy.unit.ProxyGeneralCircularIndicator;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
+import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.Context
+import android.content.DialogInterface
+import android.content.DialogInterface.OnShowListener
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import android.util.TypedValue
+import android.view.GestureDetector
+import android.view.GestureDetector.SimpleOnGestureListener
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.View.OnTouchListener
+import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.compose.ui.platform.ComposeView
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.SimpleItemAnimator
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.org701enti.bluetoothfocuser.BluetoothAD
+import com.org701enti.bluetoothfocuser.BluetoothAD.AdvertisingStruct
+import com.org701enti.bluetoothfocuser.StandardSync
+import com.org701enti.frealicane.BleFragment.ScanResultRecyclerViewAdapter.ScanResultItemViewHolder
+import com.org701enti.frealicane.MainActivity.ControlBaseBluetooth
+import com.org701enti.frealicane.suit.event.StableDeviceStateEventBus.instance
+import com.org701enti.frealicane.ui.compose_view.proxy.unit.ProxyGeneralCircularIndicator.setContent
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
 
 /**
- * A simple {@link Fragment} subclass.
- * Use the {@link BleFragment#newInstance} factory method to
+ * A simple [Fragment] subclass.
+ * Use the [BleFragment.newInstance] factory method to
  * create an instance of this fragment.
  */
-public class BleFragment extends Fragment {
-
-    String TAG = new String("BleFragment");
-
-    public BleFragment() {
-        // Required empty public constructor
-    }
+class BleFragment() : Fragment() {
+    var logTag: String = "BleFragment"
 
     //运行需求
-    private BleFragmentRunWant bleFragmentRunWant;
+    lateinit var bleFragmentRunWant: BleFragmentRunWant
 
-    public BleFragmentRunWant getBleFragmentRunWant() {
-        return bleFragmentRunWant;
-    }
-
-    public interface BleFragmentRunWant {
+    interface BleFragmentRunWant {
         /**
          * 开始设备控制
          *
          * @param device BluetoothDevice实例
          * @param sha256 设备的SHA-256校验码
          */
-        void startControl(BluetoothDevice device, String sha256);
+        fun startControl(device: BluetoothDevice?, sha256: String?)
 
-        MainActivity.ControlBaseBluetooth getControlBaseBluetooth(String sha256);
+        fun getControlBaseBluetooth(sha256: String?): ControlBaseBluetooth?
     }
 
-    @Override
-    public void onAttach(@NonNull Context context) {
-        super.onAttach(context);
-        if (context instanceof MainActivity) {
-            MainActivity activity = (MainActivity) context;
-            bleFragmentRunWant = activity.getBleFragmentFunctionRun();
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is MainActivity) {
+            bleFragmentRunWant = context.bleFragmentFunctionRun
         } else {
-            throw new RuntimeException("must be attached by MainActivity but not by" + context.toString());
+            throw RuntimeException("must be attached by MainActivity but not by$context")
         }
     }
 
-    public static BleFragment newInstance() {
-        BleFragment fragment = new BleFragment();
-        Bundle args = new Bundle();
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-        fragment.setArguments(args);
-        return fragment;
-    }
+        InitBLE()
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        InitBLE();
-
-        if (bluetoothAdapter == null || bluetoothLeScanner == null) {//已经初始化但还为空
+        if (bluetoothAdapter == null || bluetoothLeScanner == null) { //已经初始化但还为空
             //用户设备不支持蓝牙,弹出提示
-            AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
-            builder.setTitle(R.string.error_chinese);
-            builder.setMessage(R.string.user_device_hardware_unsupport);
-            builder.setPositiveButton(getString(R.string.cancel_chinese), new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-
-                }
-            });
-            builder.setNegativeButton(getString(R.string.return_app_chinese), new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-
-                }
-            });
+            val builder = android.app.AlertDialog.Builder(requireActivity())
+            builder.setTitle(R.string.error_chinese)
+            builder.setMessage(R.string.user_device_hardware_unsupport)
+            builder.setPositiveButton(getString(R.string.cancel_chinese)) { dialogInterface, i -> }
+            builder.setNegativeButton(getString(R.string.return_app_chinese)) { dialogInterface, i -> }
         }
     }
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_ble, container, false);
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_ble, container, false)
 
         //初始化其他布局
-        initRecyclerViewBluetooth(view);
+        initRecyclerViewBluetooth(view)
 
-        return view;
+        return view
     }
 
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-        InitBleFragmentUI(view);
+        InitBleFragmentUI(view)
     }
 
     ////蓝牙内部处理业务
-    private BluetoothAdapter bluetoothAdapter = null;
-    private BluetoothLeScanner bluetoothLeScanner = null;
-    private RecyclerView scanResultRecyclerView = null;
-    private List<BluetoothDeviceModel> scanResultList = new ArrayList<>();
-    private ScanResultRecyclerViewAdapter scanResultRecyclerViewAdapter = null;
-    private boolean isScanningBluetooth = false;
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var bluetoothLeScanner: BluetoothLeScanner? = null
+    private var scanResultRecyclerView: RecyclerView? = null
+    private val scanResultList: MutableList<BluetoothDeviceModel> = ArrayList()
+    private var scanResultRecyclerViewAdapter: ScanResultRecyclerViewAdapter? = null
+    private var isScanningBluetooth = false
 
-    private void InitBLE() {
+    private fun InitBLE() {
         //获取BLEadapter实例
-        BluetoothManager BLEmanager = (BluetoothManager) requireActivity().getSystemService(BLUETOOTH_SERVICE);
+        val BLEmanager: BluetoothManager? =
+            requireActivity().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         if (BLEmanager != null) {
-            bluetoothAdapter = BLEmanager.getAdapter();
+            bluetoothAdapter = BLEmanager.adapter
             if (bluetoothAdapter != null) {
-                bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+                bluetoothLeScanner = bluetoothAdapter!!.bluetoothLeScanner
             }
         }
     }
@@ -199,21 +164,19 @@ public class BleFragment extends Fragment {
      * 检查蓝牙开启状态,如果未开启,打开蓝牙
      */
     @SuppressLint("MissingPermission")
-    public void BluetoothOpenCheck() {
+    fun BluetoothOpenCheck() {
         //检查并启动
         //用于可能弹出打开蓝牙的询问框,回归主线程处理
         if (bluetoothAdapter != null) {
-            if (bluetoothAdapter.getState() != BluetoothAdapter.STATE_ON) {
-                Handler handler = new Handler(Looper.getMainLooper());
-                handler.post(new Runnable() {
-                    //请求用户启动蓝牙
-                    @Override
-                    public void run() {
-                        bluetoothAdapter.enable();
-                        MainTextViewBLE.setText(R.string.please_continue_when_bluetooth_enabled_chinese);
-                        fadeInMainTextViewBLE.start();
-                    }
-                });
+            if (bluetoothAdapter!!.state != BluetoothAdapter.STATE_ON) {
+                val handler = Handler(Looper.getMainLooper())
+                handler.post(Runnable
+                //请求用户启动蓝牙
+                {
+                    bluetoothAdapter!!.enable()
+                    MainTextViewBLE!!.setText(R.string.please_continue_when_bluetooth_enabled_chinese)
+                    fadeInMainTextViewBLE!!.start()
+                })
             }
         }
     }
@@ -222,26 +185,26 @@ public class BleFragment extends Fragment {
      * 启动蓝牙设备扫描,含配置
      */
     @SuppressLint("MissingPermission")
-    public void BluetoothScanStart(List<ScanFilter> filters, ScanSettings settings) {
+    fun BluetoothScanStart(filters: List<ScanFilter?>?, settings: ScanSettings?) {
         if (!isScanningBluetooth) {
-
             //我们这里有必要解释为什么使用两次bluetoothLeScanner的null判断
             //(请您见下面BluetoothScanStop方法中的注释)
 
             if (bluetoothLeScanner == null) {
                 //当以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
-                BluetoothOpenCheck();//检查蓝牙开启
-                InitBLE();
+                BluetoothOpenCheck() //检查蓝牙开启
+                InitBLE()
             }
             if (bluetoothLeScanner != null) {
-                if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
-                    bluetoothLeScanner.startScan(filters, settings, bluetoothScanCallback);
-                    AnimationBluetoothScanning.setVisibility(View.VISIBLE);
-                    MainTextViewBLE.setText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese));
-                    isScanningBluetooth = true;
-                    fadeOutMainTextViewBLE.start();
+                if (bluetoothAdapter!!.state == BluetoothAdapter.STATE_ON) {
+                    bluetoothLeScanner!!.startScan(filters, settings, bluetoothScanCallback)
+                    AnimationBluetoothScanning!!.visibility = View.VISIBLE
+                    MainTextViewBLE!!.text =
+                        getString(R.string.vertical_slide_text_to_stop_sacn_chinese)
+                    isScanningBluetooth = true
+                    fadeOutMainTextViewBLE!!.start()
                 } else {
-                    BluetoothOpenCheck();//检查蓝牙开启
+                    BluetoothOpenCheck() //检查蓝牙开启
                 }
             }
         }
@@ -251,26 +214,26 @@ public class BleFragment extends Fragment {
      * 启动蓝牙设备扫描,无配置
      */
     @SuppressLint("MissingPermission")
-    public void BluetoothScanStart() {
+    fun BluetoothScanStart() {
         if (!isScanningBluetooth) {
-
             //我们这里有必要解释为什么使用两次bluetoothLeScanner的null判断
             //(请您见下面BluetoothScanStop方法中的注释)
 
             if (bluetoothLeScanner == null) {
                 //当以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
-                BluetoothOpenCheck();//检查蓝牙开启
-                InitBLE();
+                BluetoothOpenCheck() //检查蓝牙开启
+                InitBLE()
             }
             if (bluetoothLeScanner != null) {
-                if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
-                    bluetoothLeScanner.startScan(bluetoothScanCallback);
-                    AnimationBluetoothScanning.setVisibility(View.VISIBLE);
-                    MainTextViewBLE.setText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese));
-                    isScanningBluetooth = true;
-                    fadeOutMainTextViewBLE.start();
+                if (bluetoothAdapter!!.state == BluetoothAdapter.STATE_ON) {
+                    bluetoothLeScanner!!.startScan(bluetoothScanCallback)
+                    AnimationBluetoothScanning!!.visibility = View.VISIBLE
+                    MainTextViewBLE!!.text =
+                        getString(R.string.vertical_slide_text_to_stop_sacn_chinese)
+                    isScanningBluetooth = true
+                    fadeOutMainTextViewBLE!!.start()
                 } else {
-                    BluetoothOpenCheck();//检查蓝牙开启
+                    BluetoothOpenCheck() //检查蓝牙开启
                 }
             }
         }
@@ -280,9 +243,8 @@ public class BleFragment extends Fragment {
      * 停止蓝牙设备扫描
      */
     @SuppressLint("MissingPermission")
-    public void BluetoothScanStop() {
+    fun BluetoothScanStop() {
         if (isScanningBluetooth) {
-
             //我们这里有必要解释为什么使用两次bluetoothLeScanner的null判断
             //在当用户以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
             //我们期望选择这个时机来恢复正轨,因为用户现在非常明确他是希望使用蓝牙功能的,不是有意的
@@ -294,80 +256,60 @@ public class BleFragment extends Fragment {
             //这样我们在用户不知情的情况下完成了两个任务,如果我们判断一次== null再加上else就草草结束,您会发现用户必须额外再次触发一次该方法在初始化后正式运行
 
             if (bluetoothLeScanner == null) {
-                BluetoothOpenCheck();//检查蓝牙开启
-                InitBLE();
+                BluetoothOpenCheck() //检查蓝牙开启
+                InitBLE()
             }
             if (bluetoothLeScanner != null) {
-                if (bluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
-                    bluetoothLeScanner.stopScan(bluetoothScanCallback);
-                    AnimationBluetoothScanning.setVisibility(View.INVISIBLE);
-                    MainTextViewBLE.setText(getString(R.string.horizontal_slide_text_to_start_sacn_chinese));
-                    isScanningBluetooth = false;
-                    fadeOutMainTextViewBLE.start();
+                if (bluetoothAdapter!!.state == BluetoothAdapter.STATE_ON) {
+                    bluetoothLeScanner!!.stopScan(bluetoothScanCallback)
+                    AnimationBluetoothScanning!!.visibility = View.INVISIBLE
+                    MainTextViewBLE!!.text =
+                        getString(R.string.horizontal_slide_text_to_start_sacn_chinese)
+                    isScanningBluetooth = false
+                    fadeOutMainTextViewBLE!!.start()
                 } else {
-                    BluetoothOpenCheck();//检查蓝牙开启
+                    BluetoothOpenCheck() //检查蓝牙开启
                 }
             }
-
         }
     }
 
     //蓝牙设备列表模型类
-    public class BluetoothDeviceModel {
-        private BluetoothDevice device;//可能包含设备名称,信号强度等多种数据和方法
+    inner class BluetoothDeviceModel {
+        var device: BluetoothDevice? //可能包含设备名称,信号强度等多种数据和方法
+            private set
 
-        private String deviceSha256;////设备的SHA-256唯一性与安全校验码
+        var deviceSha256: String ////设备的SHA-256唯一性与安全校验码
+            private set
 
         //设备的外观图标ID,其实就是外观值的bit6到bit15
         //详见(2.6.2)https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf
-        private int iconID;
+        var iconID: Int
+            private set
 
-        private int deviceDistance;//与设备的距离(单位:米)
+        var deviceDistance: Int //与设备的距离(单位:米)
 
-        private MainActivity.ControlBaseBluetooth controlBaseBluetooth;//控制基础(创建GATT连接后获得并绑定到此)
+        var controlBaseBluetooth: ControlBaseBluetooth? //控制基础(创建GATT连接后获得并绑定到此)
 
-        public BluetoothDeviceModel(BluetoothDevice device, int deviceDistance, @NonNull String deviceSha256) {
-            this.device = device;
-            this.deviceDistance = deviceDistance;
-            this.deviceSha256 = deviceSha256;
-            this.iconID = 0;
-            controlBaseBluetooth = null;
+        constructor(device: BluetoothDevice?, deviceDistance: Int, deviceSha256: String) {
+            this.device = device
+            this.deviceDistance = deviceDistance
+            this.deviceSha256 = deviceSha256
+            this.iconID = 0
+            controlBaseBluetooth = null
         }
 
-        public BluetoothDeviceModel(BluetoothDevice device, int deviceDistance, int iconID, @NonNull String deviceSha256) {
-            this.device = device;
-            this.deviceDistance = deviceDistance;
-            this.deviceSha256 = deviceSha256;
-            this.iconID = iconID;
-            controlBaseBluetooth = null;
-        }
-
-        public BluetoothDevice getDevice() {
-            return device;
-        }
-
-        public int getIconID() {
-            return iconID;
-        }
-
-        public int getDeviceDistance() {
-            return deviceDistance;
-        }
-
-        public void setDeviceDistance(int deviceDistance) {
-            this.deviceDistance = deviceDistance;
-        }
-
-        public String getDeviceSha256() {
-            return deviceSha256;
-        }
-
-        public MainActivity.ControlBaseBluetooth getControlBaseBluetooth() {
-            return controlBaseBluetooth;
-        }
-
-        public void setControlBaseBluetooth(MainActivity.ControlBaseBluetooth controlBaseBluetooth) {
-            this.controlBaseBluetooth = controlBaseBluetooth;
+        constructor(
+            device: BluetoothDevice?,
+            deviceDistance: Int,
+            iconID: Int,
+            deviceSha256: String
+        ) {
+            this.device = device
+            this.deviceDistance = deviceDistance
+            this.deviceSha256 = deviceSha256
+            this.iconID = iconID
+            controlBaseBluetooth = null
         }
     }
 
@@ -378,90 +320,142 @@ public class BleFragment extends Fragment {
      * @param powerRX 信号接收功率(单位:dBm)
      * @return 粗略估测距离(单位 : m)
      */
-    public double Distance2400MHZ(int powerTX, int powerRX) {
+    fun Distance2400MHZ(powerTX: Int, powerRX: Int): Double {
         //路径损耗(单位dB)L=powerTX - powerRX ,f=2.4GHz,根据自由空间路径损耗公式,最后粗略得到:
-        return Math.pow(10D, 0.9944D * ((powerTX - powerRX) / 20D) - 2.5D);
+        return 10.0.pow(0.9944 * ((powerTX - powerRX) / 20.0) - 2.5)
     }
 
 
     //扫描回调
-    AtomicReference<Boolean> isAllowNotifyChanged = new AtomicReference<>(Boolean.TRUE);
-    final ScanCallback bluetoothScanCallback = new ScanCallback() {
+    var isAllowNotifyChanged: AtomicReference<Boolean> = AtomicReference(java.lang.Boolean.TRUE)
+    val bluetoothScanCallback: ScanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
-            super.onScanResult(callbackType, result);
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            super.onScanResult(callbackType, result)
             if (result == null || scanResultRecyclerViewAdapter == null) {
-                return;
+                return
             }
 
             //判断设备是否已经存在列表
-            for (int i = 0; i < scanResultRecyclerViewAdapter.getModelList().size(); i++) {
-                BluetoothDeviceModel model = scanResultRecyclerViewAdapter.getModelList().get(i);
+            for (i in scanResultRecyclerViewAdapter!!.modelList!!.indices) {
+                val model = scanResultRecyclerViewAdapter!!.modelList!![i]
                 //如果已经存在相同设备在列表
-                if (result.getDevice().equals(model.getDevice())) {
-
+                if ((result.device == model.device)) {
                     //更新设备的deviceDistance,但使用内部解析
-                    int distanceNow = 0;
-                    int powerTXint = 0;//Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
-                    powerTXint = result.getTxPower(); //(使用内部解析以节约资源)获取蓝牙设备的信号发射功率水平(单位:dBm)
-                    if (powerTXint == Byte.MAX_VALUE) {//如果无法读取
-                        powerTXint = 0;
+
+                    var distanceNow = 0
+                    var powerTXint = 0 //Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
+                    powerTXint = result.txPower //(使用内部解析以节约资源)获取蓝牙设备的信号发射功率水平(单位:dBm)
+                    if (powerTXint == Byte.MAX_VALUE) { //如果无法读取
+                        powerTXint = 0
                     }
-                    distanceNow = (int) Distance2400MHZ(powerTXint, result.getRssi());
-                    model.setDeviceDistance(distanceNow);
+                    distanceNow = Distance2400MHZ(powerTXint, result.rssi).toInt()
+                    model.deviceDistance = distanceNow
 
                     if (isAllowNotifyChanged.get()) {
-                        scanResultRecyclerViewAdapter.notifyItemChanged(i);//提示信息更新,需要RecyclerView刷新显示
+                        scanResultRecyclerViewAdapter!!.notifyItemChanged(i) //提示信息更新,需要RecyclerView刷新显示
                     }
-                    return;
+                    return
                 }
             }
 
             //解析广播数据包
-            BluetoothAD bluetoothAD = new BluetoothAD(result, null);
+            val bluetoothAD = BluetoothAD(result, null)
 
             //获取iconID
-            int iconID = 0;
-            Activity activity = getActivity();
+            var iconID = 0
+            val activity: Activity? = activity
             if (activity != null) {
-                if (activity instanceof MainActivity mainActivity) {
+                if (activity is MainActivity) {
                     //获取StandardSync实例
-                    StandardSync standardSync = mainActivity.getStandardSync();
+                    val standardSync: StandardSync = activity.standardSync
                     if (standardSync != null) {
                         try {
-                            if (standardSync.getYamlAdTypes() != null) {
+                            if (standardSync.yamlAdTypes != null) {
                                 //使用StandardSync的YamlResolver解析出需要的Value,即当前标准的Appearance的adType数值
-                                StandardSync.YamlResolver yamlResolver = standardSync.new YamlResolver(standardSync.getYamlAdTypes());
-                                Integer appearanceAdType = (Integer)
-                                        yamlResolver
-                                                .enterThisMapList("ad_types")
-                                                .reserveTheItemsHave("name", "Appearance")
-                                                .getResultList().get(0).get("value");
-                                assert appearanceAdType != null;
+                                val yamlResolver =
+                                    standardSync.YamlResolver(standardSync.yamlAdTypes)
+                                val appearanceAdType = checkNotNull(
+                                    yamlResolver
+                                        .enterThisMapList("ad_types")
+                                        .reserveTheItemsHave("name", "Appearance")
+                                        .resultList[0]["value"] as Int?
+                                )
                                 //使用BluetoothAD在广播数据中提取数据
-                                List<BluetoothAD.AdvertisingStruct> structList = bluetoothAD.Search(appearanceAdType);
+                                val structList = bluetoothAD.Search(appearanceAdType)
                                 if (!structList.isEmpty()) {
-                                    for (BluetoothAD.AdvertisingStruct struct : structList) {
-                                        if (struct.getAdData().length == 2) {
-                                            iconID = ((struct.getAdData()[1] & 0xFF) << 8 | (struct.getAdData()[0] & 0xFF)) >>> 10;
+                                    for (struct: AdvertisingStruct in structList) {
+                                        if (struct.adData.size == 2) {
+                                            iconID =
+                                                (((struct.adData[1].toInt() and 0xFF) shl 8) or (struct.adData[0].toInt() and 0xFF)) ushr 10
                                         }
-                                        if (struct.getAdData().length == 3) {
-                                            iconID = ((struct.getAdData()[2] & 0xFF) << 16 | (struct.getAdData()[1] & 0xFF) << 8 | (struct.getAdData()[0] & 0xFF)) >>> 18;
+                                        if (struct.adData.size == 3) {
+                                            iconID =
+                                                (((struct.adData[2].toInt() and 0xFF) shl 16) or ((struct.adData[1].toInt() and 0xFF) shl 8) or (struct.adData[0].toInt() and 0xFF)) ushr 18
                                         }
-                                        Log.i(TAG, "onScanResult: 获取到" + result.getDevice().getName() + "的iconID: " + iconID);
+                                        Log.i(
+                                            logTag,
+                                            "onScanResult: 获取到" + result.device.name + "的iconID: " + iconID
+                                        )
                                     }
                                 }
-
                             }
-                        } catch (AssertionError | NullPointerException | IndexOutOfBoundsException |
-                                 IOException e) {
-                            if (result.getDevice().getName() != null) {
-                                Log.w(TAG, "onScanResult: 无法获取" + result.getDevice().getName() + "的iconID,因为:", e);
+                        } catch (e: AssertionError) {
+                            if (result.device.name != null) {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
+                                    e
+                                )
                             } else {
-                                Log.w(TAG, "onScanResult: 无法获取" + bluetoothAD.getSha256StringAdvertising() + "的iconID,因为:", e);
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
+                                    e
+                                )
                             }
-
+                        } catch (e: NullPointerException) {
+                            if (result.device.name != null) {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
+                                    e
+                                )
+                            } else {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
+                                    e
+                                )
+                            }
+                        } catch (e: IndexOutOfBoundsException) {
+                            if (result.device.name != null) {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
+                                    e
+                                )
+                            } else {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
+                                    e
+                                )
+                            }
+                        } catch (e: IOException) {
+                            if (result.device.name != null) {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
+                                    e
+                                )
+                            } else {
+                                Log.w(
+                                    logTag,
+                                    "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
+                                    e
+                                )
+                            }
                         }
                     }
                 }
@@ -469,115 +463,126 @@ public class BleFragment extends Fragment {
 
 
             //获取deviceDistance
-            int deviceDistance = 0;
-            byte powerTX = 0;//Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
+            var deviceDistance = 0
+            var powerTX: Byte = 0 //Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
             //如果设备广播数据包含了,获取发射功率,如果没有包含,将以定义时的初始化值0计算
-            List<BluetoothAD.AdvertisingStruct> structList = bluetoothAD.Search(0x0A);
+            val structList = bluetoothAD.Search(0x0A)
             if (!structList.isEmpty()) {
-                if (structList.get(0) != null) {
-                    powerTX = structList.get(0).getAdData()[0];
+                if (structList[0] != null) {
+                    powerTX = structList[0]!!.adData[0]
                 }
             }
-            deviceDistance = (int) Distance2400MHZ(powerTX, result.getRssi());
+            deviceDistance = Distance2400MHZ(powerTX.toInt(), result.rssi).toInt()
 
             //创建设备模型
-            BluetoothDeviceModel deviceModel = new BluetoothDeviceModel(result.getDevice(), deviceDistance,
-                    iconID, bluetoothAD.getSha256StringAdvertising());//生成这个蓝牙设备的基本信息模型
+            val deviceModel = BluetoothDeviceModel(
+                result.device, deviceDistance,
+                iconID, bluetoothAD.sha256StringAdvertising
+            ) //生成这个蓝牙设备的基本信息模型
 
             //缓存到RecyclerView适配器内部列表
-            int index = scanResultRecyclerViewAdapter.getItemCount();
-            scanResultRecyclerViewAdapter.getModelList().add(index, deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
-            scanResultRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
-            Log.i("BluetoothInfoReceiver", "[" + index + "]" + deviceModel.getDevice().getName() + " { iconID: " + deviceModel.getIconID() + " }");
+            val index = scanResultRecyclerViewAdapter!!.itemCount
+            scanResultRecyclerViewAdapter!!.modelList!!.add(
+                index,
+                deviceModel
+            ) //添加信息到公共的表,RecyclerView将利用表中信息显示
+            scanResultRecyclerViewAdapter!!.notifyItemInserted(index) //提示信息更新,需要RecyclerView刷新显示
+            Log.i(
+                "BluetoothInfoReceiver",
+                "[" + index + "]" + deviceModel.device!!.name + " { iconID: " + deviceModel.iconID + " }"
+            )
         }
 
-        @Override
-        public void onBatchScanResults(List<ScanResult> results) {
-            super.onBatchScanResults(results);
+        override fun onBatchScanResults(results: List<ScanResult>) {
+            super.onBatchScanResults(results)
             if (results != null) {
             }
         }
 
-        @Override
-        public void onScanFailed(int errorCode) {
-            super.onScanFailed(errorCode);
-
-
+        override fun onScanFailed(errorCode: Int) {
+            super.onScanFailed(errorCode)
         }
-    };
+    }
 
     ////UI-蓝牙设备看板
-    public class ItemDecorationRecyclerViewBluetooth extends RecyclerView.ItemDecoration {
-        private final float dividerHeightPx;
-        private final Paint dividerPaint;
+    inner class ItemDecorationRecyclerViewBluetooth(
+        private val dividerHeightPx: Float,
+        dividerColor: Int
+    ) : RecyclerView.ItemDecoration() {
+        private val dividerPaint: Paint
 
-        public ItemDecorationRecyclerViewBluetooth(float dividerHeightPx, int dividerColor) {
-            this.dividerHeightPx = dividerHeightPx;
-            this.dividerPaint = new Paint();
-            this.dividerPaint.setColor(dividerColor);
-            this.dividerPaint.setStrokeWidth(dividerHeightPx);
-            this.dividerPaint.setStyle(Paint.Style.FILL);
+        init {
+            this.dividerPaint = Paint()
+            dividerPaint.color = dividerColor
+            dividerPaint.strokeWidth = dividerHeightPx
+            dividerPaint.style = Paint.Style.FILL
         }
 
-        @Override
-        public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-            outRect.bottom = (int) dividerHeightPx;
+        override fun getItemOffsets(
+            outRect: Rect,
+            view: View,
+            parent: RecyclerView,
+            state: RecyclerView.State
+        ) {
+            outRect.bottom = dividerHeightPx.toInt()
         }
 
-        @Override
-        public void onDraw(@NonNull Canvas c, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-            for (int i = 0; i < parent.getChildCount() - 1; i++) {//列表最后一项不添加分隔线
-                View child = parent.getChildAt(i);
+        override fun onDraw(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
+            for (i in 0 until (parent.childCount - 1)) { //列表最后一项不添加分隔线
+                val child = parent.getChildAt(i)
                 c.drawRect(
-                        child.getLeft(),
-                        child.getBottom(),
-                        child.getRight(),
-                        child.getBottom() + dividerHeightPx,
-                        dividerPaint
-                );
+                    child.left.toFloat(),
+                    child.bottom.toFloat(),
+                    child.right.toFloat(),
+                    child.bottom + dividerHeightPx,
+                    dividerPaint
+                )
             }
         }
     }
 
-    private void initRecyclerViewBluetooth(View view) {
-        scanResultRecyclerViewAdapter = new ScanResultRecyclerViewAdapter(scanResultList);
-        scanResultRecyclerView = view.findViewById(R.id.scan_result_recycler_view_in_ble);
-        scanResultRecyclerView.setAdapter(scanResultRecyclerViewAdapter);
-        scanResultRecyclerView.setLayoutManager(new LinearLayoutManager(requireActivity()));
-        float density = requireContext().getResources().getDisplayMetrics().density;
-        scanResultRecyclerView.addItemDecoration(new ItemDecorationRecyclerViewBluetooth(1 * density, R.color.light_gray));//分隔线高度固定为1dp
+    private fun initRecyclerViewBluetooth(view: View) {
+        scanResultRecyclerViewAdapter = ScanResultRecyclerViewAdapter(scanResultList)
+        scanResultRecyclerView = view.findViewById(R.id.scan_result_recycler_view_in_ble)
+        scanResultRecyclerView.setAdapter(scanResultRecyclerViewAdapter)
+        scanResultRecyclerView.setLayoutManager(LinearLayoutManager(requireActivity()))
+        val density = requireContext().resources.displayMetrics.density
+        scanResultRecyclerView.addItemDecoration(
+            ItemDecorationRecyclerViewBluetooth(
+                1 * density,
+                R.color.light_gray
+            )
+        ) //分隔线高度固定为1dp
 
         //禁用变更动画
-        RecyclerView.ItemAnimator animator = scanResultRecyclerView.getItemAnimator();
-        if (animator instanceof SimpleItemAnimator) {
-            ((SimpleItemAnimator) animator).setSupportsChangeAnimations(false);
+        val animator = scanResultRecyclerView.getItemAnimator()
+        if (animator is SimpleItemAnimator) {
+            animator.supportsChangeAnimations = false
         }
     }
 
 
     //BLE-RecyclerView的适配器类,用于RecyclerView展示扫描到的蓝牙设备
-    public class ScanResultRecyclerViewAdapter extends RecyclerView.Adapter<ScanResultRecyclerViewAdapter.ScanResultItemViewHolder> {
-        private List<BluetoothDeviceModel> modelList;
-
-        public ScanResultRecyclerViewAdapter(List<BluetoothDeviceModel> modelList) {
-            this.modelList = modelList;
-        }
-
+    inner class ScanResultRecyclerViewAdapter(val modelList: MutableList<BluetoothDeviceModel>?) :
+        RecyclerView.Adapter<ScanResultItemViewHolder>() {
         @SuppressLint("MissingPermission")
-        @Override
-        public void onBindViewHolder(@NonNull ScanResultItemViewHolder holder, int position) {
-
+        override fun onBindViewHolder(holder: ScanResultItemViewHolder, position: Int) {
             //缓存最新targetModel到holder
-            BluetoothDeviceModel targetModel = modelList.get(position);
-            holder.setTargetModel(targetModel);
+
+            val targetModel = modelList!![position]
+            holder.targetModel = targetModel
 
             //为holder名下的子视图进行数据显示更新(子视图本身不会绑定targetModel)
             if (holder.targetModel != null) {
-                configImageViewDeviceIcon(holder.targetModel, holder.deviceIcon);//设备图标
-                configTextViewDeviceName(holder.targetModel, holder.deviceName, calculateSuitableTextSizeSp(holder.deviceName.length()));//设备名
-                int distance = holder.targetModel.getDeviceDistance();//与设备的距离
-                String showDistance = distance + getString(R.string.meter_chinese);
-                holder.deviceDistance.setText(showDistance);
+                configImageViewDeviceIcon(holder.targetModel, holder.deviceIcon) //设备图标
+                configTextViewDeviceName(
+                    holder.targetModel, holder.deviceName, calculateSuitableTextSizeSp(
+                        holder.deviceName!!.length()
+                    )
+                ) //设备名
+                val distance = holder.targetModel!!.deviceDistance //与设备的距离
+                val showDistance = distance.toString() + getString(R.string.meter_chinese)
+                holder.deviceDistance!!.text = showDistance
             }
 
             //为holder名下的根视图即扫描结果条目设置用户操作监听
@@ -585,157 +590,172 @@ public class BleFragment extends Fragment {
             //触控事件注册
 
             //点击条目显示对应详细信息弹窗
-            holder.itemView.setOnClickListener(v -> {
-
-                View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_of_more_info_scan_result_item, null);
-
+            holder.itemView.setOnClickListener({ v: View? ->
+                val dialogView: View = LayoutInflater.from(requireContext())
+                    .inflate(R.layout.dialog_of_more_info_scan_result_item, null)
                 //设备图标
-                ImageView deviceIcon = dialogView.findViewById(R.id.device_icon_in_dialog_of_more_info_scan_result_item);
-                configImageViewDeviceIcon(holder.targetModel, deviceIcon);
+                val deviceIcon: ImageView =
+                    dialogView.findViewById(R.id.device_icon_in_dialog_of_more_info_scan_result_item)
+                configImageViewDeviceIcon(holder.targetModel, deviceIcon)
 
                 //设备名
-                TextView deviceName = dialogView.findViewById(R.id.device_name_in_dialog_of_more_info_scan_result_item);
-                configTextViewDeviceName(holder.targetModel, deviceName, calculateSuitableTextSizeSp(deviceName.length()));
+                val deviceName: TextView =
+                    dialogView.findViewById(R.id.device_name_in_dialog_of_more_info_scan_result_item)
+                configTextViewDeviceName(
+                    holder.targetModel,
+                    deviceName,
+                    calculateSuitableTextSizeSp(deviceName.length())
+                )
 
                 //底部按钮
-                MaterialButton startControlButton = dialogView.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item);
-                MaterialButton addToDeviceButton = dialogView.findViewById(R.id.add_to_device_button_in_dialog_of_more_info_scan_result_item);
-                MaterialButton stickToTopButton = dialogView.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item);
-                MaterialButton undoButton = dialogView.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item);
+                val startControlButton: MaterialButton =
+                    dialogView.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item)
+                val addToDeviceButton: MaterialButton =
+                    dialogView.findViewById(R.id.add_to_device_button_in_dialog_of_more_info_scan_result_item)
+                val stickToTopButton: MaterialButton =
+                    dialogView.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item)
+                val undoButton: MaterialButton =
+                    dialogView.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item)
 
                 //ComposeView动画层
-                ComposeView startControlLoading = dialogView.findViewById(R.id.start_control_loading_in_dialog_of_more_info_scan_result_item);
-                ProxyGeneralCircularIndicator.setContent(
-                        startControlLoading,
-                        holder.targetModel.getDeviceSha256(),
-                        MainActivity.DeviceStateEvent.DEVICE_STATE_CONNECTING,
-                        MainActivity.DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYED,
-                        StableDeviceStateEventBus.INSTANCE.getInstance()
-                );
+                val startControlLoading: ComposeView =
+                    dialogView.findViewById(R.id.start_control_loading_in_dialog_of_more_info_scan_result_item)
+                setContent(
+                    startControlLoading,
+                    holder.targetModel!!.deviceSha256,
+                    MainActivity.DeviceStateEvent.DEVICE_STATE_CONNECTING,
+                    MainActivity.DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYED,
+                    instance
+                )
 
                 //配置dialog
-                MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
-                builder.setView(dialogView);
-                androidx.appcompat.app.AlertDialog dialog = builder.create();
-                dialog.setOnShowListener(d -> {
+                val builder: MaterialAlertDialogBuilder =
+                    MaterialAlertDialogBuilder(requireContext())
+                builder.setView(dialogView)
+                val dialog: AlertDialog = builder.create()
+                dialog.setOnShowListener(OnShowListener { d: DialogInterface? ->
 
                     //为dialog视图手动设置viewTreeLifecycleOwner
                     if (dialog.getWindow() != null) {
-                        ViewTreeLifecycleOwner.set(dialog.getWindow().getDecorView(), BleFragment.this);
+                        dialog.getWindow()!!.getDecorView()
+                            .setViewTreeLifecycleOwner(this@BleFragment)
                     }
 
                     //获取需要进一步设置的View
-                    MaterialButton dialogStartControlButton = dialog.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item);
-                    MaterialButton dialogAddToDeviceButton = dialog.findViewById(R.id.add_to_device_button_in_dialog_of_more_info_scan_result_item);
-                    MaterialButton dialogStickToTopButton = dialog.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item);
-                    MaterialButton dialogUndoButton = dialog.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item);
+                    val dialogStartControlButton: MaterialButton? =
+                        dialog.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item)
+                    val dialogAddToDeviceButton: MaterialButton? =
+                        dialog.findViewById(R.id.add_to_device_button_in_dialog_of_more_info_scan_result_item)
+                    val dialogStickToTopButton: MaterialButton? =
+                        dialog.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item)
+                    val dialogUndoButton: MaterialButton? =
+                        dialog.findViewById(R.id.undo_button_in_dialog_of_more_info_scan_result_item)
 
                     //追加按钮的点击事件监听
                     try {
-                        dialogStartControlButton.setOnClickListener(v1 -> {
-                            scanResultItemOperationRun(WANT_START_CONTROL, holder.getBindingAdapterPosition(), requireContext());
-                        });
-                        dialogAddToDeviceButton.setOnClickListener(v2 -> {
-                            scanResultItemOperationRun(WANT_ADD_TO_DEVICE, holder.getBindingAdapterPosition(), requireContext());
-                        });
-                        dialogStickToTopButton.setOnClickListener(v3 -> {
-                            scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext());
-                            dialog.dismiss();
-                        });
-                        dialogUndoButton.setOnClickListener(v4 -> dialog.dismiss());
+                        dialogStartControlButton!!.setOnClickListener(View.OnClickListener { v1: View? ->
+                            scanResultItemOperationRun(
+                                WANT_START_CONTROL,
+                                holder.getBindingAdapterPosition(),
+                                requireContext()
+                            )
+                        })
+                        dialogAddToDeviceButton!!.setOnClickListener(View.OnClickListener { v2: View? ->
+                            scanResultItemOperationRun(
+                                WANT_ADD_TO_DEVICE,
+                                holder.getBindingAdapterPosition(),
+                                requireContext()
+                            )
+                        })
+                        dialogStickToTopButton!!.setOnClickListener(View.OnClickListener { v3: View? ->
+                            scanResultItemOperationRun(
+                                WANT_STICK_TO_TOP,
+                                holder.getBindingAdapterPosition(),
+                                requireContext()
+                            )
+                            dialog.dismiss()
+                        })
+                        dialogUndoButton!!.setOnClickListener(View.OnClickListener { v4: View? -> dialog.dismiss() })
+                    } catch (e: NullPointerException) {
+                        throw RuntimeException()
                     }
-                    catch (NullPointerException e){
-                        throw new RuntimeException();
-                    }
-
-                });
-
-//                //展示dialog
-//                dialog.show();
-            });
+                })
+            })
 
             //长按条目将对应条目置顶
-            holder.itemView.setOnLongClickListener(v -> {
-                scanResultItemOperationRun(WANT_STICK_TO_TOP, holder.getBindingAdapterPosition(), requireContext());
-                return true;
-            });
-
-
+            holder.itemView.setOnLongClickListener({ v: View? ->
+                scanResultItemOperationRun(
+                    WANT_STICK_TO_TOP,
+                    holder.getBindingAdapterPosition(),
+                    requireContext()
+                )
+                true
+            })
         }
 
-        @NonNull
-        @Override
-        public ScanResultItemViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_of_scan_result_recycler_view, parent, false);
-            return new ScanResultItemViewHolder(view);
+        override fun onCreateViewHolder(
+            parent: ViewGroup,
+            viewType: Int
+        ): ScanResultItemViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_of_scan_result_recycler_view, parent, false)
+            return ScanResultItemViewHolder(view)
         }
 
         /**
          * ViewHolder池,持有相关View引用,防止findViewById更多调用来优化性能
          */
-        public class ScanResultItemViewHolder extends RecyclerView.ViewHolder {
+        inner class ScanResultItemViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             //数据源
-            private BluetoothDeviceModel targetModel = null;
+            var targetModel: BluetoothDeviceModel? = null
 
             //View元素
-            public TextView deviceName = null;
-            public ImageView deviceIcon = null;
-            public TextView deviceDistance = null;
+            var deviceName: TextView? = null
+            var deviceIcon: ImageView? = null
+            var deviceDistance: TextView? = null
 
             //动画效果
-            public ObjectAnimator fadeInDeviceDistance = null;
+            var fadeInDeviceDistance: ObjectAnimator? = null
 
             //在构造方法将各种View引用缓存到ViewHolder池
-            public ScanResultItemViewHolder(View view) {
+            init {
                 //super调用父类RecyclerView.ViewHolder构造方法,并传递了参数viewHandle
                 //即自定义布局R.layout.recyclerviewbluetooth的实例,因此自定义布局文件的配置会对效果产生影响
                 //如果其中开头的layout_width,layout_height选择了match_parent,会导致绘制间距非常大,难以修正
-                super(view);
-
                 //元素View相关
-                deviceName = view.findViewById(R.id.device_name_in_item_of_scan_result_recycler_view);
-                deviceIcon = view.findViewById(R.id.device_icon_in_item_of_scan_result_recycler_view);
-                deviceDistance = view.findViewById(R.id.device_distance_in_item_of_scan_result_recycler_view);
+                deviceName =
+                    view.findViewById(R.id.device_name_in_item_of_scan_result_recycler_view)
+                deviceIcon =
+                    view.findViewById(R.id.device_icon_in_item_of_scan_result_recycler_view)
+                deviceDistance =
+                    view.findViewById(R.id.device_distance_in_item_of_scan_result_recycler_view)
 
                 //动画效果
                 if (deviceDistance != null) {
-                    fadeInDeviceDistance = ObjectAnimator.ofFloat(deviceDistance, "alpha", 0F, 1F);
-                    fadeInDeviceDistance.setDuration(1000);
-                    fadeInDeviceDistance.setInterpolator(new DecelerateInterpolator());
+                    fadeInDeviceDistance = ObjectAnimator.ofFloat(deviceDistance, "alpha", 0f, 1f)
+                    fadeInDeviceDistance.setDuration(1000)
+                    fadeInDeviceDistance.setInterpolator(DecelerateInterpolator())
                 }
             }
-
-            public BluetoothDeviceModel getTargetModel() {
-                return targetModel;
-            }
-
-            public void setTargetModel(BluetoothDeviceModel targetModel) {
-                this.targetModel = targetModel;
-            }
         }
 
-        public List<BluetoothDeviceModel> getModelList() {
-            return modelList;
-        }
-
-        @Override
-        public int getItemCount() {
+        override fun getItemCount(): Int {
             if (modelList != null) {
-                return modelList.size();
+                return modelList.size
             } else {
-                return 0;
+                return 0
             }
         }
 
-        public float calculateSuitableTextSizeSp(int length) {
+        fun calculateSuitableTextSizeSp(length: Int): Float {
             if (length <= 12) {
-                return 24f - 4f * 1;
+                return 24f - 4f * 1
             } else if (length <= 16) {
-                return 24f - 4f * 2;
+                return 24f - 4f * 2
             } else if (length <= 20) {
-                return 24f - 4f * 3;
+                return 24f - 4f * 3
             } else {
-                return 24f - 4f * 4;
+                return 24f - 4f * 4
             }
         }
 
@@ -744,19 +764,25 @@ public class BleFragment extends Fragment {
          * @param targetModel 选择数据来源的BluetoothDeviceModel实例
          * @param deviceIcon 对该ImageView实例执行配置
          */
-        private void configImageViewDeviceIcon(BluetoothDeviceModel targetModel, ImageView deviceIcon) {
-            int iconID = targetModel.getIconID();
-            Bitmap iconBitmap = null;
-            try (InputStream iconInput = requireActivity().getAssets().open("bluetoothdeviceicon/btac" + iconID + ".png")) {
-                iconBitmap = BitmapFactory.decodeStream(iconInput);
-                if (iconBitmap == null) {
-                    deviceIcon.setImageResource(R.drawable.ble);
-                }
-            } catch (IOException e) {
-                deviceIcon.setImageResource(R.drawable.ble);
+        private fun configImageViewDeviceIcon(
+            targetModel: BluetoothDeviceModel?,
+            deviceIcon: ImageView?
+        ) {
+            val iconID = targetModel!!.iconID
+            var iconBitmap: Bitmap? = null
+            try {
+                requireActivity().assets.open("bluetoothdeviceicon/btac$iconID.png")
+                    .use { iconInput ->
+                        iconBitmap = BitmapFactory.decodeStream(iconInput)
+                        if (iconBitmap == null) {
+                            deviceIcon!!.setImageResource(R.drawable.ble)
+                        }
+                    }
+            } catch (e: IOException) {
+                deviceIcon!!.setImageResource(R.drawable.ble)
             }
             if (iconBitmap != null) {
-                deviceIcon.setImageBitmap(iconBitmap);
+                deviceIcon!!.setImageBitmap(iconBitmap)
             }
         }
 
@@ -767,27 +793,24 @@ public class BleFragment extends Fragment {
          * @param sizeSP 字体大小,单位sp
          */
         @SuppressLint("MissingPermission")
-        private void configTextViewDeviceName(BluetoothDeviceModel targetModel, TextView deviceName, float sizeSP) {
-            String name = null;
-            if (targetModel.getDevice() != null) {
-                name = targetModel.getDevice().getName();
+        private fun configTextViewDeviceName(
+            targetModel: BluetoothDeviceModel?,
+            deviceName: TextView?,
+            sizeSP: Float
+        ) {
+            var name: String? = null
+            if (targetModel!!.device != null) {
+                name = targetModel.device!!.name
             }
             if (name == null) {
-                deviceName.setText(getString(R.string.unknown_device_chinese));
+                deviceName!!.text = getString(R.string.unknown_device_chinese)
             } else {
                 //确定显示的字符尺寸
-                deviceName.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSP);
-                deviceName.setText(name);
+                deviceName!!.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSP)
+                deviceName.text = name
             }
         }
-
     }
-
-    //用户操作枚举-->
-    final static byte WANT_START_CONTROL = 1;//开始设备控制
-    final static byte WANT_ADD_TO_DEVICE = 2;//添加入"设备"
-    final static byte WANT_STICK_TO_TOP = 3;//置顶,移动到列表顶部
-    final static byte WANT_NONE = 4;//无操作
 
     /**
      * 对扫描结果条目运行需要的操作,执行操作就会将设备信息加入数据库
@@ -796,104 +819,102 @@ public class BleFragment extends Fragment {
      * @param position 选择操作的模型单元在list的位置
      * @param context  上下文,可以使用Activity作为上下文
      */
-    public void scanResultItemOperationRun(byte want, int position, Context context) {
+    fun scanResultItemOperationRun(want: Byte, position: Int, context: Context?) {
         if (want == WANT_NONE) {
-            return;
+            return
         }
 
         //添加设备数据到数据库并继续处理-在独立线程执行
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                BluetoothDeviceModel targetModel = null;
-                targetModel = scanResultRecyclerViewAdapter.getModelList().get(position);//获取要读取操作列表中的的deviceModel实例
+        Thread(object : Runnable {
+            override fun run() {
+                var targetModel: BluetoothDeviceModel? = null
+                targetModel =
+                    scanResultRecyclerViewAdapter!!.modelList!![position] //获取要读取操作列表中的的deviceModel实例
                 if (targetModel == null) {
-                    return;
+                    return
                 }
                 try {
-                    String confirmSha256 = AddToBleDeviceMainDatabase(targetModel, context);//插入或更新到数据库
+                    val confirmSha256 =
+                        MainActivity.addToBleDeviceMainDatabase(targetModel, context) //插入或更新到数据库
                     if (confirmSha256 != null) {
                         //确定加入数据库的数据未发生错误或篡改
-                        if (targetModel.getDeviceSha256().equals(confirmSha256)) {
-
-                            BluetoothDeviceModel finalTargetModel = targetModel;
+                        if ((targetModel.deviceSha256 == confirmSha256)) {
+                            val finalTargetModel: BluetoothDeviceModel = targetModel
 
                             //在主线程执行
-                            Handler handler = new Handler(Looper.getMainLooper());
-                            Runnable taskMainThread = new Runnable() {
-                                @Override
-                                public void run() {
+                            val handler = Handler(Looper.getMainLooper())
+                            val taskMainThread: Runnable = object : Runnable {
+                                override fun run() {
                                     //执行用户需要的操作
-                                    switch (want) {
-                                        case WANT_ADD_TO_DEVICE: {
-
-                                        }
-                                        break;
-                                        case WANT_STICK_TO_TOP: {
-                                            if (position >= 0 && position < scanResultRecyclerViewAdapter.getModelList().size()) {
+                                    when (want) {
+                                        WANT_ADD_TO_DEVICE -> {}
+                                        WANT_STICK_TO_TOP -> {
+                                            if (position >= 0 && position < scanResultRecyclerViewAdapter!!.modelList!!.size) {
                                                 if (isAllowNotifyChanged.get()) {
-                                                    BluetoothDeviceModel targetItem = scanResultRecyclerViewAdapter.getModelList().remove(position);
-                                                    scanResultRecyclerViewAdapter.getModelList().add(0, targetItem);
+                                                    val targetItem =
+                                                        scanResultRecyclerViewAdapter!!.modelList!!.removeAt(
+                                                            position
+                                                        )
+                                                    scanResultRecyclerViewAdapter!!.modelList!!.add(
+                                                        0,
+                                                        targetItem
+                                                    )
                                                     //完成置顶效果需要RecyclerView刷新显示
-                                                    scanResultRecyclerViewAdapter.notifyItemMoved(position, 0);
-                                                    scanResultRecyclerViewAdapter.notifyItemChanged(0);
+                                                    scanResultRecyclerViewAdapter!!.notifyItemMoved(
+                                                        position,
+                                                        0
+                                                    )
+                                                    scanResultRecyclerViewAdapter!!.notifyItemChanged(
+                                                        0
+                                                    )
                                                     if (position != 0) {
-                                                        scanResultRecyclerViewAdapter.notifyItemChanged(1);//更新被挤下去的条目
+                                                        scanResultRecyclerViewAdapter!!.notifyItemChanged(
+                                                            1
+                                                        ) //更新被挤下去的条目
                                                     }
                                                 }
                                             }
                                         }
-                                        break;
-                                        case WANT_START_CONTROL: {
-                                            BluetoothScanStop();
-                                            bleFragmentRunWant.startControl(finalTargetModel.getDevice(), finalTargetModel.getDeviceSha256());
-                                            finalTargetModel.setControlBaseBluetooth(bleFragmentRunWant.getControlBaseBluetooth(finalTargetModel.getDeviceSha256()));
+
+                                        WANT_START_CONTROL -> {
+                                            BluetoothScanStop()
+                                            bleFragmentRunWant!!.startControl(
+                                                finalTargetModel.device,
+                                                finalTargetModel.deviceSha256
+                                            )
+                                            finalTargetModel.controlBaseBluetooth =
+                                                bleFragmentRunWant!!.getControlBaseBluetooth(
+                                                    finalTargetModel.deviceSha256
+                                                )
                                         }
-                                        break;
                                     }
                                 }
-                            };
-                            handler.post(taskMainThread);
+                            }
+                            handler.post(taskMainThread)
                         }
-
                     }
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                } catch (e: InterruptedException) {
+                    throw RuntimeException(e)
                 }
             }
-        }).start();
+        }).start()
     }
 
     /**
      * (内部回归主线程处理)清除蓝牙设备列表并请求列表刷新
      */
-    public void DevicesListClearBluetooth() {
-        Handler handler = new Handler(Looper.getMainLooper());
-        handler.post(new Runnable() {
+    fun DevicesListClearBluetooth() {
+        val handler = Handler(Looper.getMainLooper())
+        handler.post(object : Runnable {
             @SuppressLint("NotifyDataSetChanged")
-            @Override
-            public void run() {
+            override fun run() {
                 if (scanResultRecyclerViewAdapter != null) {
-                    scanResultRecyclerViewAdapter.getModelList().clear();
-                    scanResultRecyclerViewAdapter.notifyDataSetChanged();
+                    scanResultRecyclerViewAdapter!!.modelList!!.clear()
+                    scanResultRecyclerViewAdapter!!.notifyDataSetChanged()
                 }
             }
-        });
+        })
     }
-
-    /**
-     * (用于开发测试)根据时间生成伪设备SHA-256
-     */
-    public static String FetchFakeSha256ByTime() {
-        long timestamp = System.currentTimeMillis();
-        //填充到byte数组,低位到高位
-        byte[] rawCode = new byte[8];
-        for (int i = 0; i < 8; i++) {
-            rawCode[i] = (byte) (timestamp >> 8 * i);
-        }
-        return BluetoothAD.RawCodeFetchSha256String(rawCode);
-    }
-
 
     /**
      * (用于开发测试)测试蓝牙设备看板,将虚拟一个蓝牙设备存储到列表,测试功能,其中BluetoothDevice设置为空
@@ -901,98 +922,102 @@ public class BleFragment extends Fragment {
      * @param deviceDistance 设备距离
      * @param iconID         设备外观图标ID
      */
-    public void TestAddBluetoothDeviceRecyclerView(int deviceDistance, int iconID) {
+    fun TestAddBluetoothDeviceRecyclerView(deviceDistance: Int, iconID: Int) {
         //根据时间生成伪设备SHA-256
-        String sha256 = FetchFakeSha256ByTime();
-        if (sha256 == null) {
-            return;
-        }
+        val sha256: String = FetchFakeSha256ByTime() ?: return
         //创建设备模型
-        BluetoothDeviceModel deviceModel =
-                new BluetoothDeviceModel(null, deviceDistance, iconID, sha256);//生成这个蓝牙设备的基本信息模型
+        val deviceModel =
+            BluetoothDeviceModel(null, deviceDistance, iconID, sha256) //生成这个蓝牙设备的基本信息模型
         //缓存到RecyclerView适配器内部列表
-        int index = scanResultRecyclerViewAdapter.getItemCount();
-        scanResultRecyclerViewAdapter.getModelList().add(index, deviceModel);//添加信息到公共的表,RecyclerView将利用表中信息显示
-        scanResultRecyclerViewAdapter.notifyItemInserted(index);//提示信息更新,需要RecyclerView刷新显示
+        val index = scanResultRecyclerViewAdapter!!.itemCount
+        scanResultRecyclerViewAdapter!!.modelList!!.add(
+            index,
+            deviceModel
+        ) //添加信息到公共的表,RecyclerView将利用表中信息显示
+        scanResultRecyclerViewAdapter!!.notifyItemInserted(index) //提示信息更新,需要RecyclerView刷新显示
     }
 
 
     ////UI-主界面-BLE-MainTextViewBLE
-    private TextView MainTextViewBLE = null;
-    private ObjectAnimator fadeOutMainTextViewBLE = null;
-    private ObjectAnimator fadeInMainTextViewBLE = null;
+    private var MainTextViewBLE: TextView? = null
+    private var fadeOutMainTextViewBLE: ObjectAnimator? = null
+    private var fadeInMainTextViewBLE: ObjectAnimator? = null
 
-    private void InitMainTextViewBLE(View view) {
+    private fun InitMainTextViewBLE(view: View) {
         //获取实例
-        MainTextViewBLE = view.findViewById(R.id.main_text_in_ble);
+        MainTextViewBLE = view.findViewById(R.id.main_text_in_ble)
         //创建消隐动画效果
-        fadeOutMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE, "alpha", 1F, 0F);
-        fadeOutMainTextViewBLE.setDuration(5000);
+        fadeOutMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE, "alpha", 1f, 0f)
+        fadeOutMainTextViewBLE.setDuration(5000)
         //创建淡入动画效果
-        fadeInMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE, "alpha", 0F, 1F);
-        fadeInMainTextViewBLE.setDuration(2000);
+        fadeInMainTextViewBLE = ObjectAnimator.ofFloat(MainTextViewBLE, "alpha", 0f, 1f)
+        fadeInMainTextViewBLE.setDuration(2000)
     }
 
 
     ////UI-蓝牙扫描动画
-    private View AnimationBluetoothScanning = null;
+    private var AnimationBluetoothScanning: View? = null
 
-    private void InitAnimationBluetoothScanning(View view) {
-        AnimationBluetoothScanning = view.findViewById(R.id.scan_state_indicator_in_ble);
+    private fun InitAnimationBluetoothScanning(view: View) {
+        AnimationBluetoothScanning = view.findViewById(R.id.scan_state_indicator_in_ble)
     }
 
 
     ///UI-蓝牙扫描操作控制(基于动画实例)
-    private GestureDetector gestureMainText = null;
+    private var gestureMainText: GestureDetector? = null
 
-    private class ListenerGestureMainText extends GestureDetector.SimpleOnGestureListener {
-        @Override
-        public boolean onFling(@Nullable MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
-            super.onFling(e1, e2, velocityX, velocityY);
+    private inner class ListenerGestureMainText() : SimpleOnGestureListener() {
+        override fun onFling(
+            e1: MotionEvent?,
+            e2: MotionEvent,
+            velocityX: Float,
+            velocityY: Float
+        ): Boolean {
+            super.onFling(e1, e2, velocityX, velocityY)
 
-            fadeInMainTextViewBLE.start();
+            fadeInMainTextViewBLE!!.start()
 
             //如果以水平滑动为主
-            if (Math.abs(velocityX) > Math.abs(velocityY)) {
+            if (abs(velocityX.toDouble()) > abs(velocityY.toDouble())) {
                 if (!isScanningBluetooth) {
-                    BluetoothScanStart();//扫描启动
+                    BluetoothScanStart() //扫描启动
                 }
-            } else {//如果以垂直滑动为主
+            } else { //如果以垂直滑动为主
                 if (isScanningBluetooth) {
-                    BluetoothScanStop();
+                    BluetoothScanStop()
                 }
             }
-            return true;
+            return true
         }
 
-        @Override
-        public boolean onDown(@NonNull MotionEvent e) {//如果为点击
-            super.onDown(e);
+        override fun onDown(e: MotionEvent): Boolean { //如果为点击
+            super.onDown(e)
 
 
             if (isScanningBluetooth) {
-                MainTextViewBLE.setText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese));
+                MainTextViewBLE!!.text =
+                    getString(R.string.vertical_slide_text_to_stop_sacn_chinese)
             } else {
-                MainTextViewBLE.setText(getString(R.string.horizontal_slide_text_to_start_sacn_chinese));
+                MainTextViewBLE!!.text =
+                    getString(R.string.horizontal_slide_text_to_start_sacn_chinese)
             }
 
-            fadeInMainTextViewBLE.start();
-            return true;
+            fadeInMainTextViewBLE!!.start()
+            return true
         }
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private void InitGestureMainText(View view) {
-        gestureMainText = new GestureDetector(requireActivity(), new ListenerGestureMainText());
-        View detectView = view.findViewById(R.id.main_text_in_ble);
+    private fun InitGestureMainText(view: View) {
+        gestureMainText = GestureDetector(requireActivity(), ListenerGestureMainText())
+        val detectView = view.findViewById<View>(R.id.main_text_in_ble)
 
-        detectView.setOnTouchListener(new View.OnTouchListener() {
+        detectView.setOnTouchListener(object : OnTouchListener {
             @SuppressLint("ClickableViewAccessibility")
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                return gestureMainText.onTouchEvent(motionEvent);
+            override fun onTouch(view: View, motionEvent: MotionEvent): Boolean {
+                return gestureMainText!!.onTouchEvent(motionEvent)
             }
-        });
+        })
     }
 
     /**
@@ -1000,13 +1025,41 @@ public class BleFragment extends Fragment {
      *
      * @param view onCreateView返回的根视图实例
      */
-    private void InitBleFragmentUI(View view) {
-        InitAnimationBluetoothScanning(view);
-        InitMainTextViewBLE(view);
+    private fun InitBleFragmentUI(view: View) {
+        InitAnimationBluetoothScanning(view)
+        InitMainTextViewBLE(view)
 
-        InitGestureMainText(view);
-
+        InitGestureMainText(view)
     }
 
 
+    companion object {
+        @JvmStatic
+        fun newInstance(): BleFragment {
+            val fragment = BleFragment()
+            val args = Bundle()
+
+            fragment.arguments = args
+            return fragment
+        }
+
+        //用户操作枚举-->
+        val WANT_START_CONTROL: Byte = 1 //开始设备控制
+        val WANT_ADD_TO_DEVICE: Byte = 2 //添加入"设备"
+        val WANT_STICK_TO_TOP: Byte = 3 //置顶,移动到列表顶部
+        val WANT_NONE: Byte = 4 //无操作
+
+        /**
+         * (用于开发测试)根据时间生成伪设备SHA-256
+         */
+        fun FetchFakeSha256ByTime(): String {
+            val timestamp = System.currentTimeMillis()
+            //填充到byte数组,低位到高位
+            val rawCode = ByteArray(8)
+            for (i in 0..7) {
+                rawCode[i] = (timestamp shr (8 * i)).toByte()
+            }
+            return BluetoothAD.RawCodeFetchSha256String(rawCode)
+        }
+    }
 }

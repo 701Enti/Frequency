@@ -60,7 +60,7 @@ public class BluetoothControl {
         this.deviceSha256 = deviceSha256;
         this.deviceName = deviceName;
         this.callback = callback;
-        this.bluetoothGuess = new BluetoothGuess(callback.getStandardSync());
+        this.bluetoothGuess = new BluetoothGuess(callback.provideStandardSync());
 
         new Thread(() -> {
             //遍历存储设备所有特征到controlModelList
@@ -421,7 +421,7 @@ public class BluetoothControl {
          *
          * @return StandardSync实例
          */
-        public StandardSync getStandardSync();
+        public StandardSync provideStandardSync();
 
         /**
          * 获取GATT的状态

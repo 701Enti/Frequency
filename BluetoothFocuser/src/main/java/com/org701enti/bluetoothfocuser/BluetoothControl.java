@@ -417,10 +417,10 @@ public class BluetoothControl {
     public interface BluetoothGattDataAccessCallback {
 
         /**
-         * 获取StandardSync实例
-         *
-         * @return StandardSync实例
+         * 提供StandardSync(不能为null)
+         * @return StandardSync实例(不为null)
          */
+        @NonNull
         public StandardSync provideStandardSync();
 
         /**

@@ -168,7 +168,7 @@ class ControlFragment : Fragment() {
 
     ////[GridView适配器]蓝牙内部生成式UI适配器,用于Grid展示的适配
     inner class BluetoothInnerUiAdapter : BaseAdapter() {
-        private lateinit var unitList : MutableList<Any> //显示数据列表
+        private var unitList : MutableList<Any> = emptyList<Any>().toMutableList()//显示数据列表
 
         /**
          * 设置显示数据列表

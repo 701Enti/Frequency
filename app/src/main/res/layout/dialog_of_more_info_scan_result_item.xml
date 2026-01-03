@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:paddingVertical="24dp"
     android:orientation="vertical">
 
     <ImageView
@@ -11,7 +12,7 @@
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="24dp"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="0dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:srcCompat="@drawable/ble" />
@@ -21,7 +22,7 @@
         android:layout_width="wrap_content"
         android:layout_height="48dp"
         android:layout_marginStart="24dp"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="0dp"
         android:gravity="center"
         android:text="@string/device_name_english"
         android:textColor="@color/black"
@@ -125,8 +126,8 @@
                 app:iconGravity="textTop"
                 app:iconTint="@color/dark_gray" />
 
-            <androidx.compose.ui.platform.ComposeView
-                android:id="@+id/start_control_loading_in_dialog_of_more_info_scan_result_item"
+            <FrameLayout
+                android:id="@+id/container_of_start_control_loading_in_dialog_of_more_info_scan_result_item"
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:layout_gravity="center"
@@ -171,7 +172,7 @@
             android:layout_height="match_parent" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/undo_button_in_dialog_of_more_info_scan_result_item"
+            android:id="@+id/dismiss_button_in_dialog_of_more_info_scan_result_item"
             style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
             android:layout_width="64dp"
             android:layout_height="64dp"

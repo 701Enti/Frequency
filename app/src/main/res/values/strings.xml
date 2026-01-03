@@ -16,13 +16,14 @@
     <string name="vertical_slide_text_to_stop_sacn_chinese">上下滑动文字以停止扫描</string>
     <string name="horizontal_slide_text_to_start_sacn_chinese">左右滑动文字来启动扫描</string>
     <string name="meter_chinese">米</string>
-    <string name="error_chinese">异常</string>
-    <string name="user_device_hardware_unsupport">抱歉,您的设备的硬件当前可能无法支持所需操作</string>
+    <string name="error_chinese">错误</string>
+    <string name="bluetooth_support_lack_chinese">缺少蓝牙支持</string>
+    <string name="user_device_hardware_not_support_chinese">您的设备的硬件目前不支持所需操作</string>
     <string name="cancel_chinese">取消</string>
     <string name="return_app_chinese">退出APP</string>
-    <string name="tag_ble_main_transaction">TagBleMainTransaction</string>
-    <string name="tag_control_main_transaction">TagControlMainTransaction</string>
-    <string name="please_continue_when_bluetooth_enabled_chinese">您现在可以继续操作</string>
+    <string name="ble_fragment">BleFragment</string>
+    <string name="control_fragment">ControlFragment</string>
+    <string name="please_continue_control_chinese">您现在可以继续操作</string>
     <string name="return_chinese">返回</string>
     <string name="add_chinese">添加</string>
     <string name="stick_to_top_chinese">置顶</string>
@@ -34,4 +35,5 @@
     <string name="insert_chinese">插入</string>
     <string name="update_chinese">更新</string>
     <string name="connected_chinese">已连接</string>
+    <string name="control_plate_deployed">控制面板部署完成</string>
 </resources>

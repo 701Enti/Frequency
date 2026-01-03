@@ -70,23 +70,20 @@ class MainActivity : AppCompatActivity() {
 
     //全局事件类型
     //基本事件类型,建议继承以适配相关通用型业务
-    abstract class BaseEvent(val makerId: String, val makerState: Int) {
+    abstract class BaseEvent(val makerId: String, val makerState: Int,val eventType: String?) {
         val makeTimestamp: Long = System.currentTimeMillis()
     }
 
     //设备状态相关事件类型
     class DeviceStateEvent(makerId: String, makerState: Int) :
-        BaseEvent(makerId, makerState) {
+        BaseEvent(makerId, makerState,MainActivity.DeviceStateEvent::class.simpleName) {
         companion object {
             //状态唯一决定,不同时对于两个或多个状态
-            //连接中 -> 已连接 -> 控制面板部署中 -> 控制面板部署完成
-            //正在断开连接 -> 连接已断开
-            const val DEVICE_STATE_CONNECTING: Int = 100 //连接中
-            const val DEVICE_STATE_CONNECTED: Int = 101 //已连接
-            const val DEVICE_STATE_DISCONNECTING: Int = 102 //正在断开连接
-            const val DEVICE_STATE_DISCONNECTED: Int = 103 //连接已断开
-            const val DEVICE_STATE_CONTROL_PLATE_DEPLOYING: Int = 104 //控制面板部署中
-            const val DEVICE_STATE_CONTROL_PLATE_DEPLOYED: Int = 105 //控制面板部署完成
+            //已连接 -> 控制面板部署中 -> 控制面板部署完成
+            const val DEVICE_STATE_CONNECTED: Int = 100 //已连接
+            const val DEVICE_STATE_DISCONNECTED: Int = 101 //连接已断开
+            const val DEVICE_STATE_CONTROL_PLATE_DEPLOYING: Int = 102 //控制面板部署中
+            const val DEVICE_STATE_CONTROL_PLATE_DEPLOYED: Int = 103 //控制面板部署完成
         }
     }
 
@@ -231,6 +228,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
 
+//            val fragment : BleFragment = (BleFragment) supportFragmentManager.findFragmentByTag(getString(R.string.ble_fragment))
 
         }
 
@@ -242,13 +240,6 @@ class MainActivity : AppCompatActivity() {
             gattState = newState
 
             when (newState) {
-                BluetoothGatt.STATE_CONNECTING -> DEVICE_STATE_EVENT_BUS.post(
-                    DeviceStateEvent(
-                        deviceSha256Bluetooth,
-                        DeviceStateEvent.DEVICE_STATE_CONNECTING
-                    )
-                )
-
                 BluetoothGatt.STATE_CONNECTED -> {
                     DEVICE_STATE_EVENT_BUS.post(
                         DeviceStateEvent(
@@ -266,13 +257,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     gatt.discoverServices() //如果状态为已经连接,就扫描服务
                 }
-
-                BluetoothGatt.STATE_DISCONNECTING -> DEVICE_STATE_EVENT_BUS.post(
-                    DeviceStateEvent(
-                        deviceSha256Bluetooth,
-                        DeviceStateEvent.DEVICE_STATE_DISCONNECTING
-                    )
-                )
 
                 BluetoothGatt.STATE_DISCONNECTED -> DEVICE_STATE_EVENT_BUS.post(
                     DeviceStateEvent(
@@ -397,6 +381,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             return null
+        }
+
+        override fun provideStandardSync(): StandardSync {
+            return standardSync
         }
     }
 
@@ -556,20 +544,19 @@ class MainActivity : AppCompatActivity() {
 
         //配置fragment
         if (savedInstanceState == null) {
-            managerFragmentMain = supportFragmentManager
-            val fragmentTransaction = managerFragmentMain.beginTransaction()
+            val fragmentTransaction = supportFragmentManager.beginTransaction()
 
             val bleFragment = BleFragment.newInstance()
             val controlFragment = ControlFragment.newInstance()
             fragmentTransaction.add(
                 R.id.main_fragment_container_in_main,
                 bleFragment,
-                getString(R.string.tag_ble_main_transaction)
+                getString(R.string.ble_fragment)
             )
             fragmentTransaction.add(
                 R.id.main_fragment_container_in_main,
                 controlFragment,
-                getString(R.string.tag_control_main_transaction)
+                getString(R.string.control_fragment)
             )
             fragmentTransaction.hide(bleFragment)
             fragmentTransaction.hide(controlFragment)
@@ -612,20 +599,20 @@ class MainActivity : AppCompatActivity() {
             }
 
             //主线程执行
-            hideFragment(getString(R.string.tag_ble_main_transaction))
+            hideFragment(getString(R.string.ble_fragment))
 
             when (item.itemId) {
                 R.id.NavigationDevice -> {}
                 R.id.NavigationBLE -> {
-                    hideFragment(getString(R.string.tag_control_main_transaction))
-                    showFragment(getString(R.string.tag_ble_main_transaction))
+                    hideFragment(getString(R.string.control_fragment))
+                    showFragment(getString(R.string.ble_fragment))
                 }
 
                 R.id.NavigationControl -> {
-                    hideFragment(getString(R.string.tag_ble_main_transaction))
-                    showFragment(getString(R.string.tag_control_main_transaction))
+                    hideFragment(getString(R.string.ble_fragment))
+                    showFragment(getString(R.string.control_fragment))
                     val obj =
-                        getFragment(getString(R.string.tag_control_main_transaction))
+                        getFragment(getString(R.string.control_fragment))
                     if (obj is ControlFragment) {
                         val runWant: ControlFragmentRunWant = obj.controlFragmentRunWant
                         obj.consoleShowBluetooth(runWant.controlBaseListBluetooth[0])
@@ -739,7 +726,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         ////全局事件总线单例
         val DEVICE_STATE_EVENT_BUS: EventBus = EventBus.builder().build()
-
 
         ////权限检查和提取
         val AndroidVersion: Int = Build.VERSION.SDK_INT

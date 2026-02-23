@@ -21,7 +21,6 @@
 //        SOFTWARE.
 package com.org701enti.frealicane
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.bluetooth.BluetoothDevice
@@ -32,7 +31,6 @@ import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -44,13 +42,13 @@ import android.view.MenuItem
 import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.FragmentManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
+import com.hjq.permissions.XXPermissions
+import com.hjq.permissions.permission.PermissionLists
 import com.org701enti.bluetoothfocuser.BluetoothControl
 import com.org701enti.bluetoothfocuser.BluetoothControl.BluetoothGattDataAccessCallback
 import com.org701enti.bluetoothfocuser.BluetoothUI
@@ -66,17 +64,17 @@ import java.util.concurrent.atomic.AtomicReference
 
 class MainActivity : AppCompatActivity() {
     var logTag: String = "MainActivity"
-    private lateinit var standardSync: StandardSync
+    private var standardSync: StandardSync? = null
 
     //全局事件类型
     //基本事件类型,建议继承以适配相关通用型业务
-    abstract class BaseEvent(val makerId: String, val makerState: Int,val eventType: String?) {
+    abstract class BaseEvent(val makerId: String, val makerState: Int, val eventType: String?) {
         val makeTimestamp: Long = System.currentTimeMillis()
     }
 
     //设备状态相关事件类型
     class DeviceStateEvent(makerId: String, makerState: Int) :
-        BaseEvent(makerId, makerState,MainActivity.DeviceStateEvent::class.simpleName) {
+        BaseEvent(makerId, makerState, MainActivity.DeviceStateEvent::class.simpleName) {
         companion object {
             //状态唯一决定,不同时对于两个或多个状态
             //已连接 -> 控制面板部署中 -> 控制面板部署完成
@@ -117,7 +115,7 @@ class MainActivity : AppCompatActivity() {
 
         //BluetoothControl.BluetoothGattDataAccessCallback实现
         override fun provideStandardSync(): StandardSync {
-            return standardSync
+            return standardSync!!
         }
 
         override fun getGattState(): Int {
@@ -210,7 +208,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         characteristic.setValue(data)
                         characteristic.writeType = writeType
-                        return gatt?.writeCharacteristic(characteristic) ?:false
+                        return gatt?.writeCharacteristic(characteristic) ?: false
                     }
                 }
             }
@@ -227,9 +225,6 @@ class MainActivity : AppCompatActivity() {
                     )
                 )
             }
-
-//            val fragment : BleFragment = (BleFragment) supportFragmentManager.findFragmentByTag(getString(R.string.ble_fragment))
-
         }
 
 
@@ -384,149 +379,51 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun provideStandardSync(): StandardSync {
-            return standardSync
+            return standardSync!!
         }
     }
 
-    inner class ControlFragmentFunctionRun(override var controlBaseListBluetooth: List<ControlBaseBluetooth>) : ControlFragmentRunWant
+    inner class ControlFragmentFunctionRun(override var controlBaseListBluetooth: List<ControlBaseBluetooth>) :
+        ControlFragmentRunWant
+
+    //权限管理
+    /**
+     * 检查蓝牙权限授予状态,如果未授予且未被拒绝,请求用户授予
+     */
+    fun bluetoothPermissionCheck(){
+        XXPermissions.with(this)
+            .permission(PermissionLists.getAccessFineLocationPermission())
+            .permission(PermissionLists.getAccessCoarseLocationPermission())
+            .permission(PermissionLists.getBluetoothScanPermission())
+            .permission(PermissionLists.getBluetoothConnectPermission())
+            .permission(PermissionLists.getBluetoothAdvertisePermission())
+            .request { _, deniedList ->
+                if (deniedList.isNotEmpty()) {
+                    //显示一个提示框,希望用户改变主意
+                    val builder = AlertDialog.Builder(this)
+                    builder.setTitle(R.string.hint_chinese)
+                    builder.setMessage(R.string.app_need_permission_chinese)
+                    //配置授予按钮
+                    builder.setPositiveButton(R.string.give_chinese) { _, _ ->
+                        val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                    }
+                    val dialog = builder.create()
+                    dialog.show() //弹出提示框
+                }
+            }
+    }
+
 
     //Fragment需求操作实例的分配
     val bleFragmentFunctionRun: BleFragmentFunctionRun = BleFragmentFunctionRun()
-    val controlFragmentFunctionRun: ControlFragmentFunctionRun = ControlFragmentFunctionRun(controlBaseListBluetooth)
-
-    //权限相关
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        //        如果用户已经拒绝这个权限请求
-        if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-            //显示一个提示框,希望用户改变主意
-            val builder = AlertDialog.Builder(this)
-            builder.setTitle(R.string.hint_chinese)
-            builder.setMessage(R.string.app_need_permission_chinese)
-            //配置授予按钮
-            builder.setPositiveButton(R.string.give_chinese) { _, _ ->
-                //给用户再次的选择,用户点击"授予",会弹出系统的应用信息,里面有权限管理,但是用户这时可能又矛盾地没有允许对应权限
-                //如果用户一直这样做,最终会一直在当前这个if里循环,直到正式同意权限或点击这里创建的提示框的"拒绝"
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                val uri = Uri.fromParts("package", getString(R.string.package_name), null)
-                intent.setData(uri)
-                startActivity(intent)
-                PermissionRequestingFlag = false //重置请求中标识,关闭独立线程的阻塞
-            }
-            //配置拒绝按钮
-            builder.setNegativeButton(R.string.reject_chinese) { _, _ ->
-                PermissionRequestingFlag = false //重置请求中标识,关闭独立线程的阻塞
-            }
-            val dialog = builder.create()
-            dialog.show() //弹出提示框
-        } else { //如果同意对应请求
-            when (requestCode) {
-                REQUEST_COARSE_LOCATION -> {}
-                REQUEST_FINE_LOCATION -> {}
-                REQUEST_BLUETOOTH_SCAN -> {}
-                REQUEST_BLUETOOTH_ADVERTISE -> {}
-                REQUEST_BLUETOOTH_CONNECT -> {}
-                else -> {}
-            }
-            PermissionRequestingFlag = false //重置请求中标识,关闭独立线程的阻塞
-        }
-    }
-
-    /**
-     * (含阻塞,必须使用非主线程调用)权限检查,如果权限未授予或拒绝,会进行对应权限申请工作
-     *
-     * @param requestCode 权限申请码,参考MainActivity开头的权限申请码定义
-     */
-    @Throws(InterruptedException::class)
-    private fun permissionApplyCheck(requestCode: Int) {
-        //禁止在主线程执行,因为本方法内含阻塞,会阻塞调用线程,应该使用其他非服务线程调用
-        if (Thread.currentThread().name == "main") {
-            throw InterruptedException(getString(R.string.permission_apply_check_threader))
-        }
-        //权限申请时使用主线程请求,调用本方法的线程处理请求时的阻塞,防止连续请求
-        val handler = Handler(Looper.getMainLooper())
-        handler.post {
-            when (requestCode) {
-                REQUEST_COARSE_LOCATION -> if (ContextCompat.checkSelfPermission(
-                        this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    PermissionRequestingFlag = true
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                        requestCode
-                    )
-                }
-
-                REQUEST_FINE_LOCATION -> if (ContextCompat.checkSelfPermission(
-                        this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    PermissionRequestingFlag = true
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                        requestCode
-                    )
-                }
-
-                REQUEST_BLUETOOTH_SCAN -> if (ContextCompat.checkSelfPermission(
-                        this@MainActivity, Manifest.permission.BLUETOOTH_SCAN
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    PermissionRequestingFlag = true
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        ActivityCompat.requestPermissions(
-                            this@MainActivity,
-                            arrayOf(Manifest.permission.BLUETOOTH_SCAN),
-                            requestCode
-                        )
-                    }
-                }
-
-                REQUEST_BLUETOOTH_ADVERTISE -> if (ContextCompat.checkSelfPermission(
-                        this@MainActivity, Manifest.permission.BLUETOOTH_ADVERTISE
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    PermissionRequestingFlag = true
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        ActivityCompat.requestPermissions(
-                            this@MainActivity,
-                            arrayOf(Manifest.permission.BLUETOOTH_ADVERTISE),
-                            requestCode
-                        )
-                    }
-                }
-
-                REQUEST_BLUETOOTH_CONNECT -> if (ContextCompat.checkSelfPermission(
-                        this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    PermissionRequestingFlag = true
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        ActivityCompat.requestPermissions(
-                            this@MainActivity,
-                            arrayOf(Manifest.permission.BLUETOOTH_CONNECT),
-                            requestCode
-                        )
-                    }
-                }
-
-                else -> {}
-            }
-        }
-        while (PermissionRequestingFlag) {
-            Thread.sleep(50)
-        }
-    }
+    val controlFragmentFunctionRun: ControlFragmentFunctionRun =
+        ControlFragmentFunctionRun(controlBaseListBluetooth)
 
     //UI配置调度与Fragment管理
-    private lateinit var managerFragmentMain: FragmentManager
+    private val managerFragmentMain: FragmentManager = supportFragmentManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -573,39 +470,12 @@ class MainActivity : AppCompatActivity() {
     //选择标签的监听
     inner class MainBottomNavigationListener : NavigationBarView.OnItemSelectedListener {
         override fun onNavigationItemSelected(item: MenuItem): Boolean {
-            //独立线程ThreadMainBottomNavView执行
-
-            handlerMainBottomNavView[0]?.post {
-                when (item.itemId) {
-                    R.id.NavigationDevice -> {}
-                    R.id.NavigationBLE -> //权限检查
-                        try {
-                            permissionApplyCheck(REQUEST_FINE_LOCATION)
-                            permissionApplyCheck(REQUEST_COARSE_LOCATION)
-                            if (AndroidVersion >= Build.VERSION_CODES.S) {
-                                permissionApplyCheck(REQUEST_BLUETOOTH_SCAN)
-                                permissionApplyCheck(REQUEST_BLUETOOTH_ADVERTISE)
-                                permissionApplyCheck(REQUEST_BLUETOOTH_CONNECT)
-                            }
-                        } catch (inter: InterruptedException) {
-                            Thread.currentThread().interrupt()
-                        }
-
-                    R.id.NavigationControl -> {}
-                    R.id.NavigationWIFI -> {}
-                    R.id.NavigationMe -> {}
-                    else -> {}
-                }
-            }
-
-            //主线程执行
-            hideFragment(getString(R.string.ble_fragment))
-
             when (item.itemId) {
                 R.id.NavigationDevice -> {}
                 R.id.NavigationBLE -> {
                     hideFragment(getString(R.string.control_fragment))
                     showFragment(getString(R.string.ble_fragment))
+                    bluetoothPermissionCheck()
                 }
 
                 R.id.NavigationControl -> {
@@ -614,7 +484,7 @@ class MainActivity : AppCompatActivity() {
                     val obj =
                         getFragment(getString(R.string.control_fragment))
                     if (obj is ControlFragment) {
-                        val runWant: ControlFragmentRunWant = obj.controlFragmentRunWant
+                        val runWant: ControlFragmentRunWant = obj.controlFragmentRunWant!!
                         obj.consoleShowBluetooth(runWant.controlBaseListBluetooth[0])
                     }
                 }
@@ -645,7 +515,7 @@ class MainActivity : AppCompatActivity() {
      * 隐藏掉指定的Fragment,通过TAG
      *
      * @param tag 在add时注册的TAG
-    */
+     */
     fun hideFragment(tag: String?) {
         val transaction = managerFragmentMain.beginTransaction()
         val fragment = managerFragmentMain.findFragmentByTag(tag)
@@ -726,19 +596,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         ////全局事件总线单例
         val DEVICE_STATE_EVENT_BUS: EventBus = EventBus.builder().build()
-
-        ////权限检查和提取
-        val AndroidVersion: Int = Build.VERSION.SDK_INT
-
-        ////权限申请码定义
-        private const val REQUEST_COARSE_LOCATION = 100
-        private const val REQUEST_FINE_LOCATION = 101
-        private const val REQUEST_BLUETOOTH_SCAN = 102
-        private const val REQUEST_BLUETOOTH_ADVERTISE = 103
-        private const val REQUEST_BLUETOOTH_CONNECT = 104
-
-        ////权限申请标志
-        private var PermissionRequestingFlag = false
 
         /**
          * (含阻塞,请使用非主线程调用)插入或更新到BleDeviceMainDatabase数据库

@@ -69,6 +69,10 @@ dependencies {
     implementation(libs.recyclerview)
     implementation(libs.material)
 
+    //权限管理
+    implementation (libs.devicecompat)
+    implementation (libs.xxpermissions)
+
     //Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -92,14 +96,11 @@ dependencies {
 
     //EventBus事件总线
     implementation(libs.eventbus)
-    ksp(libs.eventbus.annotation.processor)
-    annotationProcessor(libs.eventbus.annotation.processor)
 
-    //测试
+
+//测试
     testImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.espresso.core)
-
-
 
     implementation(project(":BluetoothFocuser"))
 }

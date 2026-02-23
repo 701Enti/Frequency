@@ -16,16 +16,18 @@ compose-compiler = "1.5.10"
 accompanist = "0.34.0"
 lifecycle = "2.7.0"
 eventbus = "3.3.1"
-
-
-
-
+xxpermissions = "28.0"
+devicecompat = "2.3"
 
 
 [libraries]
 #AndroidX Core
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+
+#权限管理
+xxpermissions = { group = "com.github.getActivity", name = "XXPermissions", version.ref = "xxpermissions" }
+devicecompat = { group = "com.github.getActivity", name = "DeviceCompat", version.ref = "devicecompat" }
 
 # Compose
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -69,8 +71,6 @@ snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 
 #数据总线
 eventbus = { group = "org.greenrobot", name = "eventbus", version.ref = "eventbus" }
-eventbus-annotation-processor = { group = "org.greenrobot", name = "eventbus-annotation-processor", version.ref = "eventbus" }
-
 
 
 [plugins]

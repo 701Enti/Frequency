@@ -45,7 +45,7 @@ class ControlFragment : Fragment() {
     var logTag: String = "ControlFragment"
 
     //运行需求
-    lateinit var controlFragmentRunWant: ControlFragmentRunWant
+    var controlFragmentRunWant: ControlFragmentRunWant? = null
 
     interface ControlFragmentRunWant {
         var controlBaseListBluetooth: List<ControlBaseBluetooth>
@@ -75,42 +75,41 @@ class ControlFragment : Fragment() {
         return view
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        controlFragmentRunWant = null
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
     }
 
 
     fun consoleShowBluetooth(base: ControlBaseBluetooth?) {
-        if (base == null) {
-            return
-        }
-        val bluetoothUI = base.bluetoothUI
-        if (bluetoothUI != null) {
-            //针对控制基础的性质配置控制台状态
-            when (bluetoothUI.frameworkType) {
-                StandardSync.FRAMEWORK_INNER_UI -> {
-                    setVisibilityInnerUiConsole(View.VISIBLE)
-                    setVisibilityWebPageConsole(View.GONE)
-                    bluetoothInnerUiAdapter.selectShowAccording(
-                        base.bluetoothUI?.dataList
-                    )
-                    setAdapterBluetoothInnerUi()
-                }
+        val bluetoothUI = base?.bluetoothUI
+        when (bluetoothUI?.frameworkType) {
+            StandardSync.FRAMEWORK_INNER_UI -> {
+                setVisibilityInnerUiConsole(View.VISIBLE)
+                setVisibilityWebPageConsole(View.GONE)
+                bluetoothInnerUiAdapter.selectShowAccording(
+                    base.bluetoothUI?.dataList
+                )
+                setAdapterBluetoothInnerUi()
+            }
 
-                StandardSync.FRAMEWORK_OFFLINE_WEB_PAGE -> {
-                    setVisibilityInnerUiConsole(View.GONE)
-                    setVisibilityWebPageConsole(View.VISIBLE)
-                }
+            StandardSync.FRAMEWORK_OFFLINE_WEB_PAGE -> {
+                setVisibilityInnerUiConsole(View.GONE)
+                setVisibilityWebPageConsole(View.VISIBLE)
+            }
 
-                StandardSync.FRAMEWORK_ONLINE_WEB_PAGE -> {
-                    setVisibilityInnerUiConsole(View.GONE)
-                    setVisibilityWebPageConsole(View.VISIBLE)
-                }
+            StandardSync.FRAMEWORK_ONLINE_WEB_PAGE -> {
+                setVisibilityInnerUiConsole(View.GONE)
+                setVisibilityWebPageConsole(View.VISIBLE)
+            }
 
-                else -> {
-                    setVisibilityInnerUiConsole(View.GONE)
-                    setVisibilityWebPageConsole(View.GONE)
-                }
+            else -> {
+                setVisibilityInnerUiConsole(View.GONE)
+                setVisibilityWebPageConsole(View.GONE)
             }
         }
     }

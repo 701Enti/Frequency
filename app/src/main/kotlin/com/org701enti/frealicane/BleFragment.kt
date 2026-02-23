@@ -64,6 +64,10 @@ import androidx.recyclerview.widget.SimpleItemAnimator
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.hjq.permissions.OnPermissionCallback
+import com.hjq.permissions.XXPermissions
+import com.hjq.permissions.permission.PermissionLists
+import com.hjq.permissions.permission.base.IPermission
 import com.org701enti.bluetoothfocuser.BluetoothAD
 import com.org701enti.bluetoothfocuser.BluetoothAD.AdvertisingStruct
 import com.org701enti.bluetoothfocuser.StandardSync
@@ -85,7 +89,7 @@ class BleFragment() : Fragment() {
     var logTag: String = "BleFragment"
 
     //运行需求
-    lateinit var bleFragmentRunWant: BleFragmentRunWant
+    var bleFragmentRunWant: BleFragmentRunWant? = null
 
     interface BleFragmentRunWant {
         /**
@@ -127,16 +131,18 @@ class BleFragment() : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_ble, container, false)
-
         //初始化其他布局
         initRecyclerViewBluetooth(view)
-
         return view
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        bleFragmentRunWant = null;
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         initBleFragmentUI(view)
     }
 
@@ -349,7 +355,7 @@ class BleFragment() : Fragment() {
             if (isAdded) {
                 if (activity is MainActivity) {
                     //获取StandardSync实例
-                    val standardSync: StandardSync = bleFragmentRunWant.provideStandardSync()
+                    val standardSync: StandardSync = bleFragmentRunWant?.provideStandardSync()!!
                     try {
                         if (standardSync.yamlAdTypes != null) {
                             //使用StandardSync的YamlResolver解析出需要的Value,即当前标准的Appearance的adType数值
@@ -855,12 +861,12 @@ class BleFragment() : Fragment() {
 
                                     WANT_START_CONTROL -> {
                                         bluetoothScanStop()
-                                        bleFragmentRunWant.startControl(
+                                        bleFragmentRunWant?.startControl(
                                             finalTargetModel.device,
                                             finalTargetModel.deviceSha256
                                         )
                                         finalTargetModel.controlBaseBluetooth =
-                                            bleFragmentRunWant.getControlBaseBluetooth(
+                                            bleFragmentRunWant?.getControlBaseBluetooth(
                                                 finalTargetModel.deviceSha256
                                             )
                                     }
@@ -944,6 +950,7 @@ class BleFragment() : Fragment() {
 
     ///UI-蓝牙扫描操作控制
     private var gestureMainText: GestureDetector? = null
+
     private inner class ListenerGestureMainText : SimpleOnGestureListener() {
         override fun onFling(
             e1: MotionEvent?,
@@ -965,6 +972,7 @@ class BleFragment() : Fragment() {
             }
             return true
         }
+
         override fun onDown(e: MotionEvent): Boolean { //如果为点击
             super.onDown(e)
             if (isScanningBluetooth) {
@@ -978,6 +986,7 @@ class BleFragment() : Fragment() {
             return true
         }
     }
+
     @SuppressLint("ClickableViewAccessibility")
     private fun initGestureMainText(view: View) {
         gestureMainText = GestureDetector(requireActivity(), ListenerGestureMainText())
@@ -995,7 +1004,7 @@ class BleFragment() : Fragment() {
      * 在MainTextView显示文本作为告示(显示几秒后会逐渐消失)
      * @param text 填写需要展示的文本
      */
-    public fun showNoticeMainText(text: String){
+    public fun showNoticeMainText(text: String) {
         mainTextViewBLE?.text = text
         fadeInMainTextViewBLE?.start()
     }

@@ -21,7 +21,6 @@
     <string name="user_device_hardware_not_support_chinese">您的设备的硬件目前不支持所需操作</string>
     <string name="cancel_chinese">取消</string>
     <string name="return_app_chinese">退出APP</string>
-    <string name="ble_fragment">BleFragment</string>
     <string name="control_fragment">ControlFragment</string>
     <string name="please_continue_control_chinese">您现在可以继续操作</string>
     <string name="return_chinese">返回</string>

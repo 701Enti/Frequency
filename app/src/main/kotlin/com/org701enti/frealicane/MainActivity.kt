@@ -31,15 +31,14 @@ import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -65,6 +64,111 @@ import java.util.concurrent.atomic.AtomicReference
 class MainActivity : AppCompatActivity() {
     var logTag: String = "MainActivity"
     private var standardSync: StandardSync? = null
+    private var recentBackTime: Long = 0 //上一次点击返回键/触发返回操作的时间
+    private var backPageNameStack = mutableListOf<String>()
+
+    val fragmentNameStart = "DeviceFragment" //App的起始页面
+    val fragmentNavigationIdStart = R.id.NavigationDevice //起始页对应的NavigationID
+    val fragmentSwitchFuncStart = ::switchDeviceFragment
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        this.enableEdgeToEdge()
+        setContentView(R.layout.activity_main)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v: View, insets: WindowInsetsCompat ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
+
+        //初始化standardSync
+        standardSync =
+            StandardSync(StandardSync.STANDARD_ACCORDING_FILE_IN_ASSETS, this@MainActivity)
+
+        //配置fragment
+        if (savedInstanceState == null) {
+            val fragmentTransaction = supportFragmentManager.beginTransaction()
+            fragmentTransaction
+                .add(
+                    R.id.main_fragment_container_in_main,
+                    bleFragment,
+                    "BleFragment"
+                )
+                .add(
+                    R.id.main_fragment_container_in_main,
+                    controlFragment,
+                    "ControlFragment"
+                )
+                .commitNow()
+        }
+
+        //初始化控件
+        initMainBottomNavigation()
+
+        //选择到起始页
+        selectItemMainBottomNavigation(fragmentNavigationIdStart)
+
+
+        //设置返回建逻辑
+        onBackPressedDispatcher.addCallback {
+
+            if (backPageNameStack.size == 1) {
+                if (System.currentTimeMillis() - recentBackTime < 2000) {
+                    finish()
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "再返回一次退出" + getString(R.string.app_name),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    recentBackTime = System.currentTimeMillis()
+                }
+                return@addCallback
+            }
+            else{
+                backPageNameStack.removeLastOrNull()
+            }
+
+            //判断需要返回到的位置
+            val itemId = when (backPageNameStack.lastOrNull()) {
+                "DeviceFragment" -> {
+                    switchDeviceFragment()
+                    R.id.NavigationDevice
+                }
+
+                "BleFragment" -> {
+                    switchBleFragment()
+                    R.id.NavigationBLE
+                }
+
+                "ControlFragment" -> {
+                    switchControlFragment()
+                    R.id.NavigationControl
+                }
+
+                "WIFIFragment" -> {
+                    switchWIFIFragment()
+                    R.id.NavigationWIFI
+                }
+
+                "MeFragment" -> {
+                    switchMeFragment()
+                    R.id.NavigationMe
+                }
+
+                else -> {
+                    fragmentSwitchFuncStart()
+                    fragmentNavigationIdStart
+                }
+            }
+
+            //仅更新UI,临时删除监听,避免触发Selected逻辑导致switch方法意外调用引发返回栈加入操作
+            mainBottomNavView?.setOnItemSelectedListener(null)
+            selectItemMainBottomNavigation(itemId)
+            mainBottomNavView?.setOnItemSelectedListener(MainBottomNavigationListener())
+        }
+    }
+
 
     //全局事件类型
     //基本事件类型,建议继承以适配相关通用型业务
@@ -85,264 +189,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    //蓝牙相关
-    //蓝牙控制基础类的实例列表
-    private val controlBaseListBluetooth: MutableList<ControlBaseBluetooth> = ArrayList()
 
-    /**
-     * 蓝牙控制基础,每个独立唯一设备的控制和回调等相关资源被封装到ControlBaseBluetooth
-     * 将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
-     * 完善之后即可通过get设备的BluetoothControl和BluetoothUI实例,进行控制和用户界面绘制
-     * @param deviceSha256Bluetooth 连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
-     * @param deviceName            连接的蓝牙设备名称,允许为空(因为蓝牙设备的设备名本身可以没有)
-     */
-    inner class ControlBaseBluetooth(deviceName: String?, deviceSha256Bluetooth: String) :
-        BluetoothGattCallback(), BluetoothGattDataAccessCallback {
-        private var gatt: BluetoothGatt? = null //蓝牙BLE-GATT实例
-        private var gattState: Int //蓝牙BLE-GATT实例的状态码
-        private var deviceName: String? = null //连接的蓝牙设备名称,允许为空(因为蓝牙设备的设备名本身可以没有)
-        var deviceSha256Bluetooth: String //连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
-        private var bluetoothControl: BluetoothControl? = null //蓝牙控制实例(仅支持了非用户操作的控制)
-        var bluetoothUI: BluetoothUI? =
-            null //蓝牙用户界面实例(支持有用户界面环境的用户控制,并在内部链接BluetoothControl到View控件或其他控制器)
-            private set
-
-        init {
-            gattState = BluetoothGatt.STATE_DISCONNECTED
-            this.deviceName = deviceName
-            this.deviceSha256Bluetooth = deviceSha256Bluetooth
-        }
-
-        //BluetoothControl.BluetoothGattDataAccessCallback实现
-        override fun provideStandardSync(): StandardSync {
-            return standardSync!!
-        }
-
-        override fun getGattState(): Int {
-            return if (gatt != null) {
-                gattState
-            } else {
-                StandardSync.RESULT_FAIL_UNKNOWN
-            }
-        }
-
-        override fun isDeviceSha256EqualsTo(deviceSha256: String): Boolean {
-            return deviceSha256Bluetooth == deviceSha256
-        }
-
-        override fun getAllServicesBluetoothGatt(deviceSha256: String): List<BluetoothGattService>? {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    return gatt?.services
-                }
-            }
-            return null
-        }
-
-        override fun getThisServiceAllCharacteristicsBluetoothGatt(
-            deviceSha256: String,
-            service: BluetoothGattService
-        ): List<BluetoothGattCharacteristic>? {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    return service.characteristics
-                }
-            }
-            return null
-        }
-
-        override fun getServiceBluetoothGatt(
-            deviceSha256: String,
-            serviceUuid: UUID
-        ): BluetoothGattService? {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    return gatt?.getService(serviceUuid)
-                }
-            }
-            return null
-        }
-
-        override fun getCharacteristicsBluetoothGatt(
-            deviceSha256: String,
-            characteristicUuid: UUID,
-            service: BluetoothGattService
-        ): BluetoothGattCharacteristic? {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    return service.getCharacteristic(characteristicUuid)
-                }
-            }
-            return null
-        }
-
-        @SuppressLint("MissingPermission")
-        override fun readCharacteristic(
-            deviceSha256: String,
-            characteristic: BluetoothGattCharacteristic
-        ): Boolean {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    return gatt?.readCharacteristic(characteristic) ?: false
-                }
-            }
-            return false
-        }
-
-        @SuppressLint("MissingPermission")
-        @Suppress("DEPRECATION")
-        override fun writeCharacteristic(
-            deviceSha256: String,
-            data: ByteArray,
-            writeType: Int,
-            characteristic: BluetoothGattCharacteristic
-        ): Boolean {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        return gatt?.writeCharacteristic(
-                            characteristic,
-                            data,
-                            writeType
-                        ) == BluetoothStatusCodes.SUCCESS
-                    } else {
-                        characteristic.setValue(data)
-                        characteristic.writeType = writeType
-                        return gatt?.writeCharacteristic(characteristic) ?: false
-                    }
-                }
-            }
-            return false
-        }
-
-        override fun onBluetoothControlInitFinished() {
-            bluetoothControl?.let { bluetoothControl ->
-                this.bluetoothUI = BluetoothUI(bluetoothControl, this@MainActivity)
-                DEVICE_STATE_EVENT_BUS.post(
-                    DeviceStateEvent(
-                        deviceSha256Bluetooth,
-                        DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYED
-                    )
-                )
-            }
-        }
-
-
-        //BluetoothGattCallback实现
-        @SuppressLint("MissingPermission")
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            super.onConnectionStateChange(gatt, status, newState)
-            gattState = newState
-
-            when (newState) {
-                BluetoothGatt.STATE_CONNECTED -> {
-                    DEVICE_STATE_EVENT_BUS.post(
-                        DeviceStateEvent(
-                            deviceSha256Bluetooth,
-                            DeviceStateEvent.DEVICE_STATE_CONNECTED
-                        )
-                    )
-                    if (this.deviceName != null) {
-                        Log.i(logTag, "onConnectionStateChange: 已连接到 - " + this.deviceName)
-                    } else {
-                        Log.i(
-                            logTag,
-                            "onConnectionStateChange: 已连接到 - " + this.deviceSha256Bluetooth
-                        )
-                    }
-                    gatt.discoverServices() //如果状态为已经连接,就扫描服务
-                }
-
-                BluetoothGatt.STATE_DISCONNECTED -> DEVICE_STATE_EVENT_BUS.post(
-                    DeviceStateEvent(
-                        deviceSha256Bluetooth,
-                        DeviceStateEvent.DEVICE_STATE_DISCONNECTED
-                    )
-                )
-
-                else -> {}
-            }
-            this.gatt = gatt //缓存实例引用
-        }
-
-        @SuppressLint("MissingPermission")
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            super.onServicesDiscovered(gatt, status)
-            DEVICE_STATE_EVENT_BUS.post(
-                DeviceStateEvent(
-                    deviceSha256Bluetooth,
-                    DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYING
-                )
-            )
-            bluetoothControl = BluetoothControl(deviceSha256Bluetooth, this.deviceName, this)
-        }
-
-        @Deprecated("Deprecated in Java")
-        @Suppress("DEPRECATION")
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
-        ) {
-            super.onCharacteristicRead(gatt, characteristic, status)
-            if (this.deviceName != null) {
-                Log.i(
-                    logTag,
-                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - " + this.deviceName
-                )
-            } else {
-                Log.i(
-                    logTag,
-                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - " + this.deviceSha256Bluetooth
-                )
-            }
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                bluetoothControl?.dataUpdate(
-                    characteristic.service.uuid,
-                    characteristic.uuid,
-                    characteristic.value
-                )
-            }
-        }
-
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            value: ByteArray,
-            status: Int
-        ) {
-            super.onCharacteristicRead(gatt, characteristic, value, status)
-            if (this.deviceName != null) {
-                Log.i(
-                    logTag,
-                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - " + this.deviceName
-                )
-            } else {
-                Log.i(
-                    logTag,
-                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - " + this.deviceSha256Bluetooth
-                )
-            }
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                bluetoothControl?.dataUpdate(
-                    characteristic.service.uuid,
-                    characteristic.uuid,
-                    value
-                )
-            }
-        }
-
-        override fun onCharacteristicWrite(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
-        ) {
-            super.onCharacteristicWrite(gatt, characteristic, status)
-        }
-    }
-
-
-    //Fragment需求操作实现
+    //BleFragment需求操作实现
     inner class BleFragmentFunctionRun : BleFragmentRunWant {
         @SuppressLint("MissingPermission")
         override fun startControl(device: BluetoothDevice?, sha256: String?) {
@@ -383,215 +231,148 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //ControlFragment需求操作实现
     inner class ControlFragmentFunctionRun(override var controlBaseListBluetooth: List<ControlBaseBluetooth>) :
         ControlFragmentRunWant
 
-    //权限管理
-    /**
-     * 检查蓝牙权限授予状态,如果未授予且未被拒绝,请求用户授予
-     */
-    fun bluetoothPermissionCheck(){
-        XXPermissions.with(this)
-            .permission(PermissionLists.getAccessFineLocationPermission())
-            .permission(PermissionLists.getAccessCoarseLocationPermission())
-            .permission(PermissionLists.getBluetoothScanPermission())
-            .permission(PermissionLists.getBluetoothConnectPermission())
-            .permission(PermissionLists.getBluetoothAdvertisePermission())
-            .request { _, deniedList ->
-                if (deniedList.isNotEmpty()) {
-                    //显示一个提示框,希望用户改变主意
-                    val builder = AlertDialog.Builder(this)
-                    builder.setTitle(R.string.hint_chinese)
-                    builder.setMessage(R.string.app_need_permission_chinese)
-                    //配置授予按钮
-                    builder.setPositiveButton(R.string.give_chinese) { _, _ ->
-                        val intent = Intent(Settings.ACTION_SETTINGS).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        startActivity(intent)
-                    }
-                    val dialog = builder.create()
-                    dialog.show() //弹出提示框
-                }
-            }
-    }
 
+    //蓝牙控制基础类的实例列表
+    private val controlBaseListBluetooth: MutableList<ControlBaseBluetooth> = ArrayList()
 
     //Fragment需求操作实例的分配
     val bleFragmentFunctionRun: BleFragmentFunctionRun = BleFragmentFunctionRun()
     val controlFragmentFunctionRun: ControlFragmentFunctionRun =
         ControlFragmentFunctionRun(controlBaseListBluetooth)
 
-    //UI配置调度与Fragment管理
+    //Fragment管理
     private val managerFragmentMain: FragmentManager = supportFragmentManager
+    val bleFragment = BleFragment.newInstance()
+    val controlFragment = ControlFragment.newInstance()
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        this.enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v: View, insets: WindowInsetsCompat ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-
-        //初始化standardSync
-        standardSync =
-            StandardSync(StandardSync.STANDARD_ACCORDING_FILE_IN_ASSETS, this@MainActivity)
-
-        //配置fragment
-        if (savedInstanceState == null) {
-            val fragmentTransaction = supportFragmentManager.beginTransaction()
-
-            val bleFragment = BleFragment.newInstance()
-            val controlFragment = ControlFragment.newInstance()
-            fragmentTransaction.add(
-                R.id.main_fragment_container_in_main,
-                bleFragment,
-                getString(R.string.ble_fragment)
-            )
-            fragmentTransaction.add(
-                R.id.main_fragment_container_in_main,
-                controlFragment,
-                getString(R.string.control_fragment)
-            )
-            fragmentTransaction.hide(bleFragment)
-            fragmentTransaction.hide(controlFragment)
-            fragmentTransaction.commitNow()
-        }
-
-        initMainUI()
-    }
 
     ////UI-底部导航栏
-    private val handlerMainBottomNavView =
-        arrayOf<Handler?>(null) //缓存ThreadMainBottomNavView线程handler
+    private var mainBottomNavView: BottomNavigationView? = null
 
-    //选择标签的监听
     inner class MainBottomNavigationListener : NavigationBarView.OnItemSelectedListener {
+
         override fun onNavigationItemSelected(item: MenuItem): Boolean {
             when (item.itemId) {
-                R.id.NavigationDevice -> {}
+                R.id.NavigationDevice -> {
+                    switchDeviceFragment()
+                    backPageNameStack.add("DeviceFragment")
+                }
+
                 R.id.NavigationBLE -> {
-                    hideFragment(getString(R.string.control_fragment))
-                    showFragment(getString(R.string.ble_fragment))
-                    bluetoothPermissionCheck()
+                    switchBleFragment()
+                    backPageNameStack.add("BleFragment")
                 }
 
                 R.id.NavigationControl -> {
-                    hideFragment(getString(R.string.ble_fragment))
-                    showFragment(getString(R.string.control_fragment))
-                    val obj =
-                        getFragment(getString(R.string.control_fragment))
-                    if (obj is ControlFragment) {
-                        val runWant: ControlFragmentRunWant = obj.controlFragmentRunWant!!
-                        obj.consoleShowBluetooth(runWant.controlBaseListBluetooth[0])
-                    }
+                    switchControlFragment()
+                    backPageNameStack.add("ControlFragment")
                 }
 
-                R.id.NavigationWIFI -> {}
-                R.id.NavigationMe -> {}
+                R.id.NavigationWIFI -> {
+                    switchWIFIFragment()
+                    backPageNameStack.add("WIFIFragment")
+                }
+
+                R.id.NavigationMe -> {
+                    switchMeFragment()
+                    backPageNameStack.add("MeFragment")
+                }
+
                 else -> {}
             }
             return true
         }
     }
 
+    /**
+     * 底部导航栏选中操作,会触发内部selected逻辑,引发onNavigationItemSelected回调
+     *
+     * @param itemId 输入R.id.Navigation...选择需要的切换
+     */
+    fun selectItemMainBottomNavigation(itemId: Int) {
+        mainBottomNavView?.selectedItemId = itemId
+    }
+
+    /**
+     * 初始化底部导航栏
+     */
     private fun initMainBottomNavigation() {
-        val mainBottomNavView =
-            findViewById<BottomNavigationView>(R.id.main_bottom_navigation_in_main)
-        //创建一个线程处理底部导航栏业务(含Looper)
-        val threadMainBottomNavView = Thread {
-            Looper.prepare()
-            handlerMainBottomNavView[0] = Handler(Looper.myLooper()!!)
-            Looper.loop()
-        }
-        threadMainBottomNavView.start() //启动该线程
-
-        mainBottomNavView.setOnItemSelectedListener(MainBottomNavigationListener())
+        mainBottomNavView = findViewById<BottomNavigationView>(R.id.main_bottom_navigation_in_main)
+        mainBottomNavView?.setOnItemSelectedListener(MainBottomNavigationListener())
     }
 
-    /**
-     * 隐藏掉指定的Fragment,通过TAG
-     *
-     * @param tag 在add时注册的TAG
-     */
-    fun hideFragment(tag: String?) {
+    private fun switchDeviceFragment() {
+
         val transaction = managerFragmentMain.beginTransaction()
-        val fragment = managerFragmentMain.findFragmentByTag(tag)
-        if (fragment != null) {
-            transaction.hide(fragment)
-            transaction.commit()
-        }
+        transaction
+//                .show(deviceFragment)
+            .hide(bleFragment)
+            .hide(controlFragment)
+//                .hide(WIFIFragment)
+//                .hide(MeFragment)
+            .commit()
+
     }
 
-    /**
-     * 隐藏掉指定的Fragment,通过Fragment的容器ID
-     *
-     * @param id  布局文件中设置的Fragment的容器ID
-     */
-    fun hideFragment(id: Int) {
+    private fun switchBleFragment() {
+
         val transaction = managerFragmentMain.beginTransaction()
-        val fragment = managerFragmentMain.findFragmentById(id)
-        if (fragment != null) {
-            transaction.hide(fragment)
-            transaction.commit()
-        }
+        transaction
+//                .hide(deviceFragment)
+            .show(bleFragment)
+            .hide(controlFragment)
+//                .hide(WIFIFragment)
+//                .hide(MeFragment)
+            .commit()
+        bluetoothPermissionCheck()
+
     }
 
-    /**
-     * 显示出指定的Fragment,通过TAG
-     *
-     * @param tag              在add时注册的TAG
-     */
-    fun showFragment(tag: String?) {
+    private fun switchControlFragment() {
+
         val transaction = managerFragmentMain.beginTransaction()
-        val fragment = managerFragmentMain.findFragmentByTag(tag)
-        if (fragment != null) {
-            transaction.show(fragment)
-            transaction.commit()
-        }
+        transaction
+//                .hide(deviceFragment)
+            .hide(bleFragment)
+            .show(controlFragment)
+//                .hide(WIFIFragment)
+//                .hide(MeFragment)
+            .commit()
+        val runWant: ControlFragmentRunWant = controlFragment.controlFragmentRunWant!!
+        controlFragment.consoleShowBluetooth(runWant.controlBaseListBluetooth[0])
+
     }
 
-    /**
-     * 显示出指定的Fragment,通过Fragment的容器ID
-     *
-     * @param id  布局文件中设置的Fragment的容器ID
-     */
-    fun showFragment(id: Int) {
+    private fun switchWIFIFragment() {
+
         val transaction = managerFragmentMain.beginTransaction()
-        val fragment = managerFragmentMain.findFragmentById(id)
-        if (fragment != null) {
-            transaction.show(fragment)
-            transaction.commit()
-        }
+        transaction
+//                .hide(deviceFragment)
+            .hide(bleFragment)
+            .hide(controlFragment)
+//                .show(WIFIFragment)
+//                .hide(MeFragment)
+            .commit()
+
     }
 
-    /**
-     * 获取指定的Fragment,通过TAG
-     *
-     * @param tag              在add时注册的TAG
-     */
-    fun getFragment(tag: String?): Any? {
-        val fragment = managerFragmentMain.findFragmentByTag(tag)
-        return fragment
+    private fun switchMeFragment() {
+
+        val transaction = managerFragmentMain.beginTransaction()
+        transaction
+//                .hide(deviceFragment)
+            .hide(bleFragment)
+            .hide(controlFragment)
+//                .hide(WIFIFragment)
+//                .show(MeFragment)
+            .commit()
+
     }
 
-    /**
-     * 获取指定的Fragment,通过Fragment的容器ID
-     *
-     * @param id  布局文件中设置的Fragment的容器ID
-     */
-    fun getFragment(id: Int): Any? {
-        val fragment = managerFragmentMain.findFragmentById(id)
-        return fragment
-    }
-
-
-    ////主UI
-    private fun initMainUI() {
-        initMainBottomNavigation()
-    }
 
     companion object {
         ////全局事件总线单例
@@ -791,4 +572,293 @@ class MainActivity : AppCompatActivity() {
             }).start()
         }
     }
+
+
+    //蓝牙相关
+    /**
+     * 蓝牙控制基础,每个独立唯一设备的控制和回调等相关资源被封装到ControlBaseBluetooth
+     * 将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
+     * 完善之后即可通过get设备的BluetoothControl和BluetoothUI实例,进行控制和用户界面绘制
+     * @param deviceSha256Bluetooth 连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+     * @param deviceName            连接的蓝牙设备名称,允许为空(因为蓝牙设备的设备名本身可以没有)
+     */
+    inner class ControlBaseBluetooth(deviceName: String?, deviceSha256Bluetooth: String) :
+        BluetoothGattCallback(), BluetoothGattDataAccessCallback {
+        private var gatt: BluetoothGatt? = null //蓝牙BLE-GATT实例
+        private var gattState: Int //蓝牙BLE-GATT实例的状态码
+        private var deviceName: String? = null //连接的蓝牙设备名称,允许为空(因为蓝牙设备的设备名本身可以没有)
+        var deviceSha256Bluetooth: String //连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
+        private var bluetoothControl: BluetoothControl? = null //蓝牙控制实例(仅支持了非用户操作的控制)
+        var bluetoothUI: BluetoothUI? =
+            null //蓝牙用户界面实例(支持有用户界面环境的用户控制,并在内部链接BluetoothControl到View控件或其他控制器)
+            private set
+
+        init {
+            gattState = BluetoothGatt.STATE_DISCONNECTED
+            this.deviceName = deviceName
+            this.deviceSha256Bluetooth = deviceSha256Bluetooth
+        }
+
+        //BluetoothControl.BluetoothGattDataAccessCallback实现
+        override fun provideStandardSync(): StandardSync {
+            return standardSync!!
+        }
+
+        override fun getGattState(): Int {
+            return if (gatt != null) {
+                gattState
+            } else {
+                StandardSync.RESULT_FAIL_UNKNOWN
+            }
+        }
+
+        override fun isDeviceSha256EqualsTo(deviceSha256: String): Boolean {
+            return deviceSha256Bluetooth == deviceSha256
+        }
+
+        override fun getAllServicesBluetoothGatt(deviceSha256: String): List<BluetoothGattService>? {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    return gatt?.services
+                }
+            }
+            return null
+        }
+
+        override fun getThisServiceAllCharacteristicsBluetoothGatt(
+            deviceSha256: String,
+            service: BluetoothGattService
+        ): List<BluetoothGattCharacteristic>? {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    return service.characteristics
+                }
+            }
+            return null
+        }
+
+        override fun getServiceBluetoothGatt(
+            deviceSha256: String,
+            serviceUuid: UUID
+        ): BluetoothGattService? {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    return gatt?.getService(serviceUuid)
+                }
+            }
+            return null
+        }
+
+        override fun getCharacteristicsBluetoothGatt(
+            deviceSha256: String,
+            characteristicUuid: UUID,
+            service: BluetoothGattService
+        ): BluetoothGattCharacteristic? {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    return service.getCharacteristic(characteristicUuid)
+                }
+            }
+            return null
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun readCharacteristic(
+            deviceSha256: String,
+            characteristic: BluetoothGattCharacteristic
+        ): Boolean {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    return gatt?.readCharacteristic(characteristic) ?: false
+                }
+            }
+            return false
+        }
+
+        @SuppressLint("MissingPermission")
+        @Suppress("DEPRECATION")
+        override fun writeCharacteristic(
+            deviceSha256: String,
+            data: ByteArray,
+            writeType: Int,
+            characteristic: BluetoothGattCharacteristic
+        ): Boolean {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        return gatt?.writeCharacteristic(
+                            characteristic,
+                            data,
+                            writeType
+                        ) == BluetoothStatusCodes.SUCCESS
+                    } else {
+                        characteristic.setValue(data)
+                        characteristic.writeType = writeType
+                        return gatt?.writeCharacteristic(characteristic) ?: false
+                    }
+                }
+            }
+            return false
+        }
+
+        override fun onBluetoothControlInitFinished() {
+            bluetoothControl?.let { bluetoothControl ->
+                this.bluetoothUI = BluetoothUI(bluetoothControl, this@MainActivity)
+                DEVICE_STATE_EVENT_BUS.post(
+                    DeviceStateEvent(
+                        deviceSha256Bluetooth,
+                        DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYED
+                    )
+                )
+                runOnUiThread {
+                    selectItemMainBottomNavigation(R.id.NavigationControl)
+                }
+            }
+        }
+
+
+        //BluetoothGattCallback实现
+        @SuppressLint("MissingPermission")
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            super.onConnectionStateChange(gatt, status, newState)
+            gattState = newState
+
+            when (newState) {
+                BluetoothGatt.STATE_CONNECTED -> {
+                    DEVICE_STATE_EVENT_BUS.post(
+                        DeviceStateEvent(
+                            deviceSha256Bluetooth,
+                            DeviceStateEvent.DEVICE_STATE_CONNECTED
+                        )
+                    )
+                    if (this.deviceName != null) {
+                        Log.i(logTag, "onConnectionStateChange: 已连接到 - " + this.deviceName)
+                    } else {
+                        Log.i(
+                            logTag,
+                            "onConnectionStateChange: 已连接到 - " + this.deviceSha256Bluetooth
+                        )
+                    }
+                    gatt.discoverServices() //如果状态为已经连接,就扫描服务
+                }
+
+                BluetoothGatt.STATE_DISCONNECTED -> DEVICE_STATE_EVENT_BUS.post(
+                    DeviceStateEvent(
+                        deviceSha256Bluetooth,
+                        DeviceStateEvent.DEVICE_STATE_DISCONNECTED
+                    )
+                )
+
+                else -> {}
+            }
+            this.gatt = gatt //缓存实例引用
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            super.onServicesDiscovered(gatt, status)
+            DEVICE_STATE_EVENT_BUS.post(
+                DeviceStateEvent(
+                    deviceSha256Bluetooth,
+                    DeviceStateEvent.DEVICE_STATE_CONTROL_PLATE_DEPLOYING
+                )
+            )
+            bluetoothControl = BluetoothControl(deviceSha256Bluetooth, this.deviceName, this)
+        }
+
+        @Deprecated("Deprecated in Java")
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            super.onCharacteristicRead(gatt, characteristic, status)
+            if (this.deviceName != null) {
+                Log.i(
+                    logTag,
+                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - " + this.deviceName
+                )
+            } else {
+                Log.i(
+                    logTag,
+                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了旧版的回调重载 - " + this.deviceSha256Bluetooth
+                )
+            }
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                bluetoothControl?.dataUpdate(
+                    characteristic.service.uuid,
+                    characteristic.uuid,
+                    characteristic.value
+                )
+            }
+        }
+
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+            status: Int
+        ) {
+            super.onCharacteristicRead(gatt, characteristic, value, status)
+            if (this.deviceName != null) {
+                Log.i(
+                    logTag,
+                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - " + this.deviceName
+                )
+            } else {
+                Log.i(
+                    logTag,
+                    "onCharacteristicRead: 接收到读取请求的回复,系统使用了较新的回调重载 - " + this.deviceSha256Bluetooth
+                )
+            }
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                bluetoothControl?.dataUpdate(
+                    characteristic.service.uuid,
+                    characteristic.uuid,
+                    value
+                )
+            }
+        }
+
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            status: Int
+        ) {
+            super.onCharacteristicWrite(gatt, characteristic, status)
+        }
+    }
+
+    //权限管理
+    /**
+     * 检查蓝牙权限授予状态,如果未授予且未被拒绝,请求用户授予
+     */
+    fun bluetoothPermissionCheck() {
+        XXPermissions.with(this)
+            .permission(PermissionLists.getAccessFineLocationPermission())
+            .permission(PermissionLists.getAccessCoarseLocationPermission())
+            .permission(PermissionLists.getBluetoothScanPermission())
+            .permission(PermissionLists.getBluetoothConnectPermission())
+            .permission(PermissionLists.getBluetoothAdvertisePermission())
+            .request { _, deniedList ->
+                if (deniedList.isNotEmpty()) {
+                    //显示一个提示框,希望用户改变主意
+                    val builder = AlertDialog.Builder(this)
+                    builder.setTitle(R.string.hint_chinese)
+                    builder.setMessage(R.string.app_need_permission_chinese)
+                    //配置授予按钮
+                    builder.setPositiveButton(R.string.give_chinese) { _, _ ->
+                        val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                    }
+                    val dialog = builder.create()
+                    dialog.show() //弹出提示框
+                }
+            }
+    }
+
+
 }

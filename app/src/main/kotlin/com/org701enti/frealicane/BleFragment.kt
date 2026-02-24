@@ -630,7 +630,7 @@ class BleFragment() : Fragment() {
                     //置顶条目按钮
                     val dialogStickToTopButton: MaterialButton? =
                         dialog.findViewById(R.id.stick_to_top_button_in_dialog_of_more_info_scan_result_item)
-                    //关闭dialog弹窗
+                    //关闭dialog弹窗按钮
                     val dialogDismissButton: MaterialButton? =
                         dialog.findViewById(R.id.dismiss_button_in_dialog_of_more_info_scan_result_item)
 

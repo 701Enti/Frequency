@@ -7,7 +7,7 @@
        android:icon="@drawable/device"
        android:title="@string/device_chinese" />
     <item
-       android:id="@+id/NavigationBLE"
+       android:id="@+id/NavigationBle"
        android:icon="@drawable/ble"
        android:title="@string/ble_english" />
     <item
@@ -15,7 +15,7 @@
         android:icon="@drawable/control"
         android:title="@string/control_chinese"/>
     <item
-        android:id="@+id/NavigationWIFI"
+        android:id="@+id/NavigationWifi"
         android:icon="@drawable/wifi"
         android:title="@string/wifi_english"/>
     <item

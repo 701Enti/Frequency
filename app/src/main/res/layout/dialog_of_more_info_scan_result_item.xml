@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:paddingVertical="24dp"
-    android:orientation="vertical">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingVertical="24dp">
 
     <ImageView
         android:id="@+id/device_icon_in_dialog_of_more_info_scan_result_item"
@@ -25,72 +25,29 @@
         android:layout_marginTop="0dp"
         android:gravity="center"
         android:text="@string/device_name_english"
-        android:textColor="@color/black"
+        android:textColor="@color/text_color"
         android:textSize="20sp"
         app:layout_constraintStart_toEndOf="@id/device_icon_in_dialog_of_more_info_scan_result_item"
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/media_display_panel_in_dialog_of_more_info_scan_result_item"
+        android:id="@+id/media_panel_in_dialog_of_more_info_scan_result_item"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="24dp"
         app:layout_constraintDimensionRatio="16:9"
         app:layout_constraintTop_toBottomOf="@id/device_icon_in_dialog_of_more_info_scan_result_item">
 
-        <ScrollView
+        <WebView
+            android:id="@+id/device_web_search_of_media_panel_in_dialog_of_more_info_scan_result_item"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:background="@color/background_color" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:gravity="center_vertical"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/device_distance_in_dialog_of_more_info_scan_result_item"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="24dp"
-                    android:gravity="center"
-                    android:text="12米"
-                    android:textColor="@color/black"
-                    android:textSize="20sp"
-                    app:layout_constraintStart_toStartOf="parent" />
-
-                <Space
-                    android:layout_width="match_parent"
-                    android:layout_height="16dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="24dp"
-                    android:gravity="center"
-                    android:text="12米"
-                    android:textColor="@color/black"
-                    android:textSize="20sp"
-                    app:layout_constraintStart_toStartOf="parent" />
-
-                <Space
-                    android:layout_width="match_parent"
-                    android:layout_height="16dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="24dp"
-                    android:gravity="center"
-                    android:text="12米"
-                    android:textColor="@color/black"
-                    android:textSize="20sp"
-                    app:layout_constraintStart_toStartOf="parent" />
-
-
-            </LinearLayout>
-        </ScrollView>
+        <FrameLayout
+            android:id="@+id/panel_container_of_media_panel_in_dialog_of_more_info_scan_result_item"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 
@@ -107,12 +64,12 @@
         android:layout_marginTop="24dp"
         android:gravity="center"
         android:orientation="horizontal"
-        app:layout_constraintTop_toBottomOf="@id/media_display_panel_in_dialog_of_more_info_scan_result_item">
+        app:layout_constraintTop_toBottomOf="@id/media_panel_in_dialog_of_more_info_scan_result_item">
 
         <FrameLayout
+            android:id="@+id/container_start_control_in_dialog_of_more_info_scan_result_item"
             android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:id="@+id/container_start_control_in_dialog_of_more_info_scan_result_item">
+            android:layout_height="64dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/start_control_button_in_dialog_of_more_info_scan_result_item"
@@ -120,18 +77,17 @@
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:text="@string/control_chinese"
-                android:textColor="@color/dark_gray"
+                android:textColor="@color/text_color"
                 app:backgroundTint="@android:color/transparent"
                 app:icon="@drawable/control"
                 app:iconGravity="textTop"
-                app:iconTint="@color/dark_gray" />
+                app:iconTint="@color/icon_color" />
 
             <FrameLayout
                 android:id="@+id/container_of_start_control_loading_in_dialog_of_more_info_scan_result_item"
                 android:layout_width="64dp"
                 android:layout_height="64dp"
-                android:layout_gravity="center"
-                />
+                android:layout_gravity="center" />
         </FrameLayout>
 
 
@@ -145,11 +101,11 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:text="@string/add_chinese"
-            android:textColor="@color/dark_gray"
+            android:textColor="@color/text_color"
             app:backgroundTint="@android:color/transparent"
             app:icon="@drawable/device"
             app:iconGravity="textTop"
-            app:iconTint="@color/dark_gray" />
+            app:iconTint="@color/icon_color" />
 
         <Space
             android:layout_width="8dp"
@@ -161,11 +117,11 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:text="@string/stick_to_top_chinese"
-            android:textColor="@color/dark_gray"
+            android:textColor="@color/text_color"
             app:backgroundTint="@android:color/transparent"
             app:icon="@drawable/stick_to_top"
             app:iconGravity="textTop"
-            app:iconTint="@color/dark_gray" />
+            app:iconTint="@color/icon_color" />
 
         <Space
             android:layout_width="8dp"
@@ -177,11 +133,11 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:text="@string/return_chinese"
-            android:textColor="@color/dark_gray"
+            android:textColor="@color/text_color"
             app:backgroundTint="@android:color/transparent"
             app:icon="@drawable/undo"
             app:iconGravity="textTop"
-            app:iconTint="@color/dark_gray" />
+            app:iconTint="@color/icon_color" />
     </LinearLayout>
 
 

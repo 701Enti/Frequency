@@ -34,11 +34,16 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -51,30 +56,51 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.core.view.isInvisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.hjq.permissions.OnPermissionCallback
-import com.hjq.permissions.XXPermissions
-import com.hjq.permissions.permission.PermissionLists
-import com.hjq.permissions.permission.base.IPermission
 import com.org701enti.bluetoothfocuser.BluetoothAD
 import com.org701enti.bluetoothfocuser.BluetoothAD.AdvertisingStruct
 import com.org701enti.bluetoothfocuser.StandardSync
 import com.org701enti.frealicane.BleFragment.ScanResultRecyclerViewAdapter.ScanResultItemViewHolder
 import com.org701enti.frealicane.MainActivity.ControlBaseBluetooth
+import com.org701enti.frealicane.core.datastore.DarkModeSetting
 import com.org701enti.frealicane.suit.event.StableDeviceStateEventBus
+import com.org701enti.frealicane.ui.compose.animation.PhoneDeviceSlideAnimation
 import com.org701enti.frealicane.ui.compose.unit.GeneralCircularIndicator
+import com.org701enti.frealicane.viewmodel.BleFragmentViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
@@ -133,6 +159,7 @@ class BleFragment() : Fragment() {
         val view = inflater.inflate(R.layout.fragment_ble, container, false)
         //初始化其他布局
         initRecyclerViewBluetooth(view)
+        initBleFragmentUI(view)
         return view
     }
 
@@ -143,18 +170,27 @@ class BleFragment() : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        initBleFragmentUI(view)
+        if (savedInstanceState != null && bleFragmentViewModel.isScanningBluetooth) {
+            bleFragmentViewModel.isScanningBluetooth = false
+            bluetoothScanStart()
+        }
     }
 
-    ////蓝牙内部处理业务
+
+    private val bleFragmentViewModel: BleFragmentViewModel by viewModels()
+
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var scanResultRecyclerView: RecyclerView? = null
-    private val scanResultList: MutableList<BluetoothDeviceModel> = ArrayList()
     private var scanResultRecyclerViewAdapter: ScanResultRecyclerViewAdapter? = null
-    private var isScanningBluetooth = false
+    private var scanClearJob: Job? = null
+
+    private val BLE_SCAN_TIMEOUT = 5_000L //设备扫描超时时间(ms),长时间未扫描到的设备条目将被清理
+    private val BLE_CHECK_SCAN_TIMEOUT_INTERVAL = 500L //检查设备扫描是否超时的间隔时间(ms)
+    private val BLE_DISTANCE_UPDATE_INTERVAL = 1_000L //设备距离更新间隔时间(ms)
 
     private fun initBLE() {
+        if (!isAdded) return
         val manager: BluetoothManager =
             requireActivity().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = manager.adapter
@@ -168,7 +204,8 @@ class BleFragment() : Fragment() {
      */
     @SuppressLint("MissingPermission")
     fun bluetoothEnableCheck() {
-        if (bluetoothAdapter == null || bluetoothLeScanner == null) { //已经初始化但还为空
+        if (!isAdded) return
+        if (bluetoothAdapter == null) { //已经初始化但还为空
             //用户设备不支持蓝牙,弹出提示
             val builder = android.app.AlertDialog.Builder(requireContext())
             builder.setTitle(R.string.bluetooth_support_lack_chinese)
@@ -191,35 +228,11 @@ class BleFragment() : Fragment() {
     }
 
     /**
-     * 启动蓝牙设备扫描,含配置
-     */
-    @SuppressLint("MissingPermission")
-    fun bluetoothScanStart(filters: List<ScanFilter?>?, settings: ScanSettings?) {
-        if (!isScanningBluetooth) {
-            if (bluetoothLeScanner == null) {
-                //当以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
-                bluetoothEnableCheck() //检查蓝牙开启
-                initBLE()
-            }
-            if (bluetoothLeScanner != null) {
-                if (bluetoothAdapter?.state == BluetoothAdapter.STATE_ON) {
-                    bluetoothLeScanner?.startScan(filters, settings, bluetoothScanCallback)
-                    animationBluetoothScanning?.visibility = View.VISIBLE
-                    showNoticeMainText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese))
-                    isScanningBluetooth = true
-                } else {
-                    bluetoothEnableCheck() //检查蓝牙开启
-                }
-            }
-        }
-    }
-
-    /**
-     * 启动蓝牙设备扫描,无配置
+     * 启动蓝牙设备扫描
      */
     @SuppressLint("MissingPermission")
     fun bluetoothScanStart() {
-        if (!isScanningBluetooth) {
+        if (!bleFragmentViewModel.isScanningBluetooth) {
             if (bluetoothLeScanner == null) {
                 //当以蓝牙关闭状态进入APP,InitBLE获取的bluetoothLeScanner将为空
                 bluetoothEnableCheck() //检查蓝牙开启
@@ -227,10 +240,25 @@ class BleFragment() : Fragment() {
             }
             if (bluetoothLeScanner != null) {
                 if (bluetoothAdapter?.state == BluetoothAdapter.STATE_ON) {
+
                     bluetoothLeScanner?.startScan(bluetoothScanCallback)
+
                     animationBluetoothScanning?.visibility = View.VISIBLE
                     showNoticeMainText(getString(R.string.vertical_slide_text_to_stop_sacn_chinese))
-                    isScanningBluetooth = true
+
+                    bleFragmentViewModel.isScanningBluetooth = true
+                    if (bleFragmentViewModel.scanResultList.isNotEmpty()) {
+                        bleFragmentViewModel.scanResultList.forEach {
+                            it.flagRecentScanTime = System.currentTimeMillis()
+                        }
+                    }
+
+                    scanClearJob = lifecycleScope.launch {
+                        while (true) {
+                            clearOneScanTimeoutDeviceItem()
+                            delay(BLE_CHECK_SCAN_TIMEOUT_INTERVAL)
+                        }
+                    }
 
                 } else {
                     bluetoothEnableCheck() //检查蓝牙开启
@@ -244,20 +272,41 @@ class BleFragment() : Fragment() {
      */
     @SuppressLint("MissingPermission")
     fun bluetoothScanStop() {
-        if (isScanningBluetooth) {
+        if (bleFragmentViewModel.isScanningBluetooth) {
             if (bluetoothLeScanner == null) {
                 bluetoothEnableCheck() //检查蓝牙开启
                 initBLE()
             }
             if (bluetoothLeScanner != null) {
                 if (bluetoothAdapter?.state == BluetoothAdapter.STATE_ON) {
+
                     bluetoothLeScanner?.stopScan(bluetoothScanCallback)
+
                     animationBluetoothScanning?.visibility = View.INVISIBLE
                     showNoticeMainText(getString(R.string.horizontal_slide_text_to_start_sacn_chinese))
-                    isScanningBluetooth = false
+                    bleFragmentViewModel.isScanningBluetooth = false
+
+                    scanClearJob?.cancel()
+                    scanClearJob = null
                 } else {
                     bluetoothEnableCheck() //检查蓝牙开启
                 }
+            }
+        }
+    }
+
+    /**
+     * 清理一个扫描超时的设备条目,长时间未扫描到的设备条目将被清理(前提是当前允许Notify标志位为true)
+     */
+    private fun clearOneScanTimeoutDeviceItem() {
+        if (bleFragmentViewModel.scanResultList.isNotEmpty() && bleFragmentViewModel.isAllowNotifyChanged.get()) {
+            var i = 0
+            while (i < bleFragmentViewModel.scanResultList.size) {
+                if (System.currentTimeMillis() - bleFragmentViewModel.scanResultList[i].flagRecentScanTime > BLE_SCAN_TIMEOUT) {
+                    bleFragmentViewModel.scanResultList.removeAt(i)
+                    scanResultRecyclerViewAdapter?.notifyItemRemoved(i)
+                }
+                i++
             }
         }
     }
@@ -277,11 +326,17 @@ class BleFragment() : Fragment() {
 
         var deviceDistance: Int //与设备的距离(单位:米)
 
+        var flagRecentScanTime: Long //(标志值,不要用于业务显示)设备最近被扫描到的时间(ms),当扫描操作启动/重启时,他被设置为当前时间
+
+        var flagRecentDistanceUpdateTime: Long //(标志值,不要用于业务显示)设备最近更新距离数据的时间(ms)
+
         var controlBaseBluetooth: ControlBaseBluetooth? //控制基础(创建GATT连接后获得并绑定到此)
 
         constructor(device: BluetoothDevice?, deviceDistance: Int, deviceSha256: String) {
             this.device = device
             this.deviceDistance = deviceDistance
+            this.flagRecentScanTime = 0
+            this.flagRecentDistanceUpdateTime = 0
             this.deviceSha256 = deviceSha256
             this.iconID = 0
             controlBaseBluetooth = null
@@ -295,6 +350,8 @@ class BleFragment() : Fragment() {
         ) {
             this.device = device
             this.deviceDistance = deviceDistance
+            this.flagRecentScanTime = 0
+            this.flagRecentDistanceUpdateTime = 0
             this.deviceSha256 = deviceSha256
             this.iconID = iconID
             controlBaseBluetooth = null
@@ -315,10 +372,12 @@ class BleFragment() : Fragment() {
 
 
     //扫描回调
-    var isAllowNotifyChanged: AtomicReference<Boolean> = AtomicReference(java.lang.Boolean.TRUE)
     private val bluetoothScanCallback: ScanCallback = object : ScanCallback() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
+
+            if (!isAdded) return
+
             super.onScanResult(callbackType, result)
             if (scanResultRecyclerViewAdapter == null) {
                 return
@@ -329,19 +388,25 @@ class BleFragment() : Fragment() {
                 val model = scanResultRecyclerViewAdapter?.modelList?.getOrNull(i) ?: continue
                 //如果已经存在相同设备在列表
                 if ((result.device == model.device)) {
-                    //更新设备的deviceDistance,但获取发射功率使用内部解析
-                    val distanceNow: Int
-                    var txPowerInt: Int  //Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
-                    txPowerInt = result.txPower //(使用内部解析以节约资源)获取蓝牙设备的信号发射功率水平(单位:dBm)
-                    if (txPowerInt.toByte() == Byte.MAX_VALUE) { //如果无法读取
-                        txPowerInt = 0
-                    }
-                    distanceNow = distance2400MHZ(txPowerInt, result.rssi).toInt()
-                    model.deviceDistance = distanceNow
+                    if (System.currentTimeMillis() - model.flagRecentDistanceUpdateTime > BLE_DISTANCE_UPDATE_INTERVAL) {
+                        //更新设备的deviceDistance,但获取发射功率使用内部解析
+                        val distanceNow: Int
+                        var txPowerInt: Int  //Bluetooth SIG定义发射功率水平为sint8(有符号)(单位:dBm),与byte一致
+                        txPowerInt = result.txPower //(使用内部解析以节约资源)获取蓝牙设备的信号发射功率水平(单位:dBm)
+                        if (txPowerInt.toByte() == Byte.MAX_VALUE) { //如果无法读取
+                            txPowerInt = 0
+                        }
+                        distanceNow = distance2400MHZ(txPowerInt, result.rssi).toInt()
+                        model.deviceDistance = distanceNow
 
-                    if (isAllowNotifyChanged.get()) {
-                        scanResultRecyclerViewAdapter?.notifyItemChanged(i) //提示信息更新,需要RecyclerView刷新显示
+                        if (bleFragmentViewModel.isAllowNotifyChanged.get()) {
+                            scanResultRecyclerViewAdapter?.notifyItemChanged(i) //提示信息更新,需要RecyclerView刷新显示
+                        }
                     }
+
+                    model.flagRecentScanTime = System.currentTimeMillis()
+                    model.flagRecentDistanceUpdateTime = System.currentTimeMillis()
+
                     return
                 }
             }
@@ -358,26 +423,27 @@ class BleFragment() : Fragment() {
                     val standardSync: StandardSync = bleFragmentRunWant?.provideStandardSync()!!
                     try {
                         if (standardSync.yamlAdTypes != null) {
-                            //使用StandardSync的YamlResolver解析出需要的Value,即当前标准的Appearance的adType数值
+                            //使用StandardSync的YamlResolver解析出当前标准的外观特征值的adType数值
+                            //参考:assets/public/assigned_numbers/core/ad_types.yaml
                             val yamlResolver =
                                 standardSync.YamlResolver(standardSync.yamlAdTypes)
                             val appearanceAdType = checkNotNull(
                                 yamlResolver
-                                    .enterThisMapList("ad_types")
-                                    .reserveTheItemsHave("name", "Appearance")
-                                    .resultList[0]["value"] as Int?
+                                    .enterThisMapList("ad_types")//进入ad_types列表
+                                    .reserveTheItemsHave(
+                                        "name",
+                                        "Appearance"
+                                    )//保留含有key为name,value为Appearance的键值对的条目
+                                    .resultList[0]["value"] as Int?//获取第一个搜索结果并获取条目中key为value的键值对的值,并强制转换类型
                             )
-                            //使用BluetoothAD在广播数据中提取数据
+                            //使用BluetoothAD在广播数据中提取外观特征值(通过adType搜索)
                             val structList = bluetoothAD.Search(appearanceAdType)
                             if (structList.isNotEmpty()) {
                                 for (struct: AdvertisingStruct in structList) {
+                                    //Appearance标准为2个字节
                                     if (struct.adData.size == 2) {
                                         iconID =
-                                            (((struct.adData[1].toInt() and 0xFF) shl 8) or (struct.adData[0].toInt() and 0xFF)) ushr 10
-                                    }
-                                    if (struct.adData.size == 3) {
-                                        iconID =
-                                            (((struct.adData[2].toInt() and 0xFF) shl 16) or ((struct.adData[1].toInt() and 0xFF) shl 8) or (struct.adData[0].toInt() and 0xFF)) ushr 18
+                                            (((struct.adData[1].toInt() and 0xFF) shl 8) or (struct.adData[0].toInt() and 0xFF)) ushr 6
                                     }
                                     Log.i(
                                         logTag,
@@ -386,64 +452,21 @@ class BleFragment() : Fragment() {
                                 }
                             }
                         }
-                    } catch (e: AssertionError) {
+                    } catch (e: Exception) {
                         if (result.device.name != null) {
                             Log.w(
                                 logTag,
-                                "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
+                                "onScanResult: 无法获取名为" + result.device.name + "的设备的iconID,因为:",
                                 e
                             )
                         } else {
                             Log.w(
                                 logTag,
-                                "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
-                                e
-                            )
-                        }
-                    } catch (e: NullPointerException) {
-                        if (result.device.name != null) {
-                            Log.w(
-                                logTag,
-                                "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
-                                e
-                            )
-                        } else {
-                            Log.w(
-                                logTag,
-                                "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
-                                e
-                            )
-                        }
-                    } catch (e: IndexOutOfBoundsException) {
-                        if (result.device.name != null) {
-                            Log.w(
-                                logTag,
-                                "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
-                                e
-                            )
-                        } else {
-                            Log.w(
-                                logTag,
-                                "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
-                                e
-                            )
-                        }
-                    } catch (e: IOException) {
-                        if (result.device.name != null) {
-                            Log.w(
-                                logTag,
-                                "onScanResult: 无法获取" + result.device.name + "的iconID,因为:",
-                                e
-                            )
-                        } else {
-                            Log.w(
-                                logTag,
-                                "onScanResult: 无法获取" + bluetoothAD.sha256StringAdvertising + "的iconID,因为:",
+                                "onScanResult: 无法获取SHA256为" + bluetoothAD.sha256StringAdvertising + "的设备的iconID,因为:",
                                 e
                             )
                         }
                     }
-
                 }
             }
 
@@ -463,6 +486,9 @@ class BleFragment() : Fragment() {
                 result.device, deviceDistance,
                 iconID, bluetoothAD.sha256StringAdvertising
             ) //生成这个蓝牙设备的基本信息模型
+
+            deviceModel.flagRecentScanTime = System.currentTimeMillis()
+            deviceModel.flagRecentDistanceUpdateTime = System.currentTimeMillis()
 
             //缓存到RecyclerView适配器内部列表
             val index = scanResultRecyclerViewAdapter?.itemCount
@@ -497,6 +523,7 @@ class BleFragment() : Fragment() {
             dividerPaint.color = dividerColor
             dividerPaint.strokeWidth = dividerHeightPx
             dividerPaint.style = Paint.Style.FILL
+            dividerPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC)
         }
 
         override fun getItemOffsets(
@@ -509,22 +536,37 @@ class BleFragment() : Fragment() {
         }
 
         override fun onDraw(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
-            for (i in 0 until (parent.childCount - 1)) { //列表最后一项不添加分隔线
+            val saveCount =
+                c.saveLayer(0f, 0f, parent.width.toFloat(), parent.height.toFloat(), null)
+            for (i in 0 until parent.childCount) {
                 val child = parent.getChildAt(i)
                 c.drawRect(
                     child.left.toFloat(),
-                    child.bottom.toFloat(),
+                    child.top.toFloat(),
                     child.right.toFloat(),
-                    child.bottom + dividerHeightPx,
+                    child.top + dividerHeightPx,
                     dividerPaint
                 )
             }
+            if (parent.childCount >= 1) {
+                val lastChild = parent.getChildAt(parent.childCount - 1)
+                c.drawRect(
+                    lastChild.left.toFloat(),
+                    lastChild.bottom.toFloat(),
+                    lastChild.right.toFloat(),
+                    lastChild.bottom + dividerHeightPx,
+                    dividerPaint
+                )
+            }
+            c.restoreToCount(saveCount)
         }
     }
 
     private fun initRecyclerViewBluetooth(view: View) {
+        if (!isAdded) return
         //创建用于展示扫描结果的RecyclerView及Adapter
-        scanResultRecyclerViewAdapter = ScanResultRecyclerViewAdapter(scanResultList)
+        scanResultRecyclerViewAdapter =
+            ScanResultRecyclerViewAdapter(bleFragmentViewModel.scanResultList)
         scanResultRecyclerView = view.findViewById(R.id.scan_result_recycler_view_in_ble)
         scanResultRecyclerView?.let {
             //添加配置
@@ -535,7 +577,7 @@ class BleFragment() : Fragment() {
             it.addItemDecoration(
                 ItemDecorationRecyclerViewBluetooth(
                     1 * density,
-                    R.color.light_gray
+                    ContextCompat.getColor(requireActivity(), R.color.item_decoration)
                 )
             )
             //禁用变更动画
@@ -552,31 +594,44 @@ class BleFragment() : Fragment() {
         RecyclerView.Adapter<ScanResultItemViewHolder>() {
         @SuppressLint("MissingPermission")
         override fun onBindViewHolder(holder: ScanResultItemViewHolder, position: Int) {
+            if (!isAdded) return
+
             //缓存最新targetModel到holder
             holder.targetModel = modelList?.getOrNull(position)
                 ?: BluetoothDeviceModel(null, 0, "ERROR-绑定BluetoothDeviceModel失败")
 
             //为holder名下的子视图进行数据显示更新(子视图本身不会绑定targetModel)
             holder.targetModel?.let {
-                configImageViewDeviceIcon(it, holder.deviceIcon) //设备图标
+                //设备图标
+                configImageViewDeviceIcon(it, holder.deviceIcon)
+
+                //设备名
                 configTextViewDeviceName(
                     it, holder.deviceName, calculateSuitableTextSizeSp(
-                        holder.deviceName?.length() ?: 0
+                        it.device?.name?.length ?: 0
                     )
-                ) //设备名
-                val distance = it.deviceDistance //与设备的距离
-                val showDistance = distance.toString() + getString(R.string.meter_chinese)
-                holder.deviceDistance?.text = showDistance
+                )
+
+                //与设备的距离(通过信号强度估测)
+                val distance = it.deviceDistance
+                holder.deviceDistance?.text = when (distance) {
+                    in 0..10 -> "0-10" + getString(R.string.meter_chinese)
+                    in 11..50 -> "10-50" + getString(R.string.meter_chinese)
+                    else -> ">50" + getString(R.string.meter_chinese)
+                }
             }
 
             //为holder名下的根视图即扫描结果条目设置用户操作监听
 
             //点击条目显示对应详细信息弹窗
             holder.itemView.setOnClickListener {
+                if (!isAdded) return@setOnClickListener
+
                 val v: View = LayoutInflater.from(requireActivity())
                     .inflate(R.layout.dialog_of_more_info_scan_result_item, null)
 
                 //向容器装载ComposeView
+
                 //加载中转圈指示器-启动控制中
                 val containerOfStartControlLoading: FrameLayout =
                     v.findViewById(R.id.container_of_start_control_loading_in_dialog_of_more_info_scan_result_item)
@@ -602,7 +657,7 @@ class BleFragment() : Fragment() {
                 builder.setView(v)
                 val dialog: AlertDialog = builder.create()
 
-                //设置生命周期相关
+                //设置dialog生命周期相关
                 dialog.window?.decorView?.let {
                     it.setViewTreeLifecycleOwner(requireActivity())
                     it.setViewTreeSavedStateRegistryOwner(requireActivity())
@@ -614,13 +669,17 @@ class BleFragment() : Fragment() {
                     }
                 }
 
+                //当dialog展示时运行以下回调
                 dialog.setOnShowListener {
+                    if (!isAdded) return@setOnShowListener
+
                     //设备图标
                     val deviceIcon: ImageView? =
                         dialog.findViewById(R.id.device_icon_in_dialog_of_more_info_scan_result_item)
                     //设备名
                     val deviceName: TextView? =
                         dialog.findViewById(R.id.device_name_in_dialog_of_more_info_scan_result_item)
+
                     //启动控制按钮
                     val dialogStartControlButton: MaterialButton? =
                         dialog.findViewById(R.id.start_control_button_in_dialog_of_more_info_scan_result_item)
@@ -634,39 +693,200 @@ class BleFragment() : Fragment() {
                     val dialogDismissButton: MaterialButton? =
                         dialog.findViewById(R.id.dismiss_button_in_dialog_of_more_info_scan_result_item)
 
-                    //配置按钮的点击事件监听
-                    dialogStartControlButton?.setOnClickListener {
+                    //媒体面板 - 设备在互联网上的搜索结果
+                    val dialogDeviceWebSearchOfMediaPanel: WebView? =
+                        dialog.findViewById(R.id.device_web_search_of_media_panel_in_dialog_of_more_info_scan_result_item)
+
+                    //媒体面板 - 面板容器
+                    val dialogPanelContainerOfMediaPanel: FrameLayout? =
+                        dialog.findViewById(R.id.panel_container_of_media_panel_in_dialog_of_more_info_scan_result_item)
+
+                    //媒体面板 - 面板容器页面:"确认设备是你的"
+                    // (可选择关闭"确认设备是你的"功能)
+                    //用于确认设备所有者是不是自己,主要为了防止错误连接他人设备
+                    //这只是一个确认辅助工具页,在控制/添加按钮点击时展示在MediaPanel
+                    //如果你没有确认,他不会阻止继续操作,再点击一次按钮可正常进入
+                    //提示文字(在容器顶部):
+                    //1.提示:如果你不确认这是你的设备,请靠近设备并扫动手机
+                    //      If you are not sure this is your device, please approach the device and wave your phone
+                    //2.提示:已确认这是你的设备
+                    //      It has been confirmed that this is your device
+                    //动画(占整个容器):设备图标固定在底部中央,手机图标水平平滑往复滑动
+                    val dialogPanelShowConfirmDeviceOwner = ComposeView(requireContext())
+                        .apply {
+                            setViewTreeLifecycleOwner(requireActivity())
+                            setContent {
+                                val isDarkMode =
+                                    DarkModeSetting.shouldUseDark(context = LocalContext.current)
+                                MaterialTheme(
+                                    colorScheme = if (isDarkMode) darkColorScheme() else lightColorScheme(),
+                                    content = {
+                                        PhoneDeviceSlideAnimation(
+                                            phoneRes = R.drawable.phone,
+                                            deviceRes = R.drawable.device,
+                                            containerWidthPx = dialogPanelContainerOfMediaPanel?.width
+                                                ?: 0,
+                                            progressMin = 0.25f,
+                                            progressMax = 0.75f,
+                                            duration = 2000
+                                        )
+                                        Text(
+                                            text = "如果你不确认这是你的设备,请靠近设备并扫动手机",
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    dialogPanelContainerOfMediaPanel?.isInvisible = true
+                    dialogPanelContainerOfMediaPanel?.addView(dialogPanelShowConfirmDeviceOwner)
+
+                    holder.targetModel?.let { deviceModel ->
+                        //设备图标
+                        configImageViewDeviceIcon(deviceModel, deviceIcon)
+                        //设备名
+                        configTextViewDeviceName(
+                            deviceModel,
+                            deviceName,
+                            calculateSuitableTextSizeSp(deviceName?.length()!!)
+                        )
+
+                        //媒体面板 - 设备在互联网上的搜索结果
+                        if (deviceModel.device?.name != null) {
+                            dialogDeviceWebSearchOfMediaPanel?.settings?.apply {
+                                javaScriptEnabled = true
+
+                                useWideViewPort = true
+                                loadWithOverviewMode = true
+                                setSupportZoom(true)
+                                builtInZoomControls = true
+                                displayZoomControls = false
+
+                                domStorageEnabled = true
+                                databaseEnabled = true
+
+                                cacheMode = WebSettings.LOAD_NO_CACHE
+
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                                        isAlgorithmicDarkeningAllowed = true
+                                    }
+                                }
+                            }
+
+                            dialogDeviceWebSearchOfMediaPanel?.clearCache(true)
+                            dialogDeviceWebSearchOfMediaPanel?.clearHistory()
+                            android.webkit.CookieManager.getInstance().removeAllCookies(null)
+
+                            dialogDeviceWebSearchOfMediaPanel?.webViewClient = object :
+                                WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: WebResourceRequest?
+                                ): Boolean {
+                                    //为确保安全,非起始页操作交给系统页面
+                                    if (request != null) {
+                                        if (request.url.host?.endsWith("bing.com") == true) {
+                                            return false
+                                        }
+                                        CustomTabsIntent.Builder().build()
+                                            .launchUrl(requireActivity(), request.url)
+                                        Toast.makeText(
+                                            requireActivity(),
+                                            "当前页面不再受到" + getString(R.string.app_name) + "控制",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                    return true
+                                }
+
+                                @Deprecated("Deprecated in Java")
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    url: String?
+                                ): Boolean {
+                                    //为确保安全,非起始页操作交给系统页面
+                                    if (Uri.parse(url).host?.endsWith("bing.com") == true) {
+                                        return false
+                                    }
+                                    CustomTabsIntent.Builder().build()
+                                        .launchUrl(requireActivity(), Uri.parse(url))
+                                    Toast.makeText(
+                                        requireActivity(),
+                                        "当前页面不再受到" + getString(R.string.app_name) + "控制",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    return true
+                                }
+
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    super.onPageFinished(view, url)
+
+                                    if (DarkModeSetting.shouldUseDark(requireActivity()) && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                        //低版本SDK通过 注入 CSS 强制暗色
+                                        val js = """
+                                                 (function() {
+                                                     var css = 'html { filter: invert(1) hue-rotate(180deg); }' +
+                                                               'img, video, picture, svg, iframe { filter: invert(1) hue-rotate(180deg); }';
+                                                     var style = document.createElement('style');
+                                                     style.appendChild(document.createTextNode(css));
+                                                     document.head.appendChild(style);
+                                                 })();
+                                        """.trimIndent()
+
+                                        view?.evaluateJavascript(js, null)
+                                    }
+                                }
+                            }
+                            dialogDeviceWebSearchOfMediaPanel?.loadUrl(
+                                "https://www.bing.com/search?q=${deviceModel.device?.name}",
+                                mapOf("Cache-Control" to "no-cache")
+                            )
+                        }
+
+//                        lifecycleScope.launch {
+//                            while (deviceModel.deviceDistance > 1){
+//                                delay(10)
+//                            }
+//                            if(deviceModel.device?.name != null){
+//                                Toast
+//                                    .makeText(requireActivity(),"已确认" + deviceModel.device?.name + "你的设备",Toast.LENGTH_LONG)
+//                                    .show()
+//                            }
+//                            else{
+//                                Toast
+//                                    .makeText(requireActivity(),"已确认这是你的设备",Toast.LENGTH_LONG)
+//                                    .show()
+//                            }
+//
+//                        }
+
+                        //配置按钮的点击事件监听
+                        dialogStartControlButton?.setOnClickListener {
+//                            dialogPanelContainerOfMediaPanel?.isInvisible = false
+//                            dialogDeviceWebSearchOfMediaPanel?.isInvisible = true
                         scanResultItemOperationRun(
                             WANT_START_CONTROL,
                             holder.getBindingAdapterPosition(),
                             requireContext()
                         )
-                    }
-                    dialogAddToDeviceButton?.setOnClickListener {
-                        scanResultItemOperationRun(
-                            WANT_ADD_TO_DEVICE,
-                            holder.getBindingAdapterPosition(),
-                            requireContext()
-                        )
-                    }
-                    dialogStickToTopButton?.setOnClickListener {
-                        scanResultItemOperationRun(
-                            WANT_STICK_TO_TOP,
-                            holder.getBindingAdapterPosition(),
-                            requireContext()
-                        )
-                        dialog.dismiss()
-                    }
-                    dialogDismissButton?.setOnClickListener { dialog.dismiss() }
-
-                    //配置其他控件
-                    holder.targetModel?.let {
-                        configImageViewDeviceIcon(it, deviceIcon)
-                        configTextViewDeviceName(
-                            it,
-                            deviceName,
-                            calculateSuitableTextSizeSp(deviceName?.length()!!)
-                        )
+                        }
+                        dialogAddToDeviceButton?.setOnClickListener {
+//                        scanResultItemOperationRun(
+//                            WANT_ADD_TO_DEVICE,
+//                            holder.getBindingAdapterPosition(),
+//                            requireContext()
+//                        )
+                        }
+                        dialogStickToTopButton?.setOnClickListener {
+                            scanResultItemOperationRun(
+                                WANT_STICK_TO_TOP,
+                                holder.getBindingAdapterPosition(),
+                                requireContext()
+                            )
+                            dialog.dismiss()
+                        }
+                        dialogDismissButton?.setOnClickListener { dialog.dismiss() }
                     }
 
                 }
@@ -724,34 +944,33 @@ class BleFragment() : Fragment() {
         }
 
         override fun getItemCount(): Int {
-            if (modelList != null) {
-                return modelList.size
-            } else {
-                return 0
-            }
+            return modelList?.size ?: 0
         }
 
-        fun calculateSuitableTextSizeSp(length: Int): Float {
-            if (length <= 12) {
-                return 24f - 4f * 1
+        private fun calculateSuitableTextSizeSp(length: Int): Float {
+            return if (length <= 12) {
+                24f - 4f * 1
             } else if (length <= 16) {
-                return 24f - 4f * 2
-            } else if (length <= 20) {
-                return 24f - 4f * 3
+                24f - 4f * 2
+            } else if (length <= 32) {
+                24f - 4f * 3
+            } else if (length <= 64) {
+                24f - 4f * 4
             } else {
-                return 24f - 4f * 4
+                24f - 4f * 5
             }
         }
 
         /***
          * 配置DeviceIcon组件以展示需要的内容
          * @param targetModel 选择数据来源的BluetoothDeviceModel实例
-         * @param deviceIcon 对该ImageView实例执行配置
+         * @param deviceIcon 对该ImageView实例执行配置,会根据深色模式设置切换原图颜色
          */
         private fun configImageViewDeviceIcon(
             targetModel: BluetoothDeviceModel,
             deviceIcon: ImageView?
         ) {
+            if (!isAdded) return
             val iconID = targetModel.iconID
             var iconBitmap: Bitmap? = null
             try {
@@ -768,6 +987,11 @@ class BleFragment() : Fragment() {
             if (iconBitmap != null) {
                 deviceIcon?.setImageBitmap(iconBitmap)
             }
+
+            //切换颜色
+            deviceIcon?.imageTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireActivity(), R.color.icon_color)
+            )
         }
 
         /***
@@ -786,10 +1010,10 @@ class BleFragment() : Fragment() {
             if (name == null) {
                 deviceName?.text = getString(R.string.unknown_device_chinese)
             } else {
-                //确定显示的字符尺寸
-                deviceName?.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSP)
                 deviceName?.text = name
             }
+            //确定显示的字符尺寸
+            deviceName?.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSP)
         }
     }
 
@@ -832,7 +1056,7 @@ class BleFragment() : Fragment() {
                                 when (want) {
                                     WANT_ADD_TO_DEVICE -> {}
                                     WANT_STICK_TO_TOP -> {
-                                        if (isAllowNotifyChanged.get()) {
+                                        if (bleFragmentViewModel.isAllowNotifyChanged.get()) {
                                             val targetItem =
                                                 scanResultRecyclerViewAdapter?.modelList?.removeAt(
                                                     position
@@ -962,11 +1186,11 @@ class BleFragment() : Fragment() {
             fadeInMainTextViewBLE?.start()
             //如果以水平滑动为主
             if (abs(velocityX.toDouble()) > abs(velocityY.toDouble())) {
-                if (!isScanningBluetooth) {
+                if (!bleFragmentViewModel.isScanningBluetooth) {
                     bluetoothScanStart() //扫描启动
                 }
             } else { //如果以垂直滑动为主
-                if (isScanningBluetooth) {
+                if (bleFragmentViewModel.isScanningBluetooth) {
                     bluetoothScanStop()
                 }
             }
@@ -975,7 +1199,7 @@ class BleFragment() : Fragment() {
 
         override fun onDown(e: MotionEvent): Boolean { //如果为点击
             super.onDown(e)
-            if (isScanningBluetooth) {
+            if (bleFragmentViewModel.isScanningBluetooth) {
                 mainTextViewBLE?.text =
                     getString(R.string.vertical_slide_text_to_stop_sacn_chinese)
             } else {
@@ -989,6 +1213,8 @@ class BleFragment() : Fragment() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun initGestureMainText(view: View) {
+        if (!isAdded) return
+
         gestureMainText = GestureDetector(requireActivity(), ListenerGestureMainText())
         val detectView = view.findViewById<View>(R.id.main_text_in_ble)
 
@@ -1004,7 +1230,7 @@ class BleFragment() : Fragment() {
      * 在MainTextView显示文本作为告示(显示几秒后会逐渐消失)
      * @param text 填写需要展示的文本
      */
-    public fun showNoticeMainText(text: String) {
+    fun showNoticeMainText(text: String) {
         mainTextViewBLE?.text = text
         fadeInMainTextViewBLE?.start()
     }

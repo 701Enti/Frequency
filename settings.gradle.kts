@@ -1,16 +1,20 @@
 pluginManagement {
     repositories {
         maven {
-            url = uri("https://maven.aliyun.com/repository/gradle-plugin")
-            name = "Aliyun Gradle Plugin"
-        }
-        maven {
             url = uri("https://maven.aliyun.com/repository/public")
             name = "Aliyun Public"
         }
-        gradlePluginPortal()
+        maven {
+            url = uri("https://maven.aliyun.com/repository/google")
+            name = "Aliyun Google"
+        }
+        maven {
+            url = uri("https://maven.aliyun.com/repository/gradle-plugin")
+            name = "Aliyun Gradle Plugin"
+        }
         google()
         mavenCentral()
+        gradlePluginPortal()
     }
 }
 
@@ -29,11 +33,9 @@ dependencyResolutionManagement {
             url = uri("https://maven.aliyun.com/repository/gradle-plugin")
             name = "Aliyun Gradle Plugin"
         }
-
         google()
         mavenCentral()
         gradlePluginPortal()
-
         maven {
             url = uri("https://jitpack.io")
             name = "JitPack"

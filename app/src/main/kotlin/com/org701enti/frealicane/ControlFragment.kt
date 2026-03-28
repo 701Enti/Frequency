@@ -197,6 +197,7 @@ class ControlFragment : Fragment() {
             //[由于所有控件的视图更新,操作逻辑已经在每个都在makeUnitView注册自己独有的回调,不需要在这里完成]
             //如果已经制作了,使用之前的
             //对每个之前未制作的控件都会制作并设置布局参数
+            if(!isAdded) return null
             val unit = unitList[position] as InnerUiUnit
             return convertView ?: unit.makeUnitView(null, false, requireActivity()) //提供view实例
         }

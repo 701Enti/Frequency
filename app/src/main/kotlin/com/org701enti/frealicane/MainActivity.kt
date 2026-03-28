@@ -41,8 +41,10 @@ import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
@@ -55,8 +57,14 @@ import com.org701enti.bluetoothfocuser.StandardSync
 import com.org701enti.frealicane.BleFragment.BleFragmentRunWant
 import com.org701enti.frealicane.BleFragment.BluetoothDeviceModel
 import com.org701enti.frealicane.ControlFragment.ControlFragmentRunWant
+import com.org701enti.frealicane.core.datastore.DarkModeSetting
 import data.DeviceBle.DeviceBleDatabase.BleDeviceMainDatabase
 import data.DeviceBle.DeviceBleEntity.BleDeviceMainEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
@@ -68,11 +76,23 @@ class MainActivity : AppCompatActivity() {
     private var backPageNameStack = mutableListOf<String>()
 
     val fragmentNameStart = "DeviceFragment" //App的起始页面
-    val fragmentNavigationIdStart = R.id.NavigationDevice //起始页对应的NavigationID
+    private val fragmentNavigationIdStart = R.id.NavigationDevice //起始页对应的NavigationID
     val fragmentSwitchFuncStart = ::switchDeviceFragment
 
+    //Fragment
+    private var bleFragment: BleFragment? = null
+    private var controlFragment: ControlFragment? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
+
+        when (DarkModeSetting.getMode(this)) {
+            DarkModeSetting.USE_LIGHT -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            DarkModeSetting.USE_DARK -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+
         super.onCreate(savedInstanceState)
+
         this.enableEdgeToEdge()
         setContentView(R.layout.activity_main)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v: View, insets: WindowInsetsCompat ->
@@ -85,21 +105,36 @@ class MainActivity : AppCompatActivity() {
         standardSync =
             StandardSync(StandardSync.STANDARD_ACCORDING_FILE_IN_ASSETS, this@MainActivity)
 
+
+        if(savedInstanceState == null){
+            //创建fragment
+            bleFragment = BleFragment.newInstance()
+            controlFragment = ControlFragment.newInstance()
+        }
+        else{
+            //恢复fragment
+            bleFragment = supportFragmentManager.findFragmentByTag("BleFragment") as BleFragment?
+            controlFragment = supportFragmentManager.findFragmentByTag("controlFragment") as ControlFragment?
+        }
+
+
         //配置fragment
         if (savedInstanceState == null) {
             val fragmentTransaction = supportFragmentManager.beginTransaction()
-            fragmentTransaction
-                .add(
-                    R.id.main_fragment_container_in_main,
-                    bleFragment,
-                    "BleFragment"
-                )
-                .add(
-                    R.id.main_fragment_container_in_main,
-                    controlFragment,
-                    "ControlFragment"
-                )
-                .commitNow()
+            if (bleFragment != null && controlFragment != null) {
+                fragmentTransaction
+                    .add(
+                        R.id.main_fragment_container_in_main,
+                        bleFragment!!,
+                        "BleFragment"
+                    )
+                    .add(
+                        R.id.main_fragment_container_in_main,
+                        controlFragment!!,
+                        "ControlFragment"
+                    )
+                    .commitNow()
+            }
         }
 
         //初始化控件
@@ -107,7 +142,6 @@ class MainActivity : AppCompatActivity() {
 
         //选择到起始页
         selectItemMainBottomNavigation(fragmentNavigationIdStart)
-
 
         //设置返回建逻辑
         onBackPressedDispatcher.addCallback {
@@ -124,8 +158,7 @@ class MainActivity : AppCompatActivity() {
                     recentBackTime = System.currentTimeMillis()
                 }
                 return@addCallback
-            }
-            else{
+            } else {
                 backPageNameStack.removeLastOrNull()
             }
 
@@ -138,7 +171,7 @@ class MainActivity : AppCompatActivity() {
 
                 "BleFragment" -> {
                     switchBleFragment()
-                    R.id.NavigationBLE
+                    R.id.NavigationBle
                 }
 
                 "ControlFragment" -> {
@@ -146,9 +179,9 @@ class MainActivity : AppCompatActivity() {
                     R.id.NavigationControl
                 }
 
-                "WIFIFragment" -> {
-                    switchWIFIFragment()
-                    R.id.NavigationWIFI
+                "WifiFragment" -> {
+                    switchWifiFragment()
+                    R.id.NavigationWifi
                 }
 
                 "MeFragment" -> {
@@ -244,12 +277,6 @@ class MainActivity : AppCompatActivity() {
     val controlFragmentFunctionRun: ControlFragmentFunctionRun =
         ControlFragmentFunctionRun(controlBaseListBluetooth)
 
-    //Fragment管理
-    private val managerFragmentMain: FragmentManager = supportFragmentManager
-    val bleFragment = BleFragment.newInstance()
-    val controlFragment = ControlFragment.newInstance()
-
-
     ////UI-底部导航栏
     private var mainBottomNavView: BottomNavigationView? = null
 
@@ -262,7 +289,7 @@ class MainActivity : AppCompatActivity() {
                     backPageNameStack.add("DeviceFragment")
                 }
 
-                R.id.NavigationBLE -> {
+                R.id.NavigationBle -> {
                     switchBleFragment()
                     backPageNameStack.add("BleFragment")
                 }
@@ -272,9 +299,9 @@ class MainActivity : AppCompatActivity() {
                     backPageNameStack.add("ControlFragment")
                 }
 
-                R.id.NavigationWIFI -> {
-                    switchWIFIFragment()
-                    backPageNameStack.add("WIFIFragment")
+                R.id.NavigationWifi -> {
+                    switchWifiFragment()
+                    backPageNameStack.add("WifiFragment")
                 }
 
                 R.id.NavigationMe -> {
@@ -306,69 +333,97 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun switchDeviceFragment() {
+//        val device: Fragment = deviceFragment ?: return
+        val ble: Fragment = bleFragment ?: return
+        val control: Fragment = controlFragment ?: return
+//        val wifi: Fragment = wifiFragment ?: return
+//        val me: Fragment = meFragment ?: return
 
-        val transaction = managerFragmentMain.beginTransaction()
+        val transaction = supportFragmentManager.beginTransaction()
         transaction
-//                .show(deviceFragment)
-            .hide(bleFragment)
-            .hide(controlFragment)
-//                .hide(WIFIFragment)
-//                .hide(MeFragment)
+//                .show(device)
+            .hide(ble)
+            .hide(control)
+//                .hide(wifi)
+//                .hide(me)
             .commit()
 
     }
 
     private fun switchBleFragment() {
+//        val device: Fragment = deviceFragment ?: return
+        val ble: Fragment = bleFragment ?: return
+        val control: Fragment = controlFragment ?: return
+//        val wifi: Fragment = wifiFragment ?: return
+//        val me: Fragment = meFragment ?: return
 
-        val transaction = managerFragmentMain.beginTransaction()
+        val transaction = supportFragmentManager.beginTransaction()
         transaction
-//                .hide(deviceFragment)
-            .show(bleFragment)
-            .hide(controlFragment)
-//                .hide(WIFIFragment)
-//                .hide(MeFragment)
+//                .hide(device)
+            .show(ble)
+            .hide(control)
+//                .hide(wifi)
+//                .hide(me)
             .commit()
         bluetoothPermissionCheck()
 
     }
 
     private fun switchControlFragment() {
+//        val device: Fragment = deviceFragment ?: return
+        val ble: Fragment = bleFragment ?: return
+        val control: Fragment = controlFragment ?: return
+//        val wifi: Fragment = wifiFragment ?: return
+//        val me: Fragment = meFragment ?: return
 
-        val transaction = managerFragmentMain.beginTransaction()
+        val transaction = supportFragmentManager.beginTransaction()
         transaction
-//                .hide(deviceFragment)
-            .hide(bleFragment)
-            .show(controlFragment)
-//                .hide(WIFIFragment)
-//                .hide(MeFragment)
+//                .hide(device)
+            .hide(ble)
+            .show(control)
+//                .hide(wifi)
+//                .hide(me)
             .commit()
-        val runWant: ControlFragmentRunWant = controlFragment.controlFragmentRunWant!!
-        controlFragment.consoleShowBluetooth(runWant.controlBaseListBluetooth[0])
+
+        if (readBlePendingCount == 0 && writeBlePendingCount == 0) {
+            val runWant: ControlFragmentRunWant = controlFragment?.controlFragmentRunWant!!
+            controlFragment?.consoleShowBluetooth(runWant.controlBaseListBluetooth[0])
+        }
 
     }
 
-    private fun switchWIFIFragment() {
+    private fun switchWifiFragment() {
+//        val device: Fragment = deviceFragment ?: return
+        val ble: Fragment = bleFragment ?: return
+        val control: Fragment = controlFragment ?: return
+//        val wifi: Fragment = wifiFragment ?: return
+//        val me: Fragment = meFragment ?: return
 
-        val transaction = managerFragmentMain.beginTransaction()
+        val transaction = supportFragmentManager.beginTransaction()
         transaction
-//                .hide(deviceFragment)
-            .hide(bleFragment)
-            .hide(controlFragment)
-//                .show(WIFIFragment)
-//                .hide(MeFragment)
+//                .hide(device)
+            .hide(ble)
+            .hide(control)
+//                .show(wifi)
+//                .hide(me)
             .commit()
 
     }
 
     private fun switchMeFragment() {
+//        val device: Fragment = deviceFragment ?: return
+        val ble: Fragment = bleFragment ?: return
+        val control: Fragment = controlFragment ?: return
+//        val wifi: Fragment = wifiFragment ?: return
+//        val me: Fragment = meFragment ?: return
 
-        val transaction = managerFragmentMain.beginTransaction()
+        val transaction = supportFragmentManager.beginTransaction()
         transaction
-//                .hide(deviceFragment)
-            .hide(bleFragment)
-            .hide(controlFragment)
-//                .hide(WIFIFragment)
-//                .show(MeFragment)
+//                .hide(device)
+            .hide(ble)
+            .hide(control)
+//                .hide(wifi)
+//                .show(me)
             .commit()
 
     }
@@ -575,6 +630,25 @@ class MainActivity : AppCompatActivity() {
 
 
     //蓝牙相关
+
+    //读取和写入Flow,在调用controlFragment.consoleShowBluetooth()切换控制设备时需要确保队列清空并关闭订阅
+    private val readBleFlow = MutableSharedFlow<BleReadMessage>(extraBufferCapacity = 10)
+    private var readBlePendingCount = 0 //等待读取数量
+    private val writeBleFlow = MutableSharedFlow<BleWriteMessage>(extraBufferCapacity = 10)
+    private var writeBlePendingCount = 0 //等待写入数量
+
+    private data class BleReadMessage(
+        val deviceSha256: String,
+        val characteristic: BluetoothGattCharacteristic,
+    )
+
+    private data class BleWriteMessage(
+        val deviceSha256: String,
+        val data: ByteArray,
+        val writeType: Int,
+        val characteristic: BluetoothGattCharacteristic,
+    )
+
     /**
      * 蓝牙控制基础,每个独立唯一设备的控制和回调等相关资源被封装到ControlBaseBluetooth
      * 将ControlBaseBluetooth当作BluetoothGattCallback,通过BluetoothDevice实例运行连接,将自动进行ControlBaseBluetooth实例的完善
@@ -585,6 +659,8 @@ class MainActivity : AppCompatActivity() {
     inner class ControlBaseBluetooth(deviceName: String?, deviceSha256Bluetooth: String) :
         BluetoothGattCallback(), BluetoothGattDataAccessCallback {
         private var gatt: BluetoothGatt? = null //蓝牙BLE-GATT实例
+        private var gattIsReadBusy = false
+        private var gattIsWriteBusy = false
         private var gattState: Int //蓝牙BLE-GATT实例的状态码
         private var deviceName: String? = null //连接的蓝牙设备名称,允许为空(因为蓝牙设备的设备名本身可以没有)
         var deviceSha256Bluetooth: String //连接的蓝牙设备广播数据的SHA-256校验码,即操作gatt实例以进行蓝牙相关控制的确认凭证
@@ -597,6 +673,79 @@ class MainActivity : AppCompatActivity() {
             gattState = BluetoothGatt.STATE_DISCONNECTED
             this.deviceName = deviceName
             this.deviceSha256Bluetooth = deviceSha256Bluetooth
+
+            CoroutineScope(Dispatchers.IO).launch {
+                readBleFlow.collect { message ->
+                    if (message.deviceSha256 != deviceSha256Bluetooth) {
+                        return@collect
+                    }
+                    while (gattIsReadBusy) {
+                        delay(50)
+                    }
+                    nowReadCharacteristic(message.deviceSha256, message.characteristic)
+                    readBlePendingCount--
+                }
+            }
+
+            CoroutineScope(Dispatchers.IO).launch {
+                writeBleFlow.collect { data ->
+                    if (data.deviceSha256 != deviceSha256Bluetooth) {
+                        return@collect
+                    }
+                    while (gattIsWriteBusy) {
+                        delay(50)
+                    }
+                    nowWriteCharacteristic(
+                        data.deviceSha256,
+                        data.data,
+                        data.writeType,
+                        data.characteristic
+                    )
+                    writeBlePendingCount--
+                }
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        fun nowReadCharacteristic(
+            deviceSha256: String,
+            characteristic: BluetoothGattCharacteristic
+        ): Boolean {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    gattIsReadBusy = true
+                    return gatt?.readCharacteristic(characteristic) ?: false
+                }
+            }
+            return false
+        }
+
+        @SuppressLint("MissingPermission")
+        @Suppress("DEPRECATION")
+        fun nowWriteCharacteristic(
+            deviceSha256: String,
+            data: ByteArray,
+            writeType: Int,
+            characteristic: BluetoothGattCharacteristic
+        ): Boolean {
+            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+                if (deviceSha256 == deviceSha256Bluetooth) {
+                    gattIsWriteBusy = true
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        return gatt?.writeCharacteristic(
+                            characteristic,
+                            data,
+                            writeType
+                        ) == BluetoothStatusCodes.SUCCESS
+                    } else {
+                        characteristic.setValue(data)
+                        characteristic.writeType = writeType
+                        return gatt?.writeCharacteristic(characteristic) ?: false
+                    }
+                }
+            }
+            return false
         }
 
         //BluetoothControl.BluetoothGattDataAccessCallback实现
@@ -662,43 +811,29 @@ class MainActivity : AppCompatActivity() {
             return null
         }
 
-        @SuppressLint("MissingPermission")
         override fun readCharacteristic(
             deviceSha256: String,
             characteristic: BluetoothGattCharacteristic
         ): Boolean {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    return gatt?.readCharacteristic(characteristic) ?: false
-                }
-            }
-            return false
+            readBlePendingCount++
+            return readBleFlow.tryEmit(BleReadMessage(deviceSha256, characteristic))
         }
 
-        @SuppressLint("MissingPermission")
-        @Suppress("DEPRECATION")
         override fun writeCharacteristic(
             deviceSha256: String,
             data: ByteArray,
             writeType: Int,
             characteristic: BluetoothGattCharacteristic
         ): Boolean {
-            if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
-                if (deviceSha256 == deviceSha256Bluetooth) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        return gatt?.writeCharacteristic(
-                            characteristic,
-                            data,
-                            writeType
-                        ) == BluetoothStatusCodes.SUCCESS
-                    } else {
-                        characteristic.setValue(data)
-                        characteristic.writeType = writeType
-                        return gatt?.writeCharacteristic(characteristic) ?: false
-                    }
-                }
-            }
-            return false
+            writeBlePendingCount++
+            return writeBleFlow.tryEmit(
+                BleWriteMessage(
+                    deviceSha256,
+                    data,
+                    writeType,
+                    characteristic
+                )
+            )
         }
 
         override fun onBluetoothControlInitFinished() {
@@ -792,6 +927,8 @@ class MainActivity : AppCompatActivity() {
                     characteristic.value
                 )
             }
+
+            gattIsReadBusy = false
         }
 
         override fun onCharacteristicRead(
@@ -819,6 +956,8 @@ class MainActivity : AppCompatActivity() {
                     value
                 )
             }
+
+            gattIsReadBusy = false
         }
 
         override fun onCharacteristicWrite(
@@ -827,6 +966,7 @@ class MainActivity : AppCompatActivity() {
             status: Int
         ) {
             super.onCharacteristicWrite(gatt, characteristic, status)
+            gattIsWriteBusy = false
         }
     }
 

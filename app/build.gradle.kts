@@ -65,6 +65,7 @@ android {
 
 dependencies {
     implementation(libs.core.ktx)
+    implementation(libs.fragment.ktx)
     implementation(libs.appcompat)
     implementation(libs.recyclerview)
     implementation(libs.material)
@@ -84,6 +85,9 @@ dependencies {
     implementation(libs.accompanist.navigation.material3)
     implementation(libs.accompanist.systemuicontroller)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.webkit)
+    implementation(libs.androidx.datastore.preferences)
 
     //Compose调试
     debugImplementation(libs.compose.ui.tooling)

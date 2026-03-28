@@ -1,0 +1,58 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "987e93147555a3fc22271826f9419dd4",
+    "entities": [
+      {
+        "tableName": "table_ble_device_main_default",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bleDeviceId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `bleDeviceIconId` INTEGER NOT NULL, `lastActiveTimestamp` INTEGER NOT NULL, `bleDeviceName` TEXT NOT NULL, `bleDeviceSha256` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "bleDeviceId",
+            "columnName": "bleDeviceId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bleDeviceIconId",
+            "columnName": "bleDeviceIconId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastActiveTimestamp",
+            "columnName": "lastActiveTimestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bleDeviceName",
+            "columnName": "bleDeviceName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bleDeviceSha256",
+            "columnName": "bleDeviceSha256",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "bleDeviceId"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '987e93147555a3fc22271826f9419dd4')"
+    ]
+  }
+}

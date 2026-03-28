@@ -1,15 +1,36 @@
 *.iml
 /local.properties
-/.idea/caches
-/.idea/libraries
+/.idea/caches/
+/.idea/libraries/
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
-/captures
+build/
+.gradle/
+/captures/
 .externalNativeBuild
 .cxx
 local.properties
 *.log
+
+
+# --------------
+# Trae 相关
+# --------------
+# 保留团队共享配置
+!.trae/
+!.trae/settings.json
+!.trae/rules/
+!.trae/skills/
+!.trae/agents/
+!.trae/mcp.json
+
+# 忽略本地/临时
+.trae/settings.local.json
+.trae/*.local.json
+.trae/.ignore
+.trae/cache/
+.trae/logs/
+.trae/tmp/

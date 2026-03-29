@@ -21,6 +21,7 @@
 //        SOFTWARE.
 package com.org701enti.frealicane
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -31,8 +32,9 @@ import android.widget.BaseAdapter
 import android.widget.GridView
 import androidx.fragment.app.Fragment
 import com.org701enti.bluetoothfocuser.BluetoothUI.InnerUiUnit
+import com.org701enti.bluetoothfocuser.ControlBase
 import com.org701enti.bluetoothfocuser.StandardSync
-import com.org701enti.frealicane.MainActivity.ControlBaseBluetooth
+import com.org701enti.frealicane.utils.ViewConfigUtils
 import java.net.URI
 import java.net.URL
 
@@ -48,7 +50,7 @@ class ControlFragment : Fragment() {
     var controlFragmentRunWant: ControlFragmentRunWant? = null
 
     interface ControlFragmentRunWant {
-        var controlBaseListBluetooth: List<ControlBaseBluetooth>
+        var controlBaseListBluetooth: List<ControlBase>
     }
 
     override fun onAttach(context: Context) {
@@ -85,8 +87,28 @@ class ControlFragment : Fragment() {
     }
 
 
-    fun consoleShowBluetooth(base: ControlBaseBluetooth?) {
+    @SuppressLint("MissingPermission")
+    fun consoleShowBluetooth(base: ControlBase?) {
+
+        base?.deviceModel?.let {
+            ViewConfigUtils.configTextViewDeviceName(
+                it,
+                view?.findViewById(R.id.device_name_in_control),
+                ViewConfigUtils.calculateSuitableTextSizeSp(
+                    base.deviceModel.device?.name?.length ?: 0
+                ),
+                requireActivity()
+            )
+            ViewConfigUtils.configImageViewDeviceIcon(
+                it,
+                view?.findViewById(R.id.device_icon_in_control),
+                requireActivity()
+            )
+        }
+
+
         val bluetoothUI = base?.bluetoothUI
+
         when (bluetoothUI?.frameworkType) {
             StandardSync.FRAMEWORK_INNER_UI -> {
                 setVisibilityInnerUiConsole(View.VISIBLE)
@@ -167,7 +189,7 @@ class ControlFragment : Fragment() {
 
     ////[GridView适配器]蓝牙内部生成式UI适配器,用于Grid展示的适配
     inner class BluetoothInnerUiAdapter : BaseAdapter() {
-        private var unitList : MutableList<Any> = emptyList<Any>().toMutableList()//显示数据列表
+        private var unitList: MutableList<Any> = emptyList<Any>().toMutableList()//显示数据列表
 
         /**
          * 设置显示数据列表
@@ -197,7 +219,7 @@ class ControlFragment : Fragment() {
             //[由于所有控件的视图更新,操作逻辑已经在每个都在makeUnitView注册自己独有的回调,不需要在这里完成]
             //如果已经制作了,使用之前的
             //对每个之前未制作的控件都会制作并设置布局参数
-            if(!isAdded) return null
+            if (!isAdded) return null
             val unit = unitList[position] as InnerUiUnit
             return convertView ?: unit.makeUnitView(null, false, requireActivity()) //提供view实例
         }

@@ -130,7 +130,7 @@ public class BluetoothControl {
         if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
-        if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
+        if (callback.requireGattState() != BluetoothGatt.STATE_CONNECTED) {
             return StandardSync.RESULT_FAIL_DEVICE_STATE;
         }
 
@@ -197,7 +197,7 @@ public class BluetoothControl {
         if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
-        if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
+        if (callback.requireGattState() != BluetoothGatt.STATE_CONNECTED) {
             return StandardSync.RESULT_FAIL_DEVICE_STATE;
         }
 
@@ -239,7 +239,7 @@ public class BluetoothControl {
         if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
-        if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
+        if (callback.requireGattState() != BluetoothGatt.STATE_CONNECTED) {
             return StandardSync.RESULT_FAIL_DEVICE_STATE;
         }
 
@@ -282,7 +282,7 @@ public class BluetoothControl {
         if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
-        if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
+        if (callback.requireGattState() != BluetoothGatt.STATE_CONNECTED) {
             return StandardSync.RESULT_FAIL_DEVICE_STATE;
         }
 
@@ -357,7 +357,7 @@ public class BluetoothControl {
         if (!callback.isDeviceSha256EqualsTo(this.deviceSha256)) {
             return StandardSync.RESULT_FAIL_DEVICE_CHANGED;
         }
-        if (callback.getGattState() != BluetoothGatt.STATE_CONNECTED) {
+        if (callback.requireGattState() != BluetoothGatt.STATE_CONNECTED) {
             return StandardSync.RESULT_FAIL_DEVICE_STATE;
         }
 
@@ -428,7 +428,7 @@ public class BluetoothControl {
          *
          * @return GATT的状态
          */
-        public int getGattState();
+        public int requireGattState();
 
         /**
          * 判断存储的设备的广播数据的SHA-256校验码是否与当前连接的一致

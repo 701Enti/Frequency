@@ -25,18 +25,12 @@ import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
-import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
@@ -48,7 +42,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.LayoutInflater
@@ -70,8 +63,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -84,16 +75,17 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.org701enti.bluetoothfocuser.BluetoothAD
 import com.org701enti.bluetoothfocuser.BluetoothAD.AdvertisingStruct
+import com.org701enti.bluetoothfocuser.BluetoothDeviceModel
 import com.org701enti.bluetoothfocuser.StandardSync
 import com.org701enti.frealicane.BleFragment.ScanResultRecyclerViewAdapter.ScanResultItemViewHolder
 import com.org701enti.frealicane.MainActivity.ControlBaseBluetooth
 import com.org701enti.frealicane.core.datastore.DarkModeSetting
+import com.org701enti.frealicane.utils.ViewConfigUtils
 import com.org701enti.frealicane.suit.event.StableDeviceStateEventBus
 import com.org701enti.frealicane.ui.compose.animation.PhoneDeviceSlideAnimation
 import com.org701enti.frealicane.ui.compose.unit.GeneralCircularIndicator
@@ -101,8 +93,6 @@ import com.org701enti.frealicane.viewmodel.BleFragmentViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.io.IOException
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
 import kotlin.math.pow
 
@@ -121,10 +111,9 @@ class BleFragment() : Fragment() {
         /**
          * 开始设备控制
          *
-         * @param device BluetoothDevice实例
-         * @param sha256 设备的SHA-256校验码
+         * @param deviceModel 设备模型
          */
-        fun startControl(device: BluetoothDevice?, sha256: String?)
+        fun startControl(deviceModel: BluetoothDeviceModel)
 
         /** 获取指定设备的控制基础
          * @param sha256 设备的SHA-256校验码
@@ -248,8 +237,8 @@ class BleFragment() : Fragment() {
 
                     bleFragmentViewModel.isScanningBluetooth = true
                     if (bleFragmentViewModel.scanResultList.isNotEmpty()) {
-                        bleFragmentViewModel.scanResultList.forEach {
-                            it.flagRecentScanTime = System.currentTimeMillis()
+                        bleFragmentViewModel.scanResultList.forEach { model : BluetoothDeviceModel ->
+                            model.flagRecentScanTime = System.currentTimeMillis()
                         }
                     }
 
@@ -308,53 +297,6 @@ class BleFragment() : Fragment() {
                 }
                 i++
             }
-        }
-    }
-
-    //蓝牙设备列表模型类
-    inner class BluetoothDeviceModel {
-        var device: BluetoothDevice? //可能包含设备名称,信号强度等多种数据和方法
-            private set
-
-        var deviceSha256: String ////设备的SHA-256唯一性与安全校验码
-            private set
-
-        //设备的外观图标ID,其实就是外观值的bit6到bit15
-        //详见(2.6.2)https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf
-        var iconID: Int
-            private set
-
-        var deviceDistance: Int //与设备的距离(单位:米)
-
-        var flagRecentScanTime: Long //(标志值,不要用于业务显示)设备最近被扫描到的时间(ms),当扫描操作启动/重启时,他被设置为当前时间
-
-        var flagRecentDistanceUpdateTime: Long //(标志值,不要用于业务显示)设备最近更新距离数据的时间(ms)
-
-        var controlBaseBluetooth: ControlBaseBluetooth? //控制基础(创建GATT连接后获得并绑定到此)
-
-        constructor(device: BluetoothDevice?, deviceDistance: Int, deviceSha256: String) {
-            this.device = device
-            this.deviceDistance = deviceDistance
-            this.flagRecentScanTime = 0
-            this.flagRecentDistanceUpdateTime = 0
-            this.deviceSha256 = deviceSha256
-            this.iconID = 0
-            controlBaseBluetooth = null
-        }
-
-        constructor(
-            device: BluetoothDevice?,
-            deviceDistance: Int,
-            iconID: Int,
-            deviceSha256: String
-        ) {
-            this.device = device
-            this.deviceDistance = deviceDistance
-            this.flagRecentScanTime = 0
-            this.flagRecentDistanceUpdateTime = 0
-            this.deviceSha256 = deviceSha256
-            this.iconID = iconID
-            controlBaseBluetooth = null
         }
     }
 
@@ -603,13 +545,13 @@ class BleFragment() : Fragment() {
             //为holder名下的子视图进行数据显示更新(子视图本身不会绑定targetModel)
             holder.targetModel?.let {
                 //设备图标
-                configImageViewDeviceIcon(it, holder.deviceIcon)
+                ViewConfigUtils.configImageViewDeviceIcon(it, holder.deviceIcon, requireActivity())
 
                 //设备名
-                configTextViewDeviceName(
-                    it, holder.deviceName, calculateSuitableTextSizeSp(
+                ViewConfigUtils.configTextViewDeviceName(
+                    it, holder.deviceName, ViewConfigUtils.calculateSuitableTextSizeSp(
                         it.device?.name?.length ?: 0
-                    )
+                    ), requireActivity()
                 )
 
                 //与设备的距离(通过信号强度估测)
@@ -743,12 +685,17 @@ class BleFragment() : Fragment() {
 
                     holder.targetModel?.let { deviceModel ->
                         //设备图标
-                        configImageViewDeviceIcon(deviceModel, deviceIcon)
+                        ViewConfigUtils.configImageViewDeviceIcon(
+                            deviceModel,
+                            deviceIcon,
+                            requireActivity()
+                        )
                         //设备名
-                        configTextViewDeviceName(
+                        ViewConfigUtils.configTextViewDeviceName(
                             deviceModel,
                             deviceName,
-                            calculateSuitableTextSizeSp(deviceName?.length()!!)
+                            ViewConfigUtils.calculateSuitableTextSizeSp(deviceName?.length()!!),
+                            requireActivity()
                         )
 
                         //媒体面板 - 设备在互联网上的搜索结果
@@ -865,11 +812,11 @@ class BleFragment() : Fragment() {
                         dialogStartControlButton?.setOnClickListener {
 //                            dialogPanelContainerOfMediaPanel?.isInvisible = false
 //                            dialogDeviceWebSearchOfMediaPanel?.isInvisible = true
-                        scanResultItemOperationRun(
-                            WANT_START_CONTROL,
-                            holder.getBindingAdapterPosition(),
-                            requireContext()
-                        )
+                            scanResultItemOperationRun(
+                                WANT_START_CONTROL,
+                                holder.getBindingAdapterPosition(),
+                                requireContext()
+                            )
                         }
                         dialogAddToDeviceButton?.setOnClickListener {
 //                        scanResultItemOperationRun(
@@ -946,76 +893,8 @@ class BleFragment() : Fragment() {
         override fun getItemCount(): Int {
             return modelList?.size ?: 0
         }
-
-        private fun calculateSuitableTextSizeSp(length: Int): Float {
-            return if (length <= 12) {
-                24f - 4f * 1
-            } else if (length <= 16) {
-                24f - 4f * 2
-            } else if (length <= 32) {
-                24f - 4f * 3
-            } else if (length <= 64) {
-                24f - 4f * 4
-            } else {
-                24f - 4f * 5
-            }
-        }
-
-        /***
-         * 配置DeviceIcon组件以展示需要的内容
-         * @param targetModel 选择数据来源的BluetoothDeviceModel实例
-         * @param deviceIcon 对该ImageView实例执行配置,会根据深色模式设置切换原图颜色
-         */
-        private fun configImageViewDeviceIcon(
-            targetModel: BluetoothDeviceModel,
-            deviceIcon: ImageView?
-        ) {
-            if (!isAdded) return
-            val iconID = targetModel.iconID
-            var iconBitmap: Bitmap? = null
-            try {
-                requireActivity().assets.open("bluetoothdeviceicon/btac$iconID.png")
-                    .use { iconInput ->
-                        iconBitmap = BitmapFactory.decodeStream(iconInput)
-                        if (iconBitmap == null) {
-                            deviceIcon?.setImageResource(R.drawable.ble)
-                        }
-                    }
-            } catch (e: IOException) {
-                deviceIcon?.setImageResource(R.drawable.ble)
-            }
-            if (iconBitmap != null) {
-                deviceIcon?.setImageBitmap(iconBitmap)
-            }
-
-            //切换颜色
-            deviceIcon?.imageTintList = ColorStateList.valueOf(
-                ContextCompat.getColor(requireActivity(), R.color.icon_color)
-            )
-        }
-
-        /***
-         * 配置DeviceName组件以展示需要的内容
-         * @param targetModel 选择数据来源的BluetoothDeviceModel实例
-         * @param deviceName 对该TextView实例执行配置
-         * @param sizeSP 字体大小,单位sp
-         */
-        @SuppressLint("MissingPermission")
-        private fun configTextViewDeviceName(
-            targetModel: BluetoothDeviceModel,
-            deviceName: TextView?,
-            sizeSP: Float
-        ) {
-            val name: String? = targetModel.device?.name
-            if (name == null) {
-                deviceName?.text = getString(R.string.unknown_device_chinese)
-            } else {
-                deviceName?.text = name
-            }
-            //确定显示的字符尺寸
-            deviceName?.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSP)
-        }
     }
+
 
     /**
      * 对扫描结果条目运行需要的操作,执行操作就会将设备信息加入数据库
@@ -1047,11 +926,7 @@ class BleFragment() : Fragment() {
                     if (confirmSha256 != null) {
                         //确定加入数据库的数据未发生错误或篡改
                         if ((targetModel.deviceSha256 == confirmSha256)) {
-                            val finalTargetModel: BluetoothDeviceModel = targetModel
-
-                            //在主线程执行
-                            val handler = Handler(Looper.getMainLooper())
-                            val taskMainThread = Runnable {
+                            lifecycleScope.launch {
                                 //执行用户需要的操作
                                 when (want) {
                                     WANT_ADD_TO_DEVICE -> {}
@@ -1085,18 +960,14 @@ class BleFragment() : Fragment() {
 
                                     WANT_START_CONTROL -> {
                                         bluetoothScanStop()
-                                        bleFragmentRunWant?.startControl(
-                                            finalTargetModel.device,
-                                            finalTargetModel.deviceSha256
-                                        )
-                                        finalTargetModel.controlBaseBluetooth =
+                                        bleFragmentRunWant?.startControl(targetModel)
+                                        targetModel.controlBase =
                                             bleFragmentRunWant?.getControlBaseBluetooth(
-                                                finalTargetModel.deviceSha256
+                                                targetModel.deviceSha256
                                             )
                                     }
                                 }
                             }
-                            handler.post(taskMainThread)
                         }
                     }
                 } catch (e: InterruptedException) {
@@ -1230,7 +1101,7 @@ class BleFragment() : Fragment() {
      * 在MainTextView显示文本作为告示(显示几秒后会逐渐消失)
      * @param text 填写需要展示的文本
      */
-    fun showNoticeMainText(text: String) {
+    private fun showNoticeMainText(text: String) {
         mainTextViewBLE?.text = text
         fadeInMainTextViewBLE?.start()
     }

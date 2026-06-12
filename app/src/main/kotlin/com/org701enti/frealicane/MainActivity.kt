@@ -477,7 +477,6 @@ class MainActivity : AppCompatActivity() {
 
                 else -> {}
             }
-            super.gatt = gatt //缓存实例引用
         }
 
         @SuppressLint("MissingPermission")
@@ -490,6 +489,7 @@ class MainActivity : AppCompatActivity() {
                 )
             )
             bluetoothControl = BluetoothControl(deviceModel.deviceSha256, this.deviceModel.device?.name, this)
+            super.bluetoothControl?.gatt = gatt //缓存实例引用
         }
     }
 

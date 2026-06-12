@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothStatusCodes
 import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -22,8 +23,7 @@ import java.util.UUID
  */
 abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
     BluetoothGattCallback(), BluetoothControl.BluetoothGattDataAccessCallback {
-
-    var gatt: BluetoothGatt? = null //蓝牙BLE-GATT实例
+        
     private var gattIsReadBusy = false
     private var gattIsWriteBusy = false
     var gattState: Int //蓝牙BLE-GATT实例的状态码
@@ -31,9 +31,9 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
 
 
     //读取和写入Flow,在调用controlFragment.consoleShowBluetooth()切换控制设备时需要确保队列清空并关闭订阅
-    private val readBleFlow = MutableSharedFlow<BleReadMessage>(extraBufferCapacity = 10)
+    private val readBleFlow = MutableSharedFlow<BleReadMessage>(extraBufferCapacity = 256, replay = 0, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var readBlePendingCount = 0 //等待读取数量
-    private val writeBleFlow = MutableSharedFlow<BleWriteMessage>(extraBufferCapacity = 10)
+    private val writeBleFlow = MutableSharedFlow<BleWriteMessage>(extraBufferCapacity = 256, replay = 0, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var writeBlePendingCount = 0 //等待写入数量
 
 
@@ -96,10 +96,10 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
         deviceSha256: String,
         characteristic: BluetoothGattCharacteristic
     ): Boolean {
-        if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+        if (bluetoothControl?.gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
             if (deviceSha256 == deviceModel.deviceSha256) {
                 gattIsReadBusy = true
-                return gatt?.readCharacteristic(characteristic) ?: false
+                return bluetoothControl?.gatt?.readCharacteristic(characteristic) ?: false
             }
         }
         return false
@@ -113,12 +113,12 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
         writeType: Int,
         characteristic: BluetoothGattCharacteristic
     ): Boolean {
-        if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+        if (bluetoothControl?.gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
             if (deviceSha256 == deviceModel.deviceSha256) {
                 gattIsWriteBusy = true
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    return gatt?.writeCharacteristic(
+                    return bluetoothControl?.gatt?.writeCharacteristic(
                         characteristic,
                         data,
                         writeType
@@ -126,7 +126,7 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
                 } else {
                     characteristic.setValue(data)
                     characteristic.writeType = writeType
-                    return gatt?.writeCharacteristic(characteristic) ?: false
+                    return bluetoothControl?.gatt?.writeCharacteristic(characteristic) ?: false
                 }
             }
         }
@@ -134,7 +134,7 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
     }
 
     override fun requireGattState(): Int {
-        return if (gatt != null) {
+        return if (bluetoothControl?.gatt != null) {
             gattState
         } else {
             StandardSync.RESULT_FAIL_UNKNOWN
@@ -146,9 +146,9 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
     }
 
     override fun getAllServicesBluetoothGatt(deviceSha256: String): List<BluetoothGattService>? {
-        if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+        if (bluetoothControl?.gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
             if (deviceSha256 == deviceModel.deviceSha256) {
-                return gatt?.services
+                return bluetoothControl?.gatt?.services
             }
         }
         return null
@@ -158,7 +158,7 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
         deviceSha256: String,
         service: BluetoothGattService
     ): List<BluetoothGattCharacteristic>? {
-        if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+        if (bluetoothControl?.gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
             if (deviceSha256 == deviceModel.deviceSha256) {
                 return service.characteristics
             }
@@ -170,9 +170,9 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
         deviceSha256: String,
         serviceUuid: UUID
     ): BluetoothGattService? {
-        if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+        if (bluetoothControl?.gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
             if (deviceSha256 == deviceModel.deviceSha256) {
-                return gatt?.getService(serviceUuid)
+                return bluetoothControl?.gatt?.getService(serviceUuid)
             }
         }
         return null
@@ -183,7 +183,7 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
         characteristicUuid: UUID,
         service: BluetoothGattService
     ): BluetoothGattCharacteristic? {
-        if (gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
+        if (bluetoothControl?.gatt != null && gattState == BluetoothGatt.STATE_CONNECTED) {
             if (deviceSha256 == deviceModel.deviceSha256) {
                 return service.getCharacteristic(characteristicUuid)
             }
@@ -283,4 +283,18 @@ abstract class ControlBase(deviceModel: BluetoothDeviceModel) :
         super.onCharacteristicWrite(gatt, characteristic, status)
         gattIsWriteBusy = false
     }
+
+    override fun onCharacteristicChanged(
+        gatt: BluetoothGatt,
+        characteristic: BluetoothGattCharacteristic,
+        value: ByteArray
+    ) {
+        super.onCharacteristicChanged(gatt, characteristic, value)
+        bluetoothControl?.dataUpdate(
+            characteristic.service.uuid,
+            characteristic.uuid,
+            value
+        )
+    }
+
 }

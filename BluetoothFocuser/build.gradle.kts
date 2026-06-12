@@ -35,5 +35,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.core.ktx)
     implementation(libs.snakeyaml)
+    implementation(libs.piano.chart.view)
     androidTestImplementation(libs.espresso.core)
 }

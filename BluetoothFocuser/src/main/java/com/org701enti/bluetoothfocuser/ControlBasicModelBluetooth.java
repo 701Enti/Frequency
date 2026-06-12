@@ -36,6 +36,12 @@ public class ControlBasicModelBluetooth {
 
     private int dataType;//控制目标的数据的类型,将dataBytes中数据转换为这个类型,根据StandardSync.DATA_TYPE_...枚举
 
+    private ControlCallback controlCallback;
+
+
+    public interface ControlCallback {
+        void onDataBytesUpdate();
+    }
 
     /**
      * 无操作构造方法
@@ -193,6 +199,16 @@ public class ControlBasicModelBluetooth {
 
     public void setDataBytes(byte[] dataBytes) {
         this.dataBytes = dataBytes;
+        if(this.getControlCallback() != null){
+            this.getControlCallback().onDataBytesUpdate();
+        }
     }
 
+    public ControlCallback getControlCallback() {
+        return controlCallback;
+    }
+
+    public void setControlCallback(ControlCallback controlCallback) {
+        this.controlCallback = controlCallback;
+    }
 }

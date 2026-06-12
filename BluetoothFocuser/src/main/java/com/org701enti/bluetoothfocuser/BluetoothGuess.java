@@ -155,6 +155,19 @@ public class BluetoothGuess {
 
 
     /**
+     * 通过特征完整UUID猜测控制方式
+     * @param characteristicUuid 特征完整UUID
+     * @return controlWay枚举值
+     */
+    public int controlWayByCharacteristicUuid(UUID characteristicUuid) {
+        if(characteristicUuid != null){
+            if(characteristicUuid.equals(StandardSync.BLE_MIDI_CHAR_UUID))return BluetoothUI.CONTROL_WAY_BLE_MIDI;
+        }
+        return BluetoothUI.CONTROL_WAY_UNKNOWN;
+    }
+
+
+    /**
      * 猜测最小数据通过数据的类型
      * @param dataType 数据的类型,根据StandardSync.DATA_TYPE_...枚举
      * @return 最小数据
@@ -213,7 +226,7 @@ public class BluetoothGuess {
     }
 
     /**
-     * 推测服务ID(规定值为服务简化16位服务UUID的值减去标准定义的第一个服务的简化16位服务UUID的值)
+     * 根据UUID推测服务ID(规定值为服务简化16位服务UUID的值减去标准定义的第一个服务的简化16位服务UUID的值)
      * @param serviceUuid 服务UUID
      * @return 服务ID
      */
@@ -250,9 +263,9 @@ public class BluetoothGuess {
     }
 
     /**
-     * 推测特征ID(规定值为特征简化16位服务UUID的值减去标准定义的第一个特征的简化16位服务UUID的值)
+     * 根据UUID推测特征ID(规定值为特征简化16位服务UUID的值减去标准定义的第一个特征的简化16位服务UUID的值)
      * @param characteristicUuid 特征UUID
-     * @return 服务ID
+     * @return 特征ID
      */
     public int characteristicId(UUID characteristicUuid) {
         int id = 0;

@@ -30,6 +30,8 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.BaseAdapter
 import android.widget.GridView
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.org701enti.bluetoothfocuser.BluetoothUI.InnerUiUnit
 import com.org701enti.bluetoothfocuser.ControlBase
@@ -48,6 +50,13 @@ class ControlFragment : Fragment() {
 
     //运行需求
     var controlFragmentRunWant: ControlFragmentRunWant? = null
+
+    //设备图标
+    var deviceIcon: ImageView? = null
+
+    //设备名
+    var deviceName: TextView? = null
+
 
     interface ControlFragmentRunWant {
         var controlBaseListBluetooth: List<ControlBase>
@@ -71,9 +80,6 @@ class ControlFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_control, container, false)
-        //初始化其他布局
-        initInnerUiConsole(view)
-        initWebPageConsole(view)
         return view
     }
 
@@ -84,6 +90,14 @@ class ControlFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        //顶部设备图标和名称
+        deviceIcon = view.findViewById(R.id.device_icon_in_control)
+        deviceName = view.findViewById(R.id.device_name_in_control)
+        deviceIcon?.visibility = View.GONE
+        deviceName?.visibility = View.GONE
+        //初始化其他布局
+        initInnerUiConsole(view)
+        initWebPageConsole(view)
     }
 
 
@@ -93,7 +107,7 @@ class ControlFragment : Fragment() {
         base?.deviceModel?.let {
             ViewConfigUtils.configTextViewDeviceName(
                 it,
-                view?.findViewById(R.id.device_name_in_control),
+                deviceName,
                 ViewConfigUtils.calculateSuitableTextSizeSp(
                     base.deviceModel.device?.name?.length ?: 0
                 ),
@@ -101,9 +115,11 @@ class ControlFragment : Fragment() {
             )
             ViewConfigUtils.configImageViewDeviceIcon(
                 it,
-                view?.findViewById(R.id.device_icon_in_control),
+                deviceIcon,
                 requireActivity()
             )
+            deviceName?.visibility = View.VISIBLE
+            deviceIcon?.visibility = View.VISIBLE
         }
 
 
@@ -114,7 +130,7 @@ class ControlFragment : Fragment() {
                 setVisibilityInnerUiConsole(View.VISIBLE)
                 setVisibilityWebPageConsole(View.GONE)
                 bluetoothInnerUiAdapter.selectShowAccording(
-                    base.bluetoothUI?.dataList
+                    base.bluetoothUI?.dataList,base
                 )
                 setAdapterBluetoothInnerUi()
             }
@@ -190,15 +206,18 @@ class ControlFragment : Fragment() {
     ////[GridView适配器]蓝牙内部生成式UI适配器,用于Grid展示的适配
     inner class BluetoothInnerUiAdapter : BaseAdapter() {
         private var unitList: MutableList<Any> = emptyList<Any>().toMutableList()//显示数据列表
+        private var controlBase :ControlBase? = null
 
         /**
          * 设置显示数据列表
          * [要求列表中每个Object都是BluetoothUI.InnerUiUnit实例,这样每个条目对应一个小控件,即GridView中一个子单元]
          * @param unitList 显示是依据什么数据,提供显示数据列表,可随时切换,切换后立即更新
+         * @param controlBase controlBase实例
          */
-        fun selectShowAccording(unitList: MutableList<Any>?) {
+        fun selectShowAccording(unitList: MutableList<Any>?,controlBase: ControlBase?) {
             this.unitList = (unitList ?: emptyList()).toMutableList()
             this.notifyDataSetChanged()
+            this.controlBase = controlBase
         }
 
         override fun getCount(): Int {
@@ -221,7 +240,7 @@ class ControlFragment : Fragment() {
             //对每个之前未制作的控件都会制作并设置布局参数
             if (!isAdded) return null
             val unit = unitList[position] as InnerUiUnit
-            return convertView ?: unit.makeUnitView(null, false, requireActivity()) //提供view实例
+            return convertView ?: unit.makeUnitView(controlBase?.bluetoothControl,null, false, requireActivity()) //提供view实例
         }
     }
 

@@ -1,60 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layout_control_fragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:id="@+id/layout_control_fragment"
     tools:context=".ControlFragment">
+    >
+
 
     <ImageView
         android:id="@+id/device_icon_in_control"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:src="@drawable/device"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginTop="24dp"
         android:layout_marginStart="24dp"
-        />
+        android:layout_marginTop="24dp"
+        android:src="@drawable/device"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/device_name_in_control"
         android:layout_width="wrap_content"
         android:layout_height="48dp"
-        android:layout_alignParentTop="true"
-        android:layout_alignStart="@id/device_icon_in_control"
         android:layout_marginStart="72dp"
         android:layout_marginTop="24dp"
-        android:text="@string/device_name_english"
         android:gravity="center"
+        android:text="@string/device_name_english"
         android:textColor="@color/text_color"
-        android:textSize="20sp"/>
+        android:textSize="20sp"
+        app:layout_constraintStart_toStartOf="@id/device_icon_in_control"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <GridView
-        android:id="@+id/inner_ui_console_in_control"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentStart="true"
-        android:layout_below="@id/device_icon_in_control"
-        android:layout_marginTop="24dp"
-        android:orientation="vertical"
-        android:scrollbars="vertical" />
+        android:layout_height="0dp"
+        android:paddingTop="24dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/device_icon_in_control">
 
+        <GridView
+            android:id="@+id/inner_ui_console_in_control"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:scrollbars="vertical"
+            android:verticalSpacing="24dp"
+            android:gravity="top"/>
 
-    <WebView
-        android:id="@+id/web_page_console_in_control"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentStart="true"
-        android:layout_below="@id/device_icon_in_control"
-        android:layout_marginTop="24dp"
-        android:orientation="vertical"
-        android:scrollbars="vertical" />
+        <WebView
+            android:id="@+id/web_page_console_in_control"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:scrollbars="vertical" />
 
+    </FrameLayout>
 
-
-
-
-</RelativeLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

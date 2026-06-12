@@ -380,6 +380,12 @@ public class StandardSync {
     final private static String BLUETOOTH_UUID128_SUFFIX = "-0000-1000-8000-00805F9B34FB";
     final private static String BLUETOOTH_UUID128_SUFFIX_LOWERCASE = "-0000-1000-8000-00805f9b34fb";
 
+    //常用标准特征UUID
+    final public static UUID BLE_MIDI_CHAR_UUID = UUID.fromString("7772E5DB-3868-4112-A1A9-F2669D106BF3");
+
+    //CCCD标准描述符 UUID
+    final public static UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805F9B34FB");
+
     //部分类型最小值模板
     final public static byte[] MIN_DATA_VALUE_BOOLEAN = {0x00};
     final public static byte[] MIN_DATA_VALUE_UINT2 = {0x00};

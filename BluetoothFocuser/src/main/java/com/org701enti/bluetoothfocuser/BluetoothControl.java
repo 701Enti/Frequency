@@ -22,8 +22,10 @@
 
 package com.org701enti.bluetoothfocuser;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.util.Log;
 
@@ -48,6 +50,7 @@ public class BluetoothControl {
     public BluetoothGattDataAccessCallback callback;//数据请求回调
     private BluetoothGuess bluetoothGuess = null;//未知猜测,直接用于对应设备未知数据猜测和收集
 
+    private BluetoothGatt gatt = null; //蓝牙BLE-GATT实例
 
 
     /**
@@ -399,6 +402,33 @@ public class BluetoothControl {
     }
 
 
+    /**
+     * (立即生效)启用Notify
+     *
+     * @param model 控制模型
+     * @return 检查结果码, 通过StandardSync.RESULT_...以枚举对比,这里只是发送前的检查结果,不是最终读取结果标识
+     */
+    @SuppressLint("MissingPermission")
+    public int controlEnableNotify(ControlBasicModelBluetooth model) {
+        if(gatt == null) return StandardSync.RESULT_FAIL_DEVICE_STATE;
+
+        //配置GATT
+        BluetoothGattService service = gatt.getService(model.getUuidService());
+        if(service == null)return StandardSync.RESULT_FAIL_SERVICE_NOT_EXIST;
+        BluetoothGattCharacteristic characteristic = service.getCharacteristic(model.getUuidCharacteristic());
+        if(characteristic == null)return StandardSync.RESULT_FAIL_CHARACTERISTIC_NOT_EXIST;
+        gatt.setCharacteristicNotification(characteristic,true);
+
+        //写入CCCD
+        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(StandardSync.CCCD_UUID);
+        if(descriptor != null){
+            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+            gatt.writeDescriptor(descriptor);
+        }
+
+        return StandardSync.RESULT_OK;
+    }
+
     public BluetoothGuess getBluetoothGuess() {
         return bluetoothGuess;
     }
@@ -409,6 +439,14 @@ public class BluetoothControl {
 
     public String getDeviceSha256() {
         return deviceSha256;
+    }
+
+    public BluetoothGatt getGatt() {
+        return gatt;
+    }
+
+    public void setGatt(BluetoothGatt gatt) {
+        this.gatt = gatt;
     }
 
     /**

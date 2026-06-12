@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.constraintlayout)
 
     //Compose调试
     debugImplementation(libs.compose.ui.tooling)
